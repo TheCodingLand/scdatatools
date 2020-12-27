@@ -1,7 +1,75 @@
 import sys
+import zlib
 import json
+import xxhash
+from pathlib import Path
 from collections import defaultdict
 from xml.etree import ElementTree
+
+
+def xxhash32_file(file_or_path):
+    if hasattr(file_or_path, 'read'):
+        fp = file_or_path
+        _close = False
+    else:
+        _close = True
+        if not isinstance(file_or_path, Path):
+            file_or_path = Path(file_or_path)
+        fp = file_or_path.open('rb')
+
+    fp.seek(0)
+    hash = xxhash.xxh32()
+    while True:
+        s = fp.read(8096)
+        if not s:
+            break
+        hash.update(s)
+
+    if _close:
+        fp.close()
+
+    return hash.hexdigest()
+
+
+def xxhash32(data):
+    hash = xxhash.xxh32()
+    hash.update(data)
+    return hash.hexdigest()
+
+
+def crc32(fileName_or_path):
+    if not isinstance(fileName_or_path, Path):
+        fileName_or_path = Path(fileName_or_path)
+
+    with fileName_or_path.open('rb') as fh:
+        hash = 0
+        while True:
+            s = fh.read(65536)
+            if not s:
+                break
+            hash = zlib.crc32(s, hash)
+        return "%08X" % (hash & 0xFFFFFFFF)
+
+
+def get_size(obj, seen=None):
+    """Recursively finds size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    # Important mark as seen *before* entering recursion to gracefully handle
+    # self-referential objects
+    seen.add(obj_id)
+    if isinstance(obj, dict):
+        size += sum([get_size(v, seen) for v in obj.values()])
+        size += sum([get_size(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += get_size(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([get_size(i, seen) for i in obj])
+    return size
 
 
 def version_from_id_file(id_file) -> (dict, str):
@@ -70,23 +138,31 @@ def dict_to_etree(d: dict) -> ElementTree:
             root.text = d
         elif isinstance(d, dict):
             for k, v in d.items():
-                assert isinstance(k, str)
                 if k.startswith("#"):
-                    assert k == "#text" and isinstance(v, str)
-                    root.text = v
+                    root.text = str(v)
                 elif k.startswith("@"):
-                    assert isinstance(v, str)
-                    root.set(k[1:], v)
+                    root.set(k[1:], str(v))
                 elif isinstance(v, list):
+                    sub = ElementTree.SubElement(root, str(k))
                     for e in v:
-                        _to_etree(e, ElementTree.SubElement(root, k))
+                        _to_etree(e, sub)
+                elif isinstance(v, dict):
+                    _to_etree(v, ElementTree.SubElement(root, str(k)))
+                elif isinstance(d, bool):
+                    root.text = str(int(d))
                 else:
-                    _to_etree(v, ElementTree.SubElement(root, k))
+                    if isinstance(v, bool):
+                        v = int(v)
+                    root.set(str(k), str(v))
+                    # _to_etree(v, ElementTree.SubElement(root, k))
+        elif isinstance(d, bool):
+            root.text = str(int(d))
         else:
-            assert d == "invalid type", (type(d), d)
+            root.text = str(d)
+            # assert d == "invalid type", (type(d), d)
 
     assert isinstance(d, dict) and len(d) == 1
     tag, body = next(iter(d.items()))
     node = ElementTree.Element(tag)
     _to_etree(body, node)
-    return node
+    return ElementTree.ElementTree(node)

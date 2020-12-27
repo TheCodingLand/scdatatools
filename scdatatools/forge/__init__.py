@@ -12,6 +12,8 @@ from collections import defaultdict
 from scdatatools.forge import dftypes
 from scdatatools.forge.utils import read_and_seek
 from scdatatools.forge.dftypes.enums import DataTypes
+from scdatatools.utils import dict_to_etree
+from scdatatools.cryxml.utils import pprint_xml_tree
 
 
 class DataCoreBinaryMMap(mmap.mmap):
@@ -149,46 +151,65 @@ class DataCoreBinary:
             sys.stderr.write(f"Invalid string offset: {offset}")
             return ""
 
-    def dump_record_json(self, record, indent=4):
-        refs = {}
+    def record_to_dict(self, record, depth=100):
+        d = {}
 
-        def view_objs(obj, norefs=False):
-            if (
-                    isinstance(obj, dftypes.Reference)
-                    and obj.value.value in self.records_by_guid
-            ):
-                obj = self.records_by_guid[obj.value.value]
+        def _add_props(base, r, cur_depth):
+            if hasattr(r, 'id'):
+                base['__id'] = r.id.value
+            if hasattr(r, 'filename'):
+                base['__path'] = r.filename
+            if hasattr(r, 'structure_definition'):
+                if r.structure_definition.parent is not None:
+                    base['__type'] = r.structure_definition.parent.name
+                    base['__polymorphicType'] = r.structure_definition.name
+                else:
+                    base['__type'] = r.structure_definition.name
+            for name, prop in r.properties.items():
+                if isinstance(prop, dftypes.Reference) and prop.value.value in self.records_by_guid:
+                    prop = self.records_by_guid[prop.value.value]
 
-            if isinstance(
-                    obj,
-                    (
-                            dftypes.StructureInstance,
-                            dftypes.WeakPointer,
-                            dftypes.ClassReference,
-                            dftypes.Record,
-                            dftypes.StrongPointer,
-                    ),
-            ):
-                conv = {obj.name: obj.properties}
-                # TODO: I don't like this, but it looks like these states can have circular references
-                if 'NextState' in conv[obj.name] and not isinstance(conv[obj.name]['NextState'], dict):
-                    try:
-                        conv[obj.name]['NextState'] = {
-                            'StateName': conv[obj.name]['NextState'].properties.StateName,
-                            'type': 'ClassReference',
-                            'StructureIndex': conv[obj.name]['NextState'].structure_index,
-                            'InstanceIndex': conv[obj.name]['NextState'].instance_index,
-                        }
-                    except AttributeError:
-                        pass
-                return conv
+                def _handle_prop(p, pname=''):
+                    if isinstance(
+                            p,
+                            (
+                                    dftypes.StructureInstance,
+                                    dftypes.ClassReference,
+                                    dftypes.Record,
+                                    dftypes.StrongPointer,
+                            ),
+                    ):
+                        b = {}
+                        if cur_depth > 0:  # NextState/parent tends to lead to infinite loops
+                            _add_props(b, p, cur_depth - 1 if pname.lower() not in ['nextstate', 'parent'] else 0)
+                        else:
+                            if hasattr(b, 'properties'):
+                                b = [str(_) for _ in prop.properties]
+                            else:
+                                b = [str(_) for _ in prop] if isinstance(prop, list) else str(prop)
+                        return b
+                    else:
+                        return getattr(p, 'value', p)
 
-            try:
-                return obj.value
-            except AttributeError:
-                return str(obj)
+                if isinstance(prop, list):
+                    base[name] = [
+                        {p.name: _handle_prop(p, p.name)} if hasattr(p, 'name') else _handle_prop(p)
+                        for p in prop
+                    ]
+                else:
+                    base[name] = _handle_prop(prop, name)
 
-        return json.dumps(record.properties, indent=indent, default=view_objs, check_circular=False)
+        _add_props(d, record, depth)
+        return d
+
+    def record_to_etree(self, record, depth=100):
+        return dict_to_etree({f'{record.type}.{record.name}': self.record_to_dict(record, depth)})
+
+    def dump_record_xml(self, record, indent=4, *args, **kwargs):
+        return pprint_xml_tree(self.record_to_etree(record), indent)
+
+    def dump_record_json(self, record, indent=4, *args, **kwargs):
+        return json.dumps(self.record_to_dict(record, *args, **kwargs), indent=indent, default=str, sort_keys=True)
 
     def search_filename(self, file_filter, ignore_case=True):
         """ Search the records by filename """

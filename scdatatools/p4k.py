@@ -10,7 +10,7 @@ from pathlib import Path
 import zstandard as zstd
 from Crypto.Cipher import AES
 
-from .cryxml import dict_from_cryxml_file
+from .cryxml import dict_from_cryxml_file, etree_from_cryxml_file, pprint_xml_tree
 
 
 ZIP_ZSTD = 100
@@ -154,9 +154,9 @@ class P4KFile(zipfile.ZipFile):
         try:
             endrec = zipfile._EndRecData(fp)
         except OSError:
-            raise zipfile.BadZipFile("File is not a zip file")
+            raise zipfile.BadZipFile("File is not a valid p4k file")
         if not endrec:
-            raise zipfile.BadZipFile("File is not a zip file")
+            raise zipfile.BadZipFile("File is not a valid p4k file")
         if self.debug > 1:
             print(endrec)
         size_cd = endrec[zipfile._ECD_SIZE]  # bytes in central directory
@@ -347,11 +347,11 @@ class P4KFile(zipfile.ZipFile):
             zef_file.close()
             raise
 
-    def extract_filter(self, file_filter, path=None, ignore_case=False, convert_cryxml=False):
+    def extract_filter(self, file_filter, path=None, ignore_case=False, convert_cryxml=False, quiet=False):
         self.extractall(path=path, members=self.search(file_filter, ignore_case=ignore_case),
-                        convert_cryxml=convert_cryxml)
+                        convert_cryxml=convert_cryxml, quiet=quiet)
 
-    def extract(self, member, path=None, pwd=None, convert_cryxml=False):
+    def extract(self, member, path=None, pwd=None, convert_cryxml=False, quiet=False):
         """Extract a member from the archive to the current working directory,
            using its full name. Its file information is extracted as accurately
            as possible. `member' may be a filename or a ZipInfo object. You can
@@ -362,9 +362,9 @@ class P4KFile(zipfile.ZipFile):
         else:
             path = os.fspath(path)
 
-        return self._extract_member(member, path, pwd, convert_cryxml=convert_cryxml)
+        return self._extract_member(member, path, pwd, convert_cryxml=convert_cryxml, quiet=quiet)
 
-    def extractall(self, path=None, members=None, pwd=None, convert_cryxml=False):
+    def extractall(self, path=None, members=None, pwd=None, convert_cryxml=False, quiet=False):
         """Extract all members from the archive to the current working
            directory. `path' specifies a different directory to extract to.
            `members' is optional and must be a subset of the list returned
@@ -379,17 +379,22 @@ class P4KFile(zipfile.ZipFile):
             path = os.fspath(path)
 
         for zipinfo in members:
-            self._extract_member(zipinfo, path, pwd, convert_cryxml=convert_cryxml)
+            self._extract_member(zipinfo, path, pwd, convert_cryxml=convert_cryxml, quiet=quiet)
 
-    def search(self, file_filter, ignore_case=True):
+    def search(self, file_filters, ignore_case=True):
         """ Search the filelist by path """
-        file_filter = "/".join(
-            file_filter.split("\\")
-        )  # normalize path slashes from windows to posix
-        r = re.compile(fnmatch.translate(file_filter), flags=re.IGNORECASE if ignore_case else 0)
-        return [filename for filename in self.namelist() if r.match(Path(filename).as_posix())]
+        if not isinstance(file_filters, (list, tuple)):
+            file_filters = [file_filters]
 
-    def _extract_member(self, member, targetpath, pwd, convert_cryxml=False):
+        # normalize path slashes from windows to posix
+        file_filters = ["/".join(_.split("\\")) for _ in file_filters]
+        regs = [
+            re.compile(fnmatch.translate(_), flags=re.IGNORECASE if ignore_case else 0)
+            for _ in file_filters
+        ]
+        return [filename for filename in self.namelist() if any(r.match(Path(filename).as_posix()) for r in regs)]
+
+    def _extract_member(self, member, targetpath, pwd, convert_cryxml=False, quiet=False):
         """Extract the ZipInfo object 'member' to a physical
            file on the path targetpath.
         """
@@ -399,26 +404,24 @@ class P4KFile(zipfile.ZipFile):
         # TODO: handle not overwriting existing files flag?
 
         # TODO: change this to use python logging so it can be easily shut off
-        print(
-            f"{compressor_names[member.compress_type]} | "
-            f'{"Crypt" if member.is_encrypted else "Plain"} | {member.filename}'
-        )
-        targetpath = super()._extract_member(member, targetpath, pwd)
-
         # Also convert the file to JSON if it's a CryXML file
         if member.filename.lower().endswith('xml') and convert_cryxml:
-            try:
-                with open(targetpath, 'rb') as t:
-                    if t.read(7) == b'CryXmlB':
-                        t.seek(0)
-                        convertpath = targetpath[:-3] + 'json'
-                        data = dict_from_cryxml_file(t)
-                        if data is not None:
-                            with open(convertpath, 'w') as o:
-                                print(f"{compressor_names[member.compress_type]} | Converterted | {convertpath}")
-                                json.dump(data, o, indent=4, sort_keys=True)
-            except IOError:
-                pass
+            with self.open(member) as f:
+                if f.read(7) == b'CryXmlB':
+                    f.seek(0)
+                    outpath = Path(targetpath) / Path(member.filename)
+                    outpath.parent.mkdir(exist_ok=True, parents=True)
+                    with outpath.open('w') as t:
+                        t.write(pprint_xml_tree(etree_from_cryxml_file(f)))
+                        return str(outpath)
+
+        if not quiet:
+            print(
+                f"{compressor_names[member.compress_type]} | "
+                f'{"Crypt" if member.is_encrypted else "Plain"} | {member.filename}'
+            )
+
+            targetpath = super()._extract_member(member, targetpath, pwd)
 
         return targetpath
 

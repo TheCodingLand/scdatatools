@@ -1,17 +1,21 @@
-import io
 import sys
 import json
 import shutil
 import tempfile
 from pathlib import Path
 
+from tqdm import tqdm
+
 from rsi.launcher import LauncherAPI
 from scdatatools.p4k import P4KFile
 from scdatatools.forge import DataCoreBinary, DataCoreBinaryMMap
+from scdatatools.utils import get_size, xxhash32, xxhash32_file
 
 from .config import Profile
 from .localization import SCLocalization
 
+# Files that we will NOT skip the hash for when generating inventory with skip_data_hash
+P4K_ALWAYS_HASH_DATA_FILES = ['.cfg', '.crt', '.dpl', '.eco', '.id', '.ini', '.xml', '.pak', '.socpak', '.entxml']
 TRY_VERSION_FILES = ['f_win_game_client_release.id', 'c_hiload_crash_handler.id', 'c_hiload_crash_handler.id']
 
 
@@ -56,6 +60,59 @@ class StarCitizen:
             sys.stderr.write(
                 f"Warning: Unable to determine version of StarCitizen"
             )
+
+    def generate_inventory(self, p4k_filters=[], skip_local=False, skip_p4k=False, skip_data_hash=False):
+        inv = {}
+        p4k_path = Path('Data.p4k')
+
+        if not skip_local:
+            for f in tqdm(self.game_folder.rglob('*'), desc='Collecting Local Files',
+                          unit='files', ncols=120, unit_scale=True):
+                path = f.relative_to(self.game_folder).as_posix()
+                if path in inv:
+                    print(f'Error duplicate path: {path}')
+                elif f.suffix:
+                    if not skip_data_hash or f.suffix in P4K_ALWAYS_HASH_DATA_FILES:
+                        inv[path] = (f.stat().st_size,
+                                     xxhash32_file(f) if f.is_file() and f.name != 'Data.p4k' else None)
+                    else:
+                        inv[path] = (f.stat().st_size, None)
+
+        if not skip_p4k:
+            print('      Opening Data.p4k', end='\r')
+            if p4k_filters:
+                filenames = self.p4k.search(p4k_filters)
+            else:
+                filenames = list(self.p4k.NameToInfo.keys())
+            for f in tqdm(filenames, desc='      Reading Data.p4k',
+                          total=len(filenames), unit='files', ncols=120, unit_scale=True):
+                f = self.p4k.NameToInfo[f]
+                path = (p4k_path / f.filename).as_posix()
+                if path in inv:
+                    print(f'Error duplicate path: {path}')
+                else:
+                    if not skip_data_hash or Path(f.filename).suffix in P4K_ALWAYS_HASH_DATA_FILES:
+                        fp = self.p4k.open(f, 'r')
+                        inv[path] = (f.file_size, xxhash32_file(fp))
+                        fp.close()
+                    else:
+                        inv[path] = (f.file_size, None)
+
+        print('      Opening Datacore', end='\r')
+        dcb_path = p4k_path / 'Data' / 'Game.dcb'
+        for r in tqdm(self.datacore.records, desc='      Reading Datacore',
+                      total=len(self.datacore.records), unit='recs', ncols=120, unit_scale=True):
+            path = f'{(dcb_path / r.filename).as_posix()}:{r.id.value}'
+            try:
+                data = self.datacore.dump_record_json(r, indent=None).encode('utf-8')
+            except Exception as e:
+                data = f'Failed to generate data for record {r.filename}:{r.id.value}. {e}'.encode('utf-8')
+                print('\n' + data)
+            if path in inv:
+                print(f'Error duplicate path: {path}')
+            else:
+                inv[path] = (get_size(data), xxhash32(data))
+        return inv
 
     @property
     def localization(self):

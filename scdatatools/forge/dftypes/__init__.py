@@ -7,7 +7,6 @@ from ctypes import LittleEndianStructure
 from .enums import *
 from .utils import AttrDict
 
-
 DCB_NO_PARENT = 0xFFFFFFFF
 
 
@@ -75,6 +74,12 @@ class StructureDefinition(DataCoreNamed):
             f"props:{self.property_count} type:{self.node_type}>"
         )
 
+    def __str__(self):
+        return (
+            f'struct:{self.name}_parent:{"None" if self.parent is None else self.parent.name}_'
+            f'props:{self.property_count}_type:{self.node_type}'
+        )
+
     @property
     def parent(self):
         return (
@@ -93,9 +98,9 @@ class StructureDefinition(DataCoreNamed):
                     self.first_property_index + self.property_count,
                 )
             ]
-            if self.parent_index != 0xFFFFFFFF:
+            if self.parent_index != DCB_NO_PARENT:
                 props = (
-                    self.dcb.structure_definitions[self.parent_index].properties + props
+                        self.dcb.structure_definitions[self.parent_index].properties + props
                 )
             setattr(self, "_props", props)
         return getattr(self, "_props", [])
@@ -124,6 +129,12 @@ class PropertyDefinition(DataCoreNamed):
         return (
             f"<PropertyDef {self.name} struct:{self.dcb.structure_definitions[self.structure_index].name} "
             f"type:{DataTypes(self.data_type).name} conv:{ConversionTypes(self.conversion_type).name}>"
+        )
+
+    def __str__(self):
+        return (
+            f"propertyDef:{self.name}_struct:{self.dcb.structure_definitions[self.structure_index].name}_"
+            f"type:{DataTypes(self.data_type).name}_conv:{ConversionTypes(self.conversion_type).name}"
         )
 
     @cached_property
@@ -155,8 +166,8 @@ class EnumDefinition(DataCoreNamed):
             [
                 self.dcb.values[DataTypes.EnumValueName][_].value
                 for _ in range(
-                    self.first_value_index, self.first_value_index + self.value_count
-                )
+                self.first_value_index, self.first_value_index + self.value_count
+            )
             ],
         )
 
@@ -180,6 +191,9 @@ class DataMappingDefinition(DataCoreBase):
             f"<DataMap structure:{self.structure_index} count:{self.structure_count}>"
         )
 
+    def __str__(self):
+        return f"dataMap:{self.structure_index}_count:{self.structure_count}"
+
 
 class GUID(DataCoreBase):
     _fields_ = [("raw_guid", ctypes.c_byte * 16)]
@@ -191,6 +205,9 @@ class GUID(DataCoreBase):
 
     def __repr__(self):
         return f"<GUID: {self.value}>"
+
+    def __str__(self):
+        return self.value
 
 
 class StructureInstance:
@@ -283,6 +300,12 @@ class StructureInstance:
             props[prop_def.name], offset = self.read_property(offset, prop_def)
         return props
 
+    def __repr__(self):
+        return f'<StructInstance {self.name} props:{self.structure_definition.property_count}>'
+
+    def __str__(self):
+        return f'structInstance_{self.name}_props:{self.structure_definition.property_count}'
+
 
 class StringReference(DataCoreBase):
     _fields_ = [("string_offset", ctypes.c_uint32)]
@@ -292,6 +315,9 @@ class StringReference(DataCoreBase):
         return self.dcb.string_for_offset(self.string_offset)
 
     def __repr__(self):
+        return f'<StringRef offset:{self.string_offset}>'
+
+    def __str__(self):
         return self.value
 
 
@@ -315,14 +341,16 @@ class _Pointer:
     @property
     def reference(self):
         if (
-            self.structure_index == DCB_NO_PARENT
-            or self.instance_index == DCB_NO_PARENT
+                self.structure_index == DCB_NO_PARENT
+                or self.instance_index == DCB_NO_PARENT
         ):
             return None
         return self.dcb.structure_instances[self.structure_index][self.instance_index]
 
     @property
     def structure_definition(self):
+        if self.structure_index == DCB_NO_PARENT:
+            return None
         return self.dcb.structure_definitions[self.structure_index]
 
 
@@ -333,7 +361,14 @@ class StrongPointer(_Pointer, DataCoreBase):
     ]
 
     def __repr__(self):
-        return f"<StrongPointer structure:{self.structure_definition.name} instance:{self.instance_index}>"
+        if self.structure_definition is not None:
+            return f"<StrongPointer structure:{self.structure_definition.name} instance:{self.instance_index}>"
+        return f"<StrongPointer structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
+
+    def __str__(self):
+        if self.structure_definition is not None:
+            return f"strongPointer_structure:{self.structure_definition.name}"
+        return f"strongPointer_structure:{DCB_NO_PARENT}"
 
 
 class ClassReference(_Pointer, DataCoreBase):
@@ -343,7 +378,14 @@ class ClassReference(_Pointer, DataCoreBase):
     ]
 
     def __repr__(self):
-        return f"<ClassReference structure:{self.structure_definition.name} instance:{self.instance_index}>"
+        if self.structure_definition is not None:
+            return f"<ClassReference structure:{self.structure_definition.name} instance:{self.instance_index}>"
+        return f"<ClassReference structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
+
+    def __str__(self):
+        if self.structure_definition is not None:
+            return f"classReference_structure:{self.structure_definition.name}"
+        return f"classReference_structure:{DCB_NO_PARENT}"
 
 
 class WeakPointer(_Pointer, DataCoreBase):
@@ -354,9 +396,19 @@ class WeakPointer(_Pointer, DataCoreBase):
 
     def __repr__(self):
         try:
-            return f"<WeakPointer structure:{self.structure_definition.name} instance:{self.instance_index}>"
+            if self.structure_definition is not None:
+                return f"<WeakPointer structure:{self.structure_definition.name} instance:{self.instance_index}>"
         except IndexError:
-            return f"<WeakPointer structure:{self.structure_index} instance:{self.instance_index}>"
+            pass
+        return f"<WeakPointer structure:{self.structure_index} instance:{self.instance_index}>"
+
+    def __str__(self):
+        try:
+            if self.structure_definition is not None:
+                return f"weakPointer:{self.structure_definition.name}"
+        except IndexError:
+            pass
+        return f"weakPointer:{self.structure_index}"
 
     @property
     def properties(self):
@@ -396,17 +448,41 @@ class Record(_Pointer, DataCoreNamed):
         return self.dcb.string_for_offset(self.filename_offset)
 
     def __repr__(self):
+        struct_name = self.structure_definition.name if self.structure_definition is not None else DCB_NO_PARENT
         return (
-            f"<Record name:{self.name} {self.id.value} struct:{self.structure_definition.name} "
+            f"<Record name:{self.name} {self.id.value} struct:{struct_name} "
             f"instance:{self.instance_index}>"
         )
+
+    def __str__(self):
+        struct_name = self.structure_definition.name if self.structure_definition is not None else DCB_NO_PARENT
+        return f"record:{self.name}:{self.id.value}_struct:{struct_name}"
 
 
 class Reference(DataCoreBase):
     _fields_ = [("instance_index", ctypes.c_uint32), ("value", GUID)]
 
+    @property
+    def properties(self):
+        if self.reference is not None:
+            return self.reference.properties
+        return {}
+
+    @property
+    def name(self):
+        if self.reference is not None:
+            return self.reference.name
+        return ""
+
+    @property
+    def reference(self):
+        return self.dcb.records_by_guid.get(self.value.value)
+
     def __repr__(self):
-        return f"<Reference record:{self.value.value} instance:{self.instance_index}>"
+        return f"<Reference record:{self.value} instance:{self.instance_index}>"
+
+    def __str__(self):
+        return f"reference:{self.value.value}"
 
 
 DATA_TYPE_LOOKUP = {

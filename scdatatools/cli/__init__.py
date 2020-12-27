@@ -9,4 +9,7 @@ def main():
     shell = Nubia(
         name="scdt", command_pkgs=commands, options=Options(persistent_history=False),
     )
-    sys.exit(shell.run())
+    args = sys.argv
+    if '-s' not in args:
+        args.insert(1, '-s')
+    sys.exit(shell.run(args))

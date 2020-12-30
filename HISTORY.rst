@@ -2,6 +2,20 @@
 History
 =======
 
+0.1.6 (2020-12-30)
+------------------
+
+* Moved to GitLab
+* Updated docs
+* Improved filename searches in P4Ks
+* Dataforge records can now be outputed to xml as well
+* Improved pretty printing of XML output
+
+0.1.5 (2020-12-9)
+-----------------
+
+* Improved path and error handling
+
 0.1.3 (2020-12-06)
 ------------------
 

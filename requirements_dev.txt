@@ -1,0 +1,4 @@
+-r docs/requirements.txt
+bumpversion
+twine
+wheel

@@ -1,28 +1,9 @@
-===========
 scdatatools
 ===========
 
-
-.. image:: https://img.shields.io/pypi/v/scdatatools.svg
-        :target: https://pypi.python.org/pypi/scdatatools
-
-.. image:: https://img.shields.io/travis/ExterraGroup/scdatatools.svg
-        :target: https://travis-ci.org/ExterraGroup/scdatatools
-
-.. image:: https://readthedocs.org/projects/scdatatools/badge/?version=latest
-        :target: https://scdatatools.readthedocs.io/en/latest/?badge=latest
-        :alt: Documentation Status
-
-.. image:: https://coveralls.io/repos/github/ExterraGroup/scdatatools/badge.svg?branch=devel
-        :target: https://coveralls.io/github/ExterraGroup/scdatatools?branch=devel
-
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-    :target: https://github.com/psf/black
-
-
 Python API for interactive with the data files in Star Citizen.
 
-.. warning:: This toolsuite is in it's very early stages and will change often.
+.. warning:: This tool suite is in it's very early stages and will change often.
 
 * Free software: MIT license
 * Documentation: https://scdatatools.readthedocs.io.
@@ -82,7 +63,17 @@ Use the `StarCitizen` class:
 
 
 Special Thanks
---------------
+""""""""""""""
 
-A huge thanks goes out to `dolkensp <https://github.com/dolkensp/unp4k>`_ (aka alluran) for doing all the initial hard
-work reversing the P4K and DataForge file formats! This would've taken a lot longer with his efforts.
+A huge thanks goes out to `dolkensp <https://github.com/dolkensp/unp4k>`_ (aka alluran) for doing the initial hard
+work figuring out the P4K and DataForge file formats! This would've taken a lot longer with his efforts.
+
+
+.. image:: https://support.robertsspaceindustries.com/hc/article_attachments/360021770294/MadeByTheCommunity_Black.png
+  :width: 128
+  :alt: Made By the Star Citizen Community
+
+This project is not endorsed by or affiliated with the Cloud Imperium or Roberts Space Industries group of companies.
+All game content and materials are copyright Cloud Imperium Rights LLC and Cloud Imperium Rights Ltd..  Star Citizen®,
+Squadron 42®, Roberts Space Industries®, and Cloud Imperium® are registered trademarks of Cloud Imperium Rights LLC.
+All rights reserved.

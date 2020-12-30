@@ -159,7 +159,7 @@ class DataCoreBinary:
                 base['__id'] = r.id.value
             if hasattr(r, 'filename'):
                 base['__path'] = r.filename
-            if hasattr(r, 'structure_definition'):
+            if getattr(r, 'structure_definition', None) is not None:
                 if r.structure_definition.parent is not None:
                     base['__type'] = r.structure_definition.parent.name
                     base['__polymorphicType'] = r.structure_definition.name

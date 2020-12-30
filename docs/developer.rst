@@ -13,7 +13,7 @@ environment:
 
 .. code-block:: bash
 
-    git clone https://github.com/ExterraGroup/scdatatools
+    git clone git@gitlab.com:scmodding/frameworks/scdatatools.git
     cd scdatatools
     pyenv install 3.8.2
     pyenv virtualenv 3.8.2 sc

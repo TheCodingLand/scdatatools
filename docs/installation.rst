@@ -26,19 +26,19 @@ you through the process.
 From sources
 ------------
 
-The sources for scdatatools can be downloaded from the `Github repo`_.
+The sources for scdatatools can be downloaded from the `GitLab repo`_.
 
 You can either clone the public repository:
 
 .. code-block:: console
 
-    $ git clone git://github.com/ExterraGroup/scdatatools
+    $ git clone git@gitlab.com:scmodding/frameworks/scdatatools.git
 
-Or download the `tarball`_:
+Or download the `zip`_:
 
 .. code-block:: console
 
-    $ curl  -OL https://github.com/ExterraGroup/scdatatools/tarball/master
+    $ curl  -OL https://gitlab.com/scmodding/frameworks/scdatatools/-/archive/master/scdatatools-master.zip
 
 Once you have a copy of the source, you can install it with:
 
@@ -47,5 +47,5 @@ Once you have a copy of the source, you can install it with:
     $ python setup.py install
 
 
-.. _Github repo: https://github.com/ExterraGroup/scdatatools
-.. _tarball: https://github.com/ExterraGroup/scdatatools/tarball/master
+.. _GitLab repo: https://gitlab.com/scmodding/frameworks/scdatatools
+.. _zip: https://gitlab.com/scmodding/frameworks/scdatatools/-/archive/master/scdatatools-master.zip

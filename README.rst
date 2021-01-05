@@ -69,7 +69,7 @@ A huge thanks goes out to `dolkensp <https://github.com/dolkensp/unp4k>`_ (aka a
 work figuring out the P4K and DataForge file formats! This would've taken a lot longer with his efforts.
 
 
-.. image:: docs/MadeByTheCommunity_Black.png
+.. image:: https://gitlab.com/scmodding/frameworks/scdatatools/-/raw/devel/docs/MadeByTheCommunity_Black.png
   :width: 128
   :alt: Made By the Star Citizen Community
 

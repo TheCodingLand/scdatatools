@@ -11,6 +11,7 @@ DATA_SIGNATURE = b'DATA'
 class GUID(ctypes.LittleEndianStructure):
     _fields_ = [("raw_guid", ctypes.c_byte * 16)]
 
+    @property
     def value(self):
         c, b, a, k, j, i, h, g, f, e, d = struct.unpack("<HHI8B", self.raw_guid)
         return f"{a:08x}-{b:04x}-{c:04x}-{d:02x}{e:02x}-{f:02x}{g:02x}{h:02x}{i:02x}{j:02x}{k:02x}"

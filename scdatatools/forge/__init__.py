@@ -55,10 +55,18 @@ class DataCoreBinary:
         self.enum_definitions = read_and_seek(
             self, dftypes.EnumDefinition * self.header.enum_definition_count
         )
-        self.data_mapping_definitions = read_and_seek(
-            self,
-            dftypes.DataMappingDefinition * self.header.data_mapping_definition_count,
-        )
+        #Version 5 update
+        if self.header.version >= 5:
+            self.data_mapping_definitions = read_and_seek(
+                self,
+                dftypes.DataMappingDefinition32 * self.header.data_mapping_definition_count, #get confused
+            )
+        else:
+            self.data_mapping_definitions = read_and_seek(
+                self,
+                dftypes.DataMappingDefinition16 * self.header.data_mapping_definition_count, #get more confused
+            )
+        #end update
         self.records = read_and_seek(
             self, dftypes.Record * self.header.record_definition_count
         )

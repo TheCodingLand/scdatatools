@@ -180,10 +180,24 @@ class EnumChoice(DataCoreBase):
         return self.dcb.string_for_offset(self.enum_choice_index)
 
 
-class DataMappingDefinition(DataCoreBase):
+class DataMappingDefinition16(DataCoreBase):
     _fields_ = [
         ("structure_count", ctypes.c_uint16),
         ("structure_index", ctypes.c_uint16),
+    ]
+
+    def __repr__(self):
+        return (
+            f"<DataMap structure:{self.structure_index} count:{self.structure_count}>"
+        )
+
+    def __str__(self):
+        return f"dataMap:{self.structure_index}_count:{self.structure_count}"
+
+class DataMappingDefinition32(DataCoreBase):
+    _fields_ = [
+        ("structure_count", ctypes.c_uint32),
+        ("structure_index", ctypes.c_uint32),
     ]
 
     def __repr__(self):

@@ -194,6 +194,7 @@ class DataMappingDefinition16(DataCoreBase):
     def __str__(self):
         return f"dataMap:{self.structure_index}_count:{self.structure_count}"
 
+
 class DataMappingDefinition32(DataCoreBase):
     _fields_ = [
         ("structure_count", ctypes.c_uint32),

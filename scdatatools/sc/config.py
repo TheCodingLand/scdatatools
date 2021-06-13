@@ -1,6 +1,6 @@
 import csv
 
-from scdatatools.cryxml import etree_from_cryxml_file
+from scdatatools.cry.cryxml import etree_from_cryxml_file
 from scdatatools.utils import etree_to_dict
 
 

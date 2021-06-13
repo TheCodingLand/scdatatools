@@ -3,8 +3,8 @@ import typing
 
 from nubia import command, argument
 
-from scdatatools.cryxml import etree_from_cryxml_file, dict_from_cryxml_file
-from scdatatools.cryxml.utils import pprint_xml_tree
+from scdatatools.cry.cryxml import etree_from_cryxml_file, dict_from_cryxml_file
+from scdatatools.cry.cryxml.utils import pprint_xml_tree
 
 
 @command(help="Convert a CryXML file to xml")

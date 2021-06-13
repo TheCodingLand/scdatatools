@@ -6,14 +6,13 @@ import json
 import mmap
 import ctypes
 import fnmatch
-from io import IOBase, FileIO
 from collections import defaultdict
 
 from scdatatools.forge import dftypes
 from scdatatools.forge.utils import read_and_seek
 from scdatatools.forge.dftypes.enums import DataTypes
 from scdatatools.utils import dict_to_etree
-from scdatatools.cryxml.utils import pprint_xml_tree
+from scdatatools.cry.cryxml.utils import pprint_xml_tree
 
 
 class DataCoreBinaryMMap(mmap.mmap):
@@ -157,10 +156,13 @@ class DataCoreBinary:
 
     def record_to_dict(self, record, depth=100):
         d = {}
+        refd = set()
 
         def _add_props(base, r, cur_depth):
+            rid = ''
             if hasattr(r, 'id'):
                 base['__id'] = r.id.value
+                rid = r.id.value
             if hasattr(r, 'filename'):
                 base['__path'] = r.filename
             if getattr(r, 'structure_definition', None) is not None:
@@ -169,6 +171,10 @@ class DataCoreBinary:
                     base['__polymorphicType'] = r.structure_definition.name
                 else:
                     base['__type'] = r.structure_definition.name
+            if hasattr(r, 'instance_index'):
+                rid = f'{r.name}:{r.instance_index}'
+            if rid:
+                refd.add(rid)
             for name, prop in r.properties.items():
                 if isinstance(prop, dftypes.Reference) and prop.value.value in self.records_by_guid:
                     prop = self.records_by_guid[prop.value.value]
@@ -184,8 +190,17 @@ class DataCoreBinary:
                             ),
                     ):
                         b = {}
+                        pid = ''
+                        if hasattr(p, 'id'):
+                            pid = p.id.value
+                        elif hasattr(p, 'instance_index'):
+                            pid = f'{p.name}:{p.instance_index}'
                         if cur_depth > 0:  # NextState/parent tends to lead to infinite loops
-                            _add_props(b, p, cur_depth - 1 if pname.lower() not in ['nextstate', 'parent'] else 0)
+                            if pname.lower() in ['nextstate', 'parent'] or (pid and pid in refd):
+                                nextdepth = 0
+                            else:
+                                nextdepth = cur_depth - 1
+                            _add_props(b, p, nextdepth)
                         else:
                             if hasattr(b, 'properties'):
                                 b = [str(_) for _ in prop.properties]
@@ -216,7 +231,7 @@ class DataCoreBinary:
         return json.dumps(self.record_to_dict(record, *args, **kwargs), indent=indent, default=str, sort_keys=True)
 
     def search_filename(self, file_filter, ignore_case=True):
-        """ Search the records by filename """
+        """ Search the dco by filename """
         file_filter = "/".join(
             file_filter.split("\\")
         )  # normalize path slashes from windows to posix

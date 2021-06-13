@@ -18,8 +18,8 @@ from ctypes import sizeof
 from xml.etree import ElementTree
 from xml.etree.ElementTree import TreeBuilder, ParseError, XMLParser
 
-from scdatatools.cryxml.utils import pprint_xml_tree
-from scdatatools.cryxml.defs import (
+from scdatatools.cry.cryxml.utils import pprint_xml_tree
+from scdatatools.cry.cryxml.defs import (
     CryXMLBHeader,
     CryXMLBNodeIndex,
     CryXMLBNode,

@@ -307,6 +307,10 @@ class StructureInstance:
     def name(self):
         return self.structure_definition.name
 
+    @property
+    def type(self):
+        return self.structure_definition.name
+
     @cached_property
     def properties(self):
         props = AttrDict()
@@ -340,7 +344,7 @@ class LocaleReference(StringReference):
     pass
 
 
-class _Pointer:
+class Pointer:
     @property
     def properties(self):
         if self.reference is not None:
@@ -349,9 +353,11 @@ class _Pointer:
 
     @property
     def name(self):
-        if self.reference is not None:
-            return self.reference.name
-        return ""
+        return self.reference.name if self.reference is not None else ""
+
+    @property
+    def type(self):
+        return self.reference.name if self.reference is not None else ""
 
     @property
     def reference(self):
@@ -369,7 +375,7 @@ class _Pointer:
         return self.dcb.structure_definitions[self.structure_index]
 
 
-class StrongPointer(_Pointer, DataCoreBase):
+class StrongPointer(Pointer, DataCoreBase):
     _fields_ = [
         ("structure_index", ctypes.c_uint32),
         ("instance_index", ctypes.c_uint32),
@@ -386,12 +392,7 @@ class StrongPointer(_Pointer, DataCoreBase):
         return f"strongPointer_structure:{DCB_NO_PARENT}"
 
 
-class ClassReference(_Pointer, DataCoreBase):
-    _fields_ = [
-        ("structure_index", ctypes.c_uint32),
-        ("instance_index", ctypes.c_uint32),
-    ]
-
+class ClassReference(StrongPointer):
     def __repr__(self):
         if self.structure_definition is not None:
             return f"<ClassReference structure:{self.structure_definition.name} instance:{self.instance_index}>"
@@ -403,7 +404,7 @@ class ClassReference(_Pointer, DataCoreBase):
         return f"classReference_structure:{DCB_NO_PARENT}"
 
 
-class WeakPointer(_Pointer, DataCoreBase):
+class WeakPointer(Pointer, DataCoreBase):
     _fields_ = [
         ("structure_index", ctypes.c_uint32),
         ("instance_index", ctypes.c_uint32),
@@ -438,7 +439,7 @@ class WeakPointer(_Pointer, DataCoreBase):
         return {}
 
 
-class Record(_Pointer, DataCoreNamed):
+class Record(Pointer, DataCoreNamed):
     _fields_ = [
         ("name_offset", ctypes.c_uint32),
         ("filename_offset", ctypes.c_uint32),
@@ -453,10 +454,6 @@ class Record(_Pointer, DataCoreNamed):
         return self.dcb.string_for_offset(self.name_offset).replace(
             f"{self.type}.", "", 1
         )
-
-    @property
-    def type(self):
-        return self.reference.name
 
     @property
     def filename(self):

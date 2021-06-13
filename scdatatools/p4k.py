@@ -1,7 +1,6 @@
 import io
 import re
 import os
-import json
 import struct
 import zipfile
 import fnmatch
@@ -10,7 +9,7 @@ from pathlib import Path
 import zstandard as zstd
 from Crypto.Cipher import AES
 
-from .cryxml import dict_from_cryxml_file, etree_from_cryxml_file, pprint_xml_tree
+from scdatatools.cry.cryxml import etree_from_cryxml_file, pprint_xml_tree
 
 
 ZIP_ZSTD = 100
@@ -91,10 +90,14 @@ class P4KExtFile(zipfile.ZipExtFile):
 
 
 class P4KInfo(zipfile.ZipInfo):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, subinfo=None, archive=None, **kwargs):
         # ensure posix file paths as specified by the Zip format
         super().__init__(*args, **kwargs)
+        self.archive = archive
+        self.subinfo = subinfo
         self.filename = self.filename.replace('\\', "/")
+        if self.subinfo is not None and self.subinfo.is_dir():
+            self.filename += '/'  # Make sure still tracked as directory
         self.is_encrypted = False
 
     def _decodeExtra(self):
@@ -145,8 +148,44 @@ class P4KFile(zipfile.ZipFile):
     def __init__(self, file, mode="r", key=DEFAULT_P4K_KEY):
         # Using ZIP_STORED to bypass the get_compressor/get_decompressor logic in zipfile. Our P4KExtFile will always
         # use zstd
-        super().__init__(file, mode, compression=zipfile.ZIP_STORED)
         self.key = key
+        self.NameToInfoLower = {}
+        self._subarchives = {}
+
+        super().__init__(file, mode, compression=zipfile.ZIP_STORED)
+
+        # open up sub-archives and add them to the file list
+        for filename in self._subarchives.keys():
+            if self._subarchives[filename] is not None:
+                continue  # already been opened
+            file_ext = Path(filename).suffix
+            self._subarchives[filename] = SUB_ARCHIVES[file_ext](self.open(filename))
+
+            for si in self._subarchives[filename].filelist:
+                # Create ZipInfo instance to store file information
+                # parent extension gets the `.` replaced with a `_` to avoid confusion
+                # e.g. `100i_interior.socpak` -> `100i_interior_socpak`
+                x = P4KInfo(str(Path(filename.replace(file_ext, f'_{file_ext[1:]}')) / Path(si.filename)),
+                            subinfo=si, archive=self._subarchives[filename])
+                x.extra = si.extra
+                x.comment = si.comment
+                x.header_offset = si.header_offset
+                x.volume, x.internal_attr, x.external_attr = si.volume, si.internal_attr, si.external_attr
+                x._raw_time = si._raw_time
+                x.date_time = si.date_time
+                x.create_version = si.create_version
+                x.create_system = si.create_system
+                x.extract_version = si.extract_version
+                x.reserved = si.reserved
+                x.flag_bits = si.flag_bits
+                x.compress_type = si.compress_type
+                x.CRC = si.CRC
+                x.compress_size = si.compress_size
+                x.file_size = si.file_size
+
+                self.filelist.append(x)
+                self.NameToInfo[x.filename] = x
+                self.NameToInfoLower[x.filename.lower()] = x
 
     def _RealGetContents(self):
         """Read in the table of contents for the ZIP file."""
@@ -196,7 +235,7 @@ class P4KFile(zipfile.ZipFile):
                 # Historical ZIP filename encoding
                 filename = filename.decode("cp437")
             # Create ZipInfo instance to store file information
-            x = P4KInfo(filename)
+            x = P4KInfo(filename, archive=self)
             x.extra = fp.read(centdir[zipfile._CD_EXTRA_FIELD_LENGTH])
             x.comment = fp.read(centdir[zipfile._CD_COMMENT_LENGTH])
             x.header_offset = centdir[zipfile._CD_LOCAL_HEADER_OFFSET]
@@ -233,6 +272,13 @@ class P4KFile(zipfile.ZipFile):
             x.header_offset = x.header_offset + concat
             self.filelist.append(x)
             self.NameToInfo[x.filename] = x
+            self.NameToInfoLower[x.filename.lower()] = x
+
+            # Add sub-archives to be opened later (.pak/.sockpak,etc)
+            file_ext = Path(x.filename).suffix
+            if file_ext in SUB_ARCHIVES:
+                if x.filename not in self._subarchives:
+                    self._subarchives[x.filename] = None
 
             # update total bytes read from central directory
             total = (
@@ -276,12 +322,16 @@ class P4KFile(zipfile.ZipFile):
             # 'name' is already an info object
             zinfo = name
         elif mode == "w":
-            zinfo = P4KInfo(name)
+            zinfo = P4KInfo(name, archive=self)
             zinfo.compress_type = self.compression
             zinfo._compresslevel = self.compresslevel
         else:
             # Get info object for name
             zinfo = self.getinfo(name)
+
+        # if file is in a sub-archive, let that archive handle it
+        if zinfo.subinfo is not None:
+            return zinfo.archive.open(zinfo.subinfo, mode=mode, pwd=pwd, force_zip64=force_zip64)
 
         if mode == "w":
             return self._open_to_write(zinfo, force_zip64=force_zip64)
@@ -388,11 +438,20 @@ class P4KFile(zipfile.ZipFile):
 
         # normalize path slashes from windows to posix
         file_filters = ["/".join(_.split("\\")) for _ in file_filters]
-        regs = [
-            re.compile(fnmatch.translate(_), flags=re.IGNORECASE if ignore_case else 0)
-            for _ in file_filters
-        ]
-        return [filename for filename in self.namelist() if any(r.match(Path(filename).as_posix()) for r in regs)]
+        r = re.compile('|'.join(f'({fnmatch.translate(_)})' for _ in file_filters),
+                       flags=re.IGNORECASE if ignore_case else 0)
+        return [data.filename for data in self.filelist if r.match(Path(data.filename).as_posix())]
+
+    def getinfo(self, name, case_insensitive=True):
+        try:
+            info = super().getinfo(name)
+        except KeyError:
+            if not case_insensitive:
+                raise
+            info = self.NameToInfoLower.get(name.lower())
+            if info is None:
+                raise KeyError('There is no item named %r in the archive' % name)
+        return info
 
     def _extract_member(self, member, targetpath, pwd, convert_cryxml=False, quiet=False):
         """Extract the ZipInfo object 'member' to a physical
@@ -424,6 +483,95 @@ class P4KFile(zipfile.ZipFile):
             targetpath = super()._extract_member(member, targetpath, pwd)
 
         return targetpath
+
+
+class _ZipFileWithFlexibleFilenames(zipfile.ZipFile):
+    """ A regular ZipFile that doesn't enforce filenames perfectly matching the CD filename"""
+    def open(self, name, mode="r", pwd=None, *, force_zip64=False):
+        if mode not in {"r", "w"}:
+            raise ValueError('open() requires mode "r" or "w"')
+        if pwd and not isinstance(pwd, bytes):
+            raise TypeError("pwd: expected bytes, got %s" % type(pwd).__name__)
+        if pwd and (mode == "w"):
+            raise ValueError("pwd is only supported for reading files")
+        if not self.fp:
+            raise ValueError(
+                "Attempt to use ZIP archive that was already closed")
+
+        # Make sure we have an info object
+        if isinstance(name, zipfile.ZipInfo):
+            # 'name' is already an info object
+            zinfo = name
+        elif mode == 'w':
+            zinfo = zipfile.ZipInfo(name)
+            zinfo.compress_type = self.compression
+            zinfo._compresslevel = self.compresslevel
+        else:
+            # Get info object for name
+            zinfo = self.getinfo(name)
+
+        if mode == 'w':
+            return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+        if self._writing:
+            raise ValueError("Can't read from the ZIP file while there "
+                             "is an open writing handle on it. "
+                             "Close the writing handle before trying to read.")
+
+        # Open for reading:
+        self._fileRefCnt += 1
+        zef_file = zipfile._SharedFile(self.fp, zinfo.header_offset,
+                                       self._fpclose, self._lock, lambda: self._writing)
+        try:
+            # Skip the file header:
+            fheader = zef_file.read(zipfile.sizeFileHeader)
+            if len(fheader) != zipfile.sizeFileHeader:
+                raise zipfile.BadZipFile("Truncated file header")
+            fheader = struct.unpack(zipfile.structFileHeader, fheader)
+            if fheader[zipfile._FH_SIGNATURE] != zipfile.stringFileHeader:
+                raise zipfile.BadZipFile("Bad magic number for file header")
+
+            fname = zef_file.read(fheader[zipfile._FH_FILENAME_LENGTH])
+            if fheader[zipfile._FH_EXTRA_FIELD_LENGTH]:
+                zef_file.read(fheader[zipfile._FH_EXTRA_FIELD_LENGTH])
+
+            if zinfo.flag_bits & 0x20:
+                # Zip 2.7: compressed patched data
+                raise NotImplementedError("compressed patched data (flag bit 5)")
+
+            if zinfo.flag_bits & 0x40:
+                # strong encryption
+                raise NotImplementedError("strong encryption (flag bit 6)")
+
+            # check for encrypted flag & handle password
+            is_encrypted = zinfo.flag_bits & 0x1
+            if is_encrypted:
+                if not pwd:
+                    pwd = self.pwd
+                if not pwd:
+                    raise RuntimeError("File %r is encrypted, password "
+                                       "required for extraction" % name)
+            else:
+                pwd = None
+
+            return zipfile.ZipExtFile(zef_file, mode, zinfo, pwd, True)
+        except:
+            zef_file.close()
+            raise
+
+
+class SOCPak(_ZipFileWithFlexibleFilenames):
+    pass
+
+
+class Pak(_ZipFileWithFlexibleFilenames):
+    pass
+
+
+SUB_ARCHIVES = {
+    '.pak': Pak,
+    '.socpak': SOCPak
+}
 
 
 if __name__ == "__main__":

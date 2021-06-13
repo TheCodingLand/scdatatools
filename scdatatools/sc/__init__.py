@@ -90,7 +90,7 @@ class StarCitizen:
                 path = (p4k_path / f.filename).as_posix()
                 if path in inv:
                     print(f'Error duplicate path: {path}')
-                else:
+                elif not f.is_dir():
                     if not skip_data_hash or Path(f.filename).suffix in P4K_ALWAYS_HASH_DATA_FILES:
                         fp = self.p4k.open(f, 'r')
                         inv[path] = (f.file_size, xxhash32_file(fp))

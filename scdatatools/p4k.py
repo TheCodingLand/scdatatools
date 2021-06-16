@@ -421,7 +421,7 @@ class P4KFile(zipfile.ZipFile):
                 f'{"Crypt" if member.is_encrypted else "Plain"} | {member.filename}'
             )
 
-            targetpath = super()._extract_member(member, targetpath, pwd)
+        targetpath = super()._extract_member(member, targetpath, pwd)
 
         return targetpath
 

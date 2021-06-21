@@ -37,13 +37,18 @@ class ChunkType(IntEnum):
     CompiledIntFacesSC = 0x2004,
     CompiledIntSkinVerticesSC = 0x2005,
     CompiledExt2IntMapSC = 0x2006,
-    UnknownSC1 = 0x3004,
 
-    UnknownSC2 = 0x0002,
     CryXMLB = 0x0004,
     JSON = 0x0011,
-    UnknownSC3 = 0x000e,
-    UnknownSC4 = 0x0010,
+
+    UnknownSC1 = 0x3004,  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
+    UnknownSC2 = 0x0002,  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
+    UnknownSC3 = 0x000e,  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
+    UnknownSC4 = 0x0010,  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
+    UnknownSC5 = 0x0008,  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
+    UnknownSC6 = 0x300a,  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
+    UnknownSC7 = 0x4002,  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
+    UnknownSC8 = 0x3005,  # Data\Objects\planets\flora\bush\bayberry_01\bayberry_01.cgfm: 12293
 
 
 class DBAChunkHeaderTypes(IntEnum):
@@ -52,6 +57,7 @@ class DBAChunkHeaderTypes(IntEnum):
     Skeleton        = 0x0000300d
     DBAData         = 0x194fbc50
     DBA             = 0xf7351608  # is checked against -0x8cae9f8 in code
+    UNKNOWN1        = 0x322ba3c7  # found in Data\Animations\Characters\Human\female_v2\force_reactions.dba
 
 
 class AIMChunkHeaderTypes(IntEnum):
@@ -90,3 +96,6 @@ class MtlNamePhysicsType(IntEnum):
     OBSTRUCT = 0x00000002,
     DEFAULTPROXY = 0x000000FF,  # this needs to be checked.  cgf.xml says 256; not sure if hex or dec
     UNKNOWN = 0x00001100,       # collision mesh?
+    UNKNOWN1 = 0x1000     # found in 'data/objects/spaceships/ships/aegs/javelin/interior/set_tec/tec_ceiling_fan.cgf'
+    UNKNOWN2 = 0x1001     # found in javelin.cga
+    UNKNOWN3 = 0x1002     # found in Data\Objects\planet\flora\tree\dendrosenecio\dendrosenecio_b_lod4.cgf

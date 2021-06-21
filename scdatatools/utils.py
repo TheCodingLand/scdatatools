@@ -1,4 +1,5 @@
 import sys
+import typing
 import zlib
 import json
 import xxhash
@@ -166,3 +167,24 @@ def dict_to_etree(d: dict) -> ElementTree:
     node = ElementTree.Element(tag)
     _to_etree(body, node)
     return ElementTree.ElementTree(node)
+
+
+def norm_path(path):
+    return path.replace('\\', '/')
+
+
+def dict_search(obj: dict, keys: typing.Union[str, list]):
+    """ returns the unique values of every key `key` within nested dict objects """
+    if not isinstance(keys, list):
+        keys = [keys]
+    values = set()
+    for k, v in obj.items():
+        if isinstance(v, dict):
+            values |= dict_search(v, keys)
+        elif isinstance(v, list):
+            for i in v:
+                if isinstance(i, dict):
+                    values |= dict_search(i, keys)
+        elif k in keys:
+            values.add(v)
+    return values

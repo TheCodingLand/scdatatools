@@ -1,3 +1,4 @@
+import sys
 import ctypes
 
 
@@ -8,15 +9,23 @@ class StructureWithEnums:
 
     def __getattribute__(self, name):
         _map = ctypes.Structure.__getattribute__(self, '_map')
+
         value = ctypes.Structure.__getattribute__(self, name)
         if name in _map:
-            EnumClass = _map[name]
-            if isinstance(value, ctypes.Array):
-                return [EnumClass(x) for x in value]
+            classes = _map[name]
+            if not isinstance(classes, (list, tuple)):
+                classes = [classes]
+            for enumClass in classes:
+                try:
+                    if isinstance(value, ctypes.Array):
+                        return [enumClass(x) for x in value]
+                    else:
+                        return enumClass(value)
+                except ValueError:
+                    pass
             else:
-                return EnumClass(value)
-        else:
-            return value
+                sys.stderr.write(f'\n{value} is not valid for any of the types "{repr(classes)}"\n')
+        return value
 
     def __str__(self):
         result = []
@@ -24,9 +33,11 @@ class StructureWithEnums:
         for field in self._fields_:
             attr, attrType = field
             if attr in self._map:
-                attrType = self._map[attr]
+                attrType = repr(self._map[attr]) if len(self._map[attr]) > 1 else self._map[attr][0].__name__
+            else:
+                attrType = attrType.__name__
             value = getattr(self, attr)
-            result.append("    {0} [{1}] = {2!r};".format(attr, attrType.__name__, value))
+            result.append("    {0} [{1}] = {2!r};".format(attr, attrType, value))
         result.append("};")
         return '\n'.join(result)
 

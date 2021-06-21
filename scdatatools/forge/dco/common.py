@@ -62,3 +62,9 @@ class DataCoreObject:
     @property
     def filename(self):
         return self.record.filename
+
+    def to_dict(self, depth=100):
+        return self.record.dcb.record_to_dict(self.record, depth=depth)
+
+    def to_json(self, depth=100):
+        return self.record.dcb.dump_record_json(self.record, depth=depth)

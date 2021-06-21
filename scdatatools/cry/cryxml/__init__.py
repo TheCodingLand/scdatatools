@@ -257,12 +257,28 @@ def etree_from_cryxml_file(source) -> ElementTree:
     return ElementTree.parse(source, parser=CryXMLBParser())
 
 
+def etree_from_cryxml_string(string) -> ElementTree:
+    """ Convenience method that converts the data `string` to an ElementTree.
+
+    :param string: CryXMLB data
+    """
+    return ElementTree.fromstring(string, parser=CryXMLBParser())
+
+
 def dict_from_cryxml_file(source) -> dict:
-    """ Convenience method that converts the file `source` to an ElementTree.
+    """ Convenience method that converts the file `source` to a dictionary.
 
     :param source: File name or file object
     """
     return etree_to_dict(etree_from_cryxml_file(source))
+
+
+def dict_from_cryxml_string(string) -> dict:
+    """ Convenience method that converts the data `string` to a dictionary.
+
+    :param string: CryXMLB data
+    """
+    return etree_to_dict(etree_from_cryxml_string(string))
 
 
 if __name__ == "__main__":

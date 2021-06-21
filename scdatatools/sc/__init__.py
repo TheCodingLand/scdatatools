@@ -16,7 +16,8 @@ from .localization import SCLocalization
 
 # Files that we will NOT skip the hash for when generating inventory with skip_data_hash
 P4K_ALWAYS_HASH_DATA_FILES = ['.cfg', '.crt', '.dpl', '.eco', '.id', '.ini', '.xml', '.pak', '.socpak', '.entxml']
-TRY_VERSION_FILES = ['f_win_game_client_release.id', 'c_hiload_crash_handler.id', 'c_hiload_crash_handler.id']
+TRY_VERSION_FILES = ['f_win_game_client_release.id', 'c_hiload_crash_handler.id',
+                     'c_hiload_crash_handler.id', 'build_manifest.id']
 
 
 class StarCitizen:
@@ -54,11 +55,11 @@ class StarCitizen:
                             f"{self.branch}-{self.version}"  # better than nothing
                         )
                         break
-                    except:  # noqa
+                    except Exception as e:  # noqa
                         pass
         else:
             sys.stderr.write(
-                f"Warning: Unable to determine version of StarCitizen"
+                f"Warning: Unable to determine version of StarCitizen\n"
             )
 
     def generate_inventory(self, p4k_filters=[], skip_local=False, skip_p4k=False, skip_data_hash=False):

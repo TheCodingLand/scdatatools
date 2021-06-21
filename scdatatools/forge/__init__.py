@@ -8,7 +8,7 @@ import ctypes
 import fnmatch
 from collections import defaultdict
 
-from benedict import benedict
+# from benedict import benedict
 
 from scdatatools.forge import dftypes
 from scdatatools.forge.utils import read_and_seek
@@ -147,7 +147,7 @@ class DataCoreBinary:
         assert self.raw_data.tell() == len(self.raw_data)
 
         self.records_by_guid = {r.id.value: r for r in self.records}
-        self._records_by_path = benedict(keypath_separator='/')
+        # self._records_by_path = benedict(keypath_separator='/')
 
     def string_for_offset(self, offset: int, encoding="UTF-8") -> str:
         try:
@@ -247,15 +247,15 @@ class DataCoreBinary:
             ]
         return [_ for _ in self.records if fnmatch.fnmatchcase(_.filename, file_filter)]
 
-    @property
-    def records_by_path(self):
-        if not self._records_by_path:
-            for r in self.records:
-                path = r.filename
-                if path in self._records_by_path:
-                    if not isinstance(self._records_by_path[path], list):
-                        self._records_by_path[path] = [self._records_by_path[path]]
-                    self._records_by_path[path].append(r)
-                else:
-                    self._records_by_path[path] = r
-        return self._records_by_path
+    # @property
+    # def records_by_path(self):
+    #     if not self._records_by_path:
+    #         for r in self.records:
+    #             path = r.filename
+    #             if path in self._records_by_path:
+    #                 if not isinstance(self._records_by_path[path], list):
+    #                     self._records_by_path[path] = [self._records_by_path[path]]
+    #                 self._records_by_path[path].append(r)
+    #             else:
+    #                 self._records_by_path[path] = r
+    #     return self._records_by_path

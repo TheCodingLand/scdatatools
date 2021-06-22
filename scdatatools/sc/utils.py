@@ -13,7 +13,8 @@ from scdatatools.cry.cryxml import dict_from_cryxml_file, dict_from_cryxml_strin
 from scdatatools.utils import etree_to_dict, norm_path, dict_search
 
 PROCESS_FILES = [
-    'mtl', 'chrparams', 'cga', 'cgam', 'cgf', 'cgfm', 'soc', 'xml', 'entxml', 'chr', 'rmp', 'dba', 'animevents'
+    'mtl', 'chrparams', 'cga', 'cgam', 'cgf', 'cgfm', 'soc', 'xml', 'entxml', 'chr', 'rmp', 'dba', 'animevents',
+    'skin', 'skinm', 'cdf'
 ]
 SHIP_ENTITES_PATH = 'libs/foundry/records/entities/spaceships'
 
@@ -85,7 +86,9 @@ def extract_ship(sc_or_scdir, ship_guid_or_path, outdir, remove_outdir=False, mo
             if ext in PROCESS_FILES:
                 files_to_process.add(path)
             else:
-                if ext not in ['dds', 'tif', 'socpak', 'brmp', 'obj']:  # TODO: figure out what BRMP files are
+                # second split handles things like .dds.1
+                if ext.split('.')[0] not in ['dds', 'tif', 'socpak', 'brmp', 'obj']:
+                    # TODO: figure out what BRMP files are
                     monitor(f'WARN: unhandled file {ext} {path}')
                     # TODO: add support for gfx files:
                     #      'data/ui/environmentalscreens/ships/idris/fluff/swf/9x16-small_securitycode.gfx'
@@ -151,9 +154,9 @@ def extract_ship(sc_or_scdir, ship_guid_or_path, outdir, remove_outdir=False, mo
         p4k_info = sc.p4k.NameToInfoLower[path.lower()]
         monitor(f'process: ({ext}) {p4k_info.filename}')
         try:
-            if ext in ['mtl', 'chrparams', 'entxml', 'rmp', 'animevents']:
+            if ext in ['mtl', 'chrparams', 'entxml', 'rmp', 'animevents', 'cdf']:
                 add_file_to_extract(dict_search(dict_from_cryxml_file(sc.p4k.open(p4k_info)), keys_with_paths))
-            elif ext in ['cga', 'cgam', 'cgf', 'cgfm', 'chr', 'soc', 'dba']:
+            elif ext in ['cga', 'cgam', 'cgf', 'cgfm', 'chr', 'soc', 'dba', 'skin', 'skinm']:
                 # ChCr, find material chunk `MtlName` and extract referenced material file
                 raw = sc.p4k.open(p4k_info).read()
                 c = Ivo(raw) if raw.startswith(b'#ivo') else ChCr(raw)
@@ -184,7 +187,7 @@ def extract_ship(sc_or_scdir, ship_guid_or_path, outdir, remove_outdir=False, mo
                 if raw.startswith(b'CryXmlB'):
                     x = dict_from_cryxml_string(raw)
                 else:
-                    x = etree_to_dict(ElementTree.fromstring())
+                    x = etree_to_dict(ElementTree.fromstring(raw))
                 add_file_to_extract(dict_search(x, keys_with_paths))
             else:
                 monitor(f'WARN: unhandled p4k file: {path}')

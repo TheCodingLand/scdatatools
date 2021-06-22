@@ -456,6 +456,7 @@ class P4KFile(zipfile.ZipFile):
         :param mode: Method of performing a match. Valid values are:
             `re`:   Compiles `file_filters` into a regular expression - `re.match(filename)`
             `startswith`:  Uses the string `startswith` function - if any(filename.startswith(_) for _ in file_filters)
+            `endswith`:  Uses the string `startswith` function - if any(filename.endswith(_) for _ in file_filters)
             `in`:   Performs and `in` check - filename in file_filters
             `in_strip`: Performs an `in` check, but strips the file extension before performing the `in` check
         :return:
@@ -477,6 +478,12 @@ class P4KFile(zipfile.ZipFile):
                         if any(fn.startswith(_) for _ in file_filters)]
             else:
                 return [info for fn, info in self.NameToInfo.items() if any(fn.startswith(_) for _ in file_filters)]
+        elif mode == 'endswith':
+            if ignore_case:
+                return [info for fn, info in self.NameToInfoLower.items()
+                        if any(fn.endswith(_) for _ in file_filters)]
+            else:
+                return [info for fn, info in self.NameToInfo.items() if any(fn.endswith(_) for _ in file_filters)]
         elif mode == 'in':
             if ignore_case:
                 return [info for fn, info in self.NameToInfoLower.items() if fn in file_filters]

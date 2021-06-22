@@ -180,6 +180,9 @@ CHUNK_FOR_TYPE = {
     defs.ChunkType.UnknownSC6: Chunk,
     defs.ChunkType.UnknownSC7: Chunk,
     defs.ChunkType.UnknownSC8: Chunk,
+    defs.ChunkType.UnknownSC9: Chunk,
+    defs.ChunkType.UnknownSC10: Chunk,
+    defs.ChunkType.UnknownSC11: Chunk,
 }
 
 

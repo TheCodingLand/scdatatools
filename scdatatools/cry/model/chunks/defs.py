@@ -49,6 +49,9 @@ class ChunkType(IntEnum):
     UnknownSC6 = 0x300a,  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
     UnknownSC7 = 0x4002,  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
     UnknownSC8 = 0x3005,  # Data\Objects\planets\flora\bush\bayberry_01\bayberry_01.cgfm: 12293
+    UnknownSC9 = 0x0013,
+    UnknownSC10 = 0x0014,
+    UnknownSC11 = 0x000b,
 
 
 class DBAChunkHeaderTypes(IntEnum):

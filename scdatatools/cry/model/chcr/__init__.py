@@ -2,7 +2,7 @@ import sys
 import ctypes
 from pathlib import Path
 from enum import IntEnum
-from scdatatools.cry.utils import FileHeaderStructure
+from scdatatools.utils import FileHeaderStructure
 
 from scdatatools.cry.model import chunks
 

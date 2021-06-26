@@ -2,7 +2,7 @@ import ctypes
 import json
 from io import BytesIO
 
-from scdatatools.cry.utils import StructureWithEnums
+from scdatatools.utils import StructureWithEnums
 from scdatatools.cry.cryxml import etree_from_cryxml_file, dict_from_cryxml_file
 
 from . import defs

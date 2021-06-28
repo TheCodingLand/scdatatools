@@ -37,7 +37,10 @@ class HIRCObjectTypes(IntEnum):
     motion_bus = 16
     motion_fx = 17
     effect = 18
+    unknown1 = 19
     auxiliary_bus = 20
+    unknown2 = 21
+    unknown3 = 22
 
 
 class HIRCObject(ctypes.LittleEndianStructure, StructureWithEnums):
@@ -215,4 +218,7 @@ HIRC_OBJ_HEADER_FOR_TYPE = {
     HIRCObjectTypes.motion_fx: HIRCObject,
     HIRCObjectTypes.effect: HIRCObject,
     HIRCObjectTypes.auxiliary_bus: HIRCObject,
+    HIRCObjectTypes.unknown1: HIRCObject,
+    HIRCObjectTypes.unknown2: HIRCObject,
+    HIRCObjectTypes.unknown3: HIRCObject,
 }

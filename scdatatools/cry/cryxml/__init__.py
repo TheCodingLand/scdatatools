@@ -12,6 +12,8 @@ __all__ = [
     "pprint_xml_tree",
     "etree_from_cryxml_file",
     "dict_from_cryxml_file",
+    "etree_from_cryxml_string",
+    "dict_from_cryxml_string"
 ]
 
 from ctypes import sizeof
@@ -27,6 +29,9 @@ from scdatatools.cry.cryxml.defs import (
     CRYXML_NO_PARENT,
 )
 from scdatatools.utils import etree_to_dict
+
+
+CRYXMLB_SIGNATURE = b"CryXmlB"
 
 
 class _StandardXmlFile(Exception):
@@ -122,7 +127,7 @@ class _CryXMLBParser:
         self._header = CryXMLBHeader.from_buffer(data, 0)
 
         # TODO: actually do header validation - see references
-        if self._header.signature != b"CryXmlB":
+        if self._header.signature != CRYXMLB_SIGNATURE:
             if self._header.signature.startswith(b"<"):
                 # try parsing as a normal xml file
                 parser = XMLParser(target=self.target)
@@ -238,6 +243,9 @@ class CryXMLBParser:
 
 
 def is_cryxmlb_file(source):
+    if isinstance(source, (bytes, bytearray)):
+        return source.startswith(CRYXMLB_SIGNATURE)
+
     loc = source.tell()
     source.seek(0, 2)
     if source.tell() < sizeof(CryXMLBHeader):
@@ -246,7 +254,7 @@ def is_cryxmlb_file(source):
     source.seek(0)
     header = CryXMLBHeader.from_buffer(source, 0)
     source.seek(loc)
-    return header.signature == b"CryXmlB"
+    return header.signature == CRYXMLB_SIGNATURE
 
 
 def etree_from_cryxml_file(source) -> ElementTree:

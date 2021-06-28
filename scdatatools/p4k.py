@@ -17,7 +17,7 @@ from scdatatools.cry.cryxml import etree_from_cryxml_file, pprint_xml_tree, dict
 ZIP_ZSTD = 100
 p4kFileHeader = b"PK\x03\x14"
 DEFAULT_P4K_KEY = b"\x5E\x7A\x20\x02\x30\x2E\xEB\x1A\x3B\xB6\x17\xC3\x0F\xDE\x1E\x47"
-CRYXMLB_FORMATS = ['.xml', '.mtl', '.chrparams', '.entxml', '.rmp', '.animevents']
+CRYXMLB_FORMATS = ['xml', 'mtl', 'chrparams', 'entxml', 'rmp', 'animevents']
 
 compressor_names = zipfile.compressor_names
 compressor_names[100] = "zstd"
@@ -163,12 +163,12 @@ class P4KFile(zipfile.ZipFile):
         for filename in self.subarchives.keys():
             if self.subarchives[filename] is not None:
                 continue  # already been opened
-            file_ext = Path(filename).suffix
+            file_ext = f"{filename.split('.', maxsplit=1)[-1]}"
             info = self.NameToInfo[filename]
             self.subarchives[filename] = SUB_ARCHIVES[file_ext](self.open(info))
             info.subarchive = self.subarchives[filename]
 
-            base_p4k_path = Path(filename.replace(file_ext, ''))
+            base_p4k_path = Path(filename[:-1 * len(file_ext) - 1])
             archive_name = base_p4k_path.name
             for si in info.subarchive.filelist:
                 # Create ZipInfo instance to store file information
@@ -176,8 +176,7 @@ class P4KFile(zipfile.ZipFile):
                 # e.g. `100i_interior.socpak` -> `100i_interior`
                 sub_path = Path(si.filename)
                 if sub_path.parts[0] == archive_name:
-                    # Paths in socpaks are referenced slightly strangely. F
-                    # at the
+                    # Paths in socpaks are referenced slightly strangely.
                     sub_path = Path(*sub_path.parts[1:])
                 x = P4KInfo(str(base_p4k_path / sub_path),
                             subinfo=si, archive=self.subarchives[filename])
@@ -290,8 +289,8 @@ class P4KFile(zipfile.ZipFile):
             self.NameToInfoLower[x.filename.lower()] = x
 
             # Add sub-archives to be opened later (.pak/.sockpak,etc)
-            file_ext = Path(x.filename).suffix
-            if file_ext in SUB_ARCHIVES:
+            file_ext = x.filename.split('.', maxsplit=1)[-1]
+            if file_ext.lower() in SUB_ARCHIVES:
                 if x.filename not in self.subarchives:
                     self.subarchives[x.filename] = None
 
@@ -523,7 +522,7 @@ class P4KFile(zipfile.ZipFile):
 
         # TODO: change this to use python logging so it can be easily shut off
         # Also convert the file to JSON if it's a CryXmlB file
-        if Path(member.filename).suffix.lower() in CRYXMLB_FORMATS and convert_cryxml:
+        if member.filename.split('.', maxsplit=1)[-1].lower() in CRYXMLB_FORMATS and convert_cryxml:
             with self.open(member) as f:
                 if f.read(7) == b'CryXmlB':
                     f.seek(0)
@@ -638,9 +637,10 @@ class Pak(_ZipFileWithFlexibleFilenames):
     pass
 
 
+# Down here so the can reference local classes
 SUB_ARCHIVES = {
-    '.pak': Pak,
-    '.socpak': SOCPak
+    'pak': Pak,
+    'socpak': SOCPak
 }
 
 

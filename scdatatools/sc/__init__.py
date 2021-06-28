@@ -25,6 +25,7 @@ class StarCitizen:
         self.branch = self.build_time_stamp = self.config = self.version = None
         self.version_label = self.shelved_change = self.tag = None
         self._fetch_label_success = False
+        self._is_loaded = False
 
         self.game_folder = Path(game_folder).absolute()
         if not self.game_folder.is_dir():
@@ -62,6 +63,10 @@ class StarCitizen:
             sys.stderr.write(
                 f"Warning: Unable to determine version of StarCitizen\n"
             )
+
+    @property
+    def is_loaded(self):
+        return self._is_loaded
 
     def generate_inventory(self, p4k_filters=[], skip_local=False, skip_p4k=False, skip_data_hash=False):
         inv = {}
@@ -132,6 +137,7 @@ class StarCitizen:
     def p4k(self):
         if self._p4k is None:
             self._p4k = P4KFile(self.p4k_file)
+            self._is_loaded = True
         return self._p4k
 
     @property

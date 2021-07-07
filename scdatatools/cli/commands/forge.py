@@ -10,7 +10,7 @@ from scdatatools import forge
 from scdatatools import p4k
 
 
-def _dump_record(dcb, record, output, xml=False):
+def _dump_record(dcb, record, output, xml=False, quiet=False):
     if output == '-':
         if xml:
             sys.stdout.write(dcb.dump_record_xml(record))
@@ -20,7 +20,13 @@ def _dump_record(dcb, record, output, xml=False):
         if not output.suffix:
             output = output / Path(record.filename)
         output.parent.mkdir(parents=True, exist_ok=True)
-        print(str(output))
+        suffix = '.xml' if xml else '.json'
+        if output.is_file():
+            output = output.parent / f'{output.stem}.{record.id.value}{suffix}'
+        else:
+            output = output.parent / f'{output.stem}{suffix}'
+        if not quiet:
+            print(str(output))
         try:
             with open(str(output), "w") as target:
                 if xml:
@@ -43,6 +49,11 @@ def _dump_record(dcb, record, output, xml=False):
     aliases=["-o"],
 )
 @argument(
+    "quiet",
+    description="Don't output progress.",
+    aliases=["-q"]
+)
+@argument(
     "file_filter",
     description="Posix style file filter of which files to extract",
     aliases=["-f"]
@@ -54,6 +65,7 @@ def unforge(
         xml: bool = True,
         json: bool = False,
         single: bool = False,
+        quiet: bool = False,
 ):
     forge_file = Path(forge_file)
     output = Path(output).absolute() if output != '-' else output
@@ -89,9 +101,9 @@ def unforge(
         record = records[0]
 
         print(f"Extracting {record.filename}")
-        _dump_record(dcb, record, output, not json)
+        _dump_record(dcb, record, output, not json, quiet=quiet)
     else:
         print(f"Extracting files into {output} with filter '{file_filter}'")
         print("=" * 120)
         for record in dcb.search_filename(file_filter):
-            _dump_record(dcb, record, output, not json)
+            _dump_record(dcb, record, output, not json, quiet=quiet)

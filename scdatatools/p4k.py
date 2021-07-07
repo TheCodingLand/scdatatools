@@ -99,30 +99,28 @@ class P4KInfo(zipfile.ZipInfo):
         self.archive = archive
         self.subinfo = subinfo
         self.filelist = []
-        self.filename = self.filename.replace('\\', "/")
         if self.subinfo is not None and self.subinfo.is_dir():
             self.filename += '/'  # Make sure still tracked as directory
         self.is_encrypted = False
 
     def _decodeExtra(self):
         # Try to decode the extra field.
-        extra = self.extra
-        unpack = struct.unpack
-
         self.is_encrypted = len(self.extra) >= 168 and self.extra[168] > 0x00
 
         # The following is the default ZipInfo decode, minus a few steps that would mark an encrypted it as invalid
         # TODO: only do this if self.is_encrypted, otherwise call super?
 
-        while len(extra) >= 4:
-            tp, ln = unpack("<HH", extra[:4])
+        offset = 0
+        total = len(self.extra)
+        while (offset+4) < total:
+            tp, ln = struct.unpack("<HH", self.extra[offset:offset+4])
             if tp == 0x0001:
                 if ln >= 24:
-                    counts = unpack("<QQQ", extra[4:28])
+                    counts = struct.unpack("<QQQ", self.extra[offset+4:offset+28])
                 elif ln == 16:
-                    counts = unpack("<QQ", extra[4:20])
+                    counts = struct.unpack("<QQ", self.extra[offset+4:offset+20])
                 elif ln == 8:
-                    counts = unpack("<Q", extra[4:12])
+                    counts = struct.unpack("<Q", self.extra[offset+4:offset+12])
                 elif ln == 0:
                     counts = ()
                 else:
@@ -131,7 +129,6 @@ class P4KInfo(zipfile.ZipInfo):
                     )
 
                 idx = 0
-
                 # ZIP64 extension (large files and/or large archives)
                 if self.file_size in (0xFFFFFFFFFFFFFFFF, 0xFFFFFFFF):
                     self.file_size = counts[idx]
@@ -142,10 +139,9 @@ class P4KInfo(zipfile.ZipInfo):
                     idx += 1
 
                 if self.header_offset == 0xFFFFFFFF:
-                    old = self.header_offset
                     self.header_offset = counts[idx]
                     idx += 1
-            extra = extra[ln + 4 :]
+            offset += ln + 4
 
 
 class P4KFile(zipfile.ZipFile):
@@ -159,6 +155,8 @@ class P4KFile(zipfile.ZipFile):
 
         super().__init__(file, mode, compression=zipfile.ZIP_STORED)
 
+        # TODO: this doubles the time of opening a pack, so add some logic to delay expansion and add functionality to
+        #       expand on the fly
         # open up sub-archives and add them to the file list
         for filename in self.subarchives.keys():
             if self.subarchives[filename] is not None:
@@ -210,8 +208,6 @@ class P4KFile(zipfile.ZipFile):
             raise zipfile.BadZipFile("File is not a valid p4k file")
         if not endrec:
             raise zipfile.BadZipFile("File is not a valid p4k file")
-        if self.debug > 1:
-            print(endrec)
         size_cd = endrec[zipfile._ECD_SIZE]  # bytes in central directory
         offset_cd = endrec[zipfile._ECD_OFFSET]  # offset of central directory
         self._comment = endrec[zipfile._ECD_COMMENT]  # archive comment
@@ -222,25 +218,19 @@ class P4KFile(zipfile.ZipFile):
             # If Zip64 extension structures are present, account for them
             concat -= zipfile.sizeEndCentDir64 + zipfile.sizeEndCentDir64Locator
 
-        if self.debug > 2:
-            inferred = concat + offset_cd
-            print("given, inferred, offset", offset_cd, inferred, concat)
         # self.start_dir:  Position of start of central directory
         self.start_dir = offset_cd + concat
         fp.seek(self.start_dir, 0)
-        data = fp.read(size_cd)
-        fp = io.BytesIO(data)
-        total = 0
-        while total < size_cd:
-            centdir = fp.read(zipfile.sizeCentralDir)
+        data = io.BytesIO(fp.read(size_cd))
+        while data.tell() < size_cd:
+            centdir = data.read(zipfile.sizeCentralDir)
             if len(centdir) != zipfile.sizeCentralDir:
                 raise zipfile.BadZipFile("Truncated central directory")
             centdir = struct.unpack(zipfile.structCentralDir, centdir)
             if centdir[zipfile._CD_SIGNATURE] != zipfile.stringCentralDir:
                 raise zipfile.BadZipFile("Bad magic number for central directory")
-            if self.debug > 2:
-                print(centdir)
-            filename = fp.read(centdir[zipfile._CD_FILENAME_LENGTH])
+
+            filename = data.read(centdir[zipfile._CD_FILENAME_LENGTH])
             flags = centdir[5]
             if flags & 0x800:
                 # UTF-8 file names extension
@@ -248,10 +238,11 @@ class P4KFile(zipfile.ZipFile):
             else:
                 # Historical ZIP filename encoding
                 filename = filename.decode("cp437")
+
             # Create ZipInfo instance to store file information
             x = P4KInfo(filename, archive=self)
-            x.extra = fp.read(centdir[zipfile._CD_EXTRA_FIELD_LENGTH])
-            x.comment = fp.read(centdir[zipfile._CD_COMMENT_LENGTH])
+            x.extra = data.read(centdir[zipfile._CD_EXTRA_FIELD_LENGTH])
+            x.comment = data.read(centdir[zipfile._CD_COMMENT_LENGTH])
             x.header_offset = centdir[zipfile._CD_LOCAL_HEADER_OFFSET]
             (
                 x.create_version,
@@ -270,7 +261,7 @@ class P4KFile(zipfile.ZipFile):
                 raise NotImplementedError(
                     "zip file version %.1f" % (x.extract_version / 10)
                 )
-            x.volume, x.internal_attr, x.external_attr = centdir[15:18]
+            # x.volume, x.internal_attr, x.external_attr = centdir[15:18]
             # Convert date/time code to (year, month, day, hour, min, sec)
             x._raw_time = t
             x.date_time = (
@@ -293,18 +284,6 @@ class P4KFile(zipfile.ZipFile):
             if file_ext.lower() in SUB_ARCHIVES:
                 if x.filename not in self.subarchives:
                     self.subarchives[x.filename] = None
-
-            # update total bytes read from central directory
-            total = (
-                total
-                + zipfile.sizeCentralDir
-                + centdir[zipfile._CD_FILENAME_LENGTH]
-                + centdir[zipfile._CD_EXTRA_FIELD_LENGTH]
-                + centdir[zipfile._CD_COMMENT_LENGTH]
-            )
-
-            if self.debug > 2:
-                print("total", total)
 
     def open(self, name, mode="r", pwd=None, *, force_zip64=False):
         """Return file-like object for 'name'.

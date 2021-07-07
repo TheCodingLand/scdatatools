@@ -6,6 +6,8 @@ import json
 import mmap
 import ctypes
 import fnmatch
+import typing
+from pathlib import Path
 from collections import defaultdict
 
 # from benedict import benedict
@@ -40,119 +42,109 @@ class DataCoreBinaryMMap(mmap.mmap):
 
 
 class DataCoreBinary:
-    def __init__(self, filename_or_data):
-        if isinstance(filename_or_data, str):
-            self.raw_data = DataCoreBinaryMMap(filename_or_data)
-        else:
+    def __init__(self, filename_or_data: typing.Union[str, Path, bytes, bytearray]):
+        if isinstance(filename_or_data, bytes):
+            self.raw_data = bytearray(filename_or_data)
+        elif isinstance(filename_or_data, bytearray):
             self.raw_data = filename_or_data
+        else:
+            filename_or_data = Path(filename_or_data)
+            if not filename_or_data.is_file():
+                raise ValueError(f'Expected bytes or filename, not: {filename_or_data}')
+            with filename_or_data.open('rb') as f:
+                self.raw_data = f.read()
+        self.raw_data = memoryview(self.raw_data)
 
-        self.header = read_and_seek(self, dftypes.DataCoreHeader)
-        self.structure_definitions = read_and_seek(
-            self, dftypes.StructureDefinition * self.header.structure_definition_count
+        # used to track position while reading the header
+        offset = 0
+
+        def _read_and_seek(data_type):
+            nonlocal offset, self
+            r = data_type.from_buffer(self.raw_data, offset)
+            setattr(r, "_dcb", self)
+            offset += ctypes.sizeof(r)
+            return r
+
+        self.header = _read_and_seek(dftypes.DataCoreHeader)
+        self.structure_definitions = _read_and_seek(
+            dftypes.StructureDefinition * self.header.structure_definition_count
         )
-        self.property_definitions = read_and_seek(
-            self, dftypes.PropertyDefinition * self.header.property_definition_count
+        self.property_definitions = _read_and_seek(
+            dftypes.PropertyDefinition * self.header.property_definition_count
         )
-        self.enum_definitions = read_and_seek(
-            self, dftypes.EnumDefinition * self.header.enum_definition_count
+        self.enum_definitions = _read_and_seek(
+            dftypes.EnumDefinition * self.header.enum_definition_count
         )
         if self.header.version >= 5:
-            self.data_mapping_definitions = read_and_seek(
-                self, dftypes.DataMappingDefinition32 * self.header.data_mapping_definition_count
+            self.data_mapping_definitions = _read_and_seek(
+                dftypes.DataMappingDefinition32 * self.header.data_mapping_definition_count
             )
         else:
-            self.data_mapping_definitions = read_and_seek(
-                self, dftypes.DataMappingDefinition16 * self.header.data_mapping_definition_count
+            self.data_mapping_definitions = _read_and_seek(
+                dftypes.DataMappingDefinition16 * self.header.data_mapping_definition_count
             )
-        self.records = read_and_seek(
-            self, dftypes.Record * self.header.record_definition_count
-        )
+        self.records = _read_and_seek(dftypes.Record * self.header.record_definition_count)
         self.values = {
-            DataTypes.Int8: read_and_seek(self, ctypes.c_int8 * self.header.int8_count),
-            DataTypes.Int16: read_and_seek(
-                self, ctypes.c_int16 * self.header.int16_count
-            ),
-            DataTypes.Int32: read_and_seek(
-                self, ctypes.c_int32 * self.header.int32_count
-            ),
-            DataTypes.Int64: read_and_seek(
-                self, ctypes.c_int64 * self.header.int64_count
-            ),
-            DataTypes.UInt8: read_and_seek(
-                self, ctypes.c_uint8 * self.header.uint8_count
-            ),
-            DataTypes.UInt16: read_and_seek(
-                self, ctypes.c_uint16 * self.header.uint16_count
-            ),
-            DataTypes.UInt32: read_and_seek(
-                self, ctypes.c_uint32 * self.header.uint32_count
-            ),
-            DataTypes.UInt64: read_and_seek(
-                self, ctypes.c_uint64 * self.header.uint64_count
-            ),
-            DataTypes.Boolean: read_and_seek(
-                self, ctypes.c_bool * self.header.boolean_count
-            ),
-            DataTypes.Float: read_and_seek(
-                self, ctypes.c_float * self.header.float_count
-            ),
-            DataTypes.Double: read_and_seek(
-                self, ctypes.c_double * self.header.double_count
-            ),
-            DataTypes.GUID: read_and_seek(self, dftypes.GUID * self.header.guid_count),
-            DataTypes.StringRef: read_and_seek(
-                self, dftypes.StringReference * self.header.string_count
-            ),
-            DataTypes.Locale: read_and_seek(
-                self, dftypes.LocaleReference * self.header.locale_count
-            ),
-            DataTypes.EnumChoice: read_and_seek(
-                self, dftypes.EnumChoice * self.header.enum_count
-            ),
-            DataTypes.StrongPointer: read_and_seek(
-                self, dftypes.StrongPointer * self.header.strong_value_count
-            ),
-            DataTypes.WeakPointer: read_and_seek(
-                self, dftypes.WeakPointer * self.header.weak_value_count
-            ),
-            DataTypes.Reference: read_and_seek(
-                self, dftypes.Reference * self.header.reference_count
-            ),
-            DataTypes.EnumValueName: read_and_seek(
-                self, dftypes.StringReference * self.header.enum_option_name_count
-            ),
+            DataTypes.Int8: _read_and_seek(ctypes.c_int8 * self.header.int8_count),
+            DataTypes.Int16: _read_and_seek(ctypes.c_int16 * self.header.int16_count),
+            DataTypes.Int32: _read_and_seek(ctypes.c_int32 * self.header.int32_count),
+            DataTypes.Int64: _read_and_seek(ctypes.c_int64 * self.header.int64_count),
+            DataTypes.UInt8: _read_and_seek(ctypes.c_uint8 * self.header.uint8_count),
+            DataTypes.UInt16: _read_and_seek(ctypes.c_uint16 * self.header.uint16_count),
+            DataTypes.UInt32: _read_and_seek(ctypes.c_uint32 * self.header.uint32_count),
+            DataTypes.UInt64: _read_and_seek(ctypes.c_uint64 * self.header.uint64_count),
+            DataTypes.Boolean: _read_and_seek(ctypes.c_bool * self.header.boolean_count),
+            DataTypes.Float: _read_and_seek(ctypes.c_float * self.header.float_count),
+            DataTypes.Double: _read_and_seek(ctypes.c_double * self.header.double_count),
+            DataTypes.GUID: _read_and_seek(dftypes.GUID * self.header.guid_count),
+            DataTypes.StringRef: _read_and_seek(dftypes.StringReference * self.header.string_count),
+            DataTypes.Locale: _read_and_seek(dftypes.LocaleReference * self.header.locale_count),
+            DataTypes.EnumChoice: _read_and_seek(dftypes.EnumChoice * self.header.enum_count),
+            DataTypes.StrongPointer: _read_and_seek(dftypes.StrongPointer * self.header.strong_value_count),
+            DataTypes.WeakPointer: _read_and_seek(dftypes.WeakPointer * self.header.weak_value_count),
+            DataTypes.Reference: _read_and_seek(dftypes.Reference * self.header.reference_count),
+            DataTypes.EnumValueName: _read_and_seek(dftypes.StringReference * self.header.enum_option_name_count),
         }
 
-        self.text = memoryview(
-            self.raw_data[
-                self.raw_data.tell(): self.raw_data.tell() + self.header.text_length
-            ]
-        )
-        self.raw_data.seek(self.header.text_length, os.SEEK_CUR)
+        self.text_offset = offset
+        offset += self.header.text_length
 
-        self.structure_instances = defaultdict(list)
+        self.structure_instances = {}
         for mapping in self.data_mapping_definitions:
             struct_def = self.structure_definitions[mapping.structure_index]
             struct_size = struct_def.calculated_data_size
             for i in range(mapping.structure_count):
-                offset = self.raw_data.tell()
-                self.structure_instances[mapping.structure_index].append(
-                    dftypes.StructureInstance(
-                        self,
-                        memoryview(self.raw_data[offset: offset + struct_size]),
-                        struct_def,
-                    )
+                # TODO: This adds a significant amount of time (~3150%) to processing the dataforge. Either significantly
+                #       increase this, or delay loading
+                self.structure_instances.setdefault(mapping.structure_index, []).append(
+                    (offset, struct_size)
+                    # dftypes.StructureInstance(
+                    #     self,
+                    #     self.raw_data[offset: offset + struct_size],
+                    #     struct_def,
+                    # )
                 )
-                self.raw_data.seek(struct_size, os.SEEK_CUR)
-        assert self.raw_data.tell() == len(self.raw_data)
+                offset += struct_size
+        assert offset == len(self.raw_data)
 
         self.records_by_guid = {r.id.value: r for r in self.records}
         # self._records_by_path = benedict(keypath_separator='/')
 
+    def get_structure_instance(self, structure_index, instance):
+        if not isinstance(self.structure_instances[structure_index][instance], dftypes.StructureInstance):
+            offset, size = self.structure_instances[structure_index][instance]
+            self.structure_instances[structure_index][instance] = dftypes.StructureInstance(
+                self, self.raw_data[offset:offset+size], self.structure_definitions[structure_index]
+            )
+        return self.structure_instances[structure_index][instance]
+
     def string_for_offset(self, offset: int, encoding="UTF-8") -> str:
         try:
-            end = self.text.obj.index(0x00, offset)
-            return bytes(self.text[offset:end]).decode(encoding)
+            if offset >= self.header.text_length:
+                raise IndexError(f'Text offset "{offset}" is out of range')
+
+            end = self.raw_data.obj.index(0x00, self.text_offset + offset, self.text_offset + self.header.text_length)
+            return bytes(self.raw_data[self.text_offset + offset:end]).decode(encoding)
         except ValueError:
             sys.stderr.write(f"Invalid string offset: {offset}")
             return ""

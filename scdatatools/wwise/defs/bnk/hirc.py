@@ -1,8 +1,12 @@
+import copy
 import ctypes
 import struct
+import logging
 from enum import IntEnum
 from scdatatools.utils import StructureWithEnums
 
+
+logger = logging.getLogger(__name__)
 HIRC_SIGNATURE = b'HIRC'
 
 
@@ -54,12 +58,55 @@ class HIRCObject(ctypes.LittleEndianStructure, StructureWithEnums):
         "type": HIRCObjectTypes
     }
 
+    @classmethod
+    def from_buffer(cls, source, offset):
+        obj = type(cls).from_buffer(cls, source, offset)
+        obj.source_offset = offset
+        obj.raw_data = copy.copy(source[offset:offset + obj.length + 1])
+        return obj
+
     def __repr__(self):
         return f'<{self.__class__.__name__} type:{self.type.name} len:{self.length} id:{self.id}>'
 
 
 class HIRCUnknown(HIRCObject):
     pass
+
+
+class HIRCRandom(HIRCObject):
+    # TODO: this obviously needs a lot of work
+    _fields_ = [
+        ("unknown1", ctypes.c_uint16),
+        ("unknown2", ctypes.c_uint16),
+        ("unknown3", ctypes.c_uint16),
+        ("unknown4", ctypes.c_uint8),
+        ("actor_mixer_id", ctypes.c_uint32),
+        ("unknown5", ctypes.c_uint32),
+        ("unknown6", ctypes.c_uint32),
+        ("unknown7", ctypes.c_uint32),
+        ("unknown8", ctypes.c_uint32),
+        ("unknown9", ctypes.c_uint32),
+        ("unknown10", ctypes.c_uint32),
+        ("unknown11", ctypes.c_uint32),
+        ("unknown12", ctypes.c_uint32),
+        ("unknown13", ctypes.c_uint32),
+        ("unknown14", ctypes.c_uint32),
+        ("unknown15", ctypes.c_uint32),
+        ("unknown16", ctypes.c_uint32),
+        ("num_sounds", ctypes.c_uint32),
+    ]
+
+    @classmethod
+    def from_buffer(cls, source, offset):
+        r = type(cls).from_buffer(cls, source, offset)
+        sound_offset = offset + ctypes.sizeof(r)
+        if sound_offset + (r.num_sounds * 4) > sound_offset + r.length:
+            logger.debug(f'Failed to read HIRCRandom object "{r.id}", settings sounds to []')
+            r.sounds = []
+        else:
+            r.sounds = list(struct.unpack(f'<{r.num_sounds}I',
+                                          source[sound_offset:sound_offset + (r.num_sounds*4)]))
+        return r
 
 
 class HIRCSettings(HIRCObject):
@@ -94,45 +141,93 @@ class HIRCSound(HIRCObject):
     ]
 
 
+class HIRCEventActionScope(IntEnum):
+    GameObjectSwitchOrTrigger = 0x01
+    Global = 0x02
+    GameObjectRefObjectId = 0x03
+    GameObjectState = 0x04
+    All = 0x05
+    AllExceptReferencedObjectId = 0x09
+
+
 class HIRCEventActionType(IntEnum):
-    Stop = 0x01,
-    Pause = 0x02,
-    Resume = 0x03,
-    Play = 0x04,
-    Trigger = 0x05,
-    Mute = 0x06,
-    UnMute = 0x07,
-    SetVoicePitch = 0x08,
-    ResetVoicePitch = 0x09,
-    SetVoiceVolume = 0x0A,
-    ResetVoiceVolume = 0x0B,
-    SetBusVolume = 0x0C,
-    ResetBusVolume = 0x0D,
-    SetVoiceLowpassFilter = 0x0E,
-    ResetVoiceLowpassFilter = 0x0F,
-    EnableState = 0x10,
-    DisableState = 0x11,
-    SetState = 0x12,
-    SetGameParameter = 0x13,
-    ResetGameParameter = 0x14,
-    SetSwitch = 0x19,
-    EnableBypassOrDisableBypass = 0x1A,
-    ResetBypassEffect = 0x1B,
-    Break = 0x1C,
-    Seek = 0x1E,
+    # https://www.audiokinetic.com/library/edge/?source=Help&id=types_of_event_actions
+    Stop = 1  # 0x01
+    Pause = 2  # 0x02
+    Resume = 3  # 0x03
+    Play = 4  # 0x04
+    Trigger = 5  # 0x05
+    Mute = 6  # 0x06
+    UnMute = 7  # 0x07
+    SetVoicePitch = 8  # 0x08
+    ResetVoicePitch = 9  # 0x09
+    SetVoiceVolume = 10  # 0x0a
+    ResetVoiceVolume = 11  # 0x0b
+    SetBusVolume = 12  # 0x0c
+    ResetBusVolume = 13  # 0x0d
+    SetVoiceLowpassFilter = 14  # 0x0e
+    ResetVoiceLowpassFilter = 15  # 0x0f
+    EnableState = 16  # 0x10
+    DisableState = 17  # 0x11
+    SetState = 18  # 0x12
+    SetGameParameter = 19  # 0x13
+    ResetGameParameter = 20  # 0x14
+    SetSwitch = 25  # 0x19
+    EnableBypassOrDisableBypass = 26  # 0x1a
+    ResetBypassEffect = 27  # 0x1b
+    Break = 28  # 0x1c
+    Unknown1 = 29  # 0x1d  Points to a sound
+    Seek = 30  # 0x1e
+    Unknown2 = 31  # 0x1f
+    Unknown3 = 32  # 0x20
+    PostEvent = 33  # 0x21  maybe? points to an event
+    Unknown5 = 34  # 0x22
+    Unknown6 = 35  # 0x23
+    Unknown7 = 36  # 0x24
+    Unknown8 = 37  # 0x25
+    Unknown9 = 38  # 0x26
+    Unknown10 = 39  # 0x27
+    Unknown11 = 40  # 0x28
+    Unknown12 = 41  # 0x29
+    Unknown13 = 42  # 0x2a
+    Unknown14 = 43  # 0x2b
+    Unknown15 = 44  # 0x2c
+    Unknown16 = 45  # 0x2d
+    Unknown17 = 46  # 0x2e
+    Unknown18 = 47  # 0x2f
+    Unknown19 = 48  # 0x30
+    # we've seen up to 0x30, so everything else is "future proofing"
+    # Known "action_types" that are missing from above
+    # Stop > Stop All
+    # Pause > Pause All
+    # Resume > Resume All
+    # Seek > Seek All
+    # Bus Volume > Reset Volume All
+    # Voice Volume > Reset Volume All
+    # Voice Pitch > Reset Voice Pitch All
+    # Voice Low-pass Filter > Reset Voice Low-pass Filter All
+    # Voice High-pass Filter > Set Voice High-pass Filter
+    # Voice High-pass Filter > Reset Voice High-pass Filter
+    # Voice High-pass Filter > Reset Voice High-pass Filter All
+    # Mute > Unmute All
+    # Bypass Effect > Reset Bypass Effect All
+    # Release Envelope
+    # Reset Playlist
 
 
 class HIRCEventAction(HIRCObject):
     _fields_ = [
         ("scope", ctypes.c_byte),
         ("action_type", ctypes.c_byte),
-        ("sound_id", ctypes.c_uint32),
+        ("object_id", ctypes.c_uint32),
         ("reserved", ctypes.c_byte),
         ("num_params", ctypes.c_byte),
     ]
+    # TODO: parse params
     _map = {
         "type": HIRCObjectTypes,
-        "action_type": HIRCEventActionType
+        "scope": HIRCEventActionScope,
+        "action_type": HIRCEventActionType,
     }
 
 
@@ -154,8 +249,7 @@ class HIRCEvent(HIRCObject):
 
 
 class HIRCAudioBus(HIRCObject):
-    # _pack_ = 1
-    _fields_ = [
+    gtgtlds_ = [
         ("parent_id", ctypes.c_uint32),
         ("num_additional_params", ctypes.c_byte),
     ]
@@ -180,7 +274,7 @@ class HIRCHeader(ctypes.LittleEndianStructure):
     @classmethod
     def from_buffer(cls, source, offset=0):
         hirc = type(cls).from_buffer(cls, source, offset)
-        assert(hirc.signature == HIRC_SIGNATURE)
+        assert (hirc.signature == HIRC_SIGNATURE)
         hirc.objects = []
 
         for t in HIRCObjectTypes:
@@ -203,22 +297,7 @@ HIRC_OBJ_HEADER_FOR_TYPE = {
     HIRCObjectTypes.sound: HIRCSound,
     HIRCObjectTypes.event_action: HIRCEventAction,
     HIRCObjectTypes.event: HIRCEvent,
-    HIRCObjectTypes.random: HIRCObject,
+    HIRCObjectTypes.random: HIRCRandom,
     HIRCObjectTypes.switch: HIRCObject,
-    HIRCObjectTypes.actor_mixer: HIRCObject,
     HIRCObjectTypes.audio_bus: HIRCAudioBus,
-    HIRCObjectTypes.blend_container: HIRCObject,
-    HIRCObjectTypes.music_segment: HIRCObject,
-    HIRCObjectTypes.music_track: HIRCObject,
-    HIRCObjectTypes.music_switch_container: HIRCObject,
-    HIRCObjectTypes.music_playlist_container: HIRCObject,
-    HIRCObjectTypes.attenuation: HIRCObject,
-    HIRCObjectTypes.dialogue_event: HIRCObject,
-    HIRCObjectTypes.motion_bus: HIRCObject,
-    HIRCObjectTypes.motion_fx: HIRCObject,
-    HIRCObjectTypes.effect: HIRCObject,
-    HIRCObjectTypes.auxiliary_bus: HIRCObject,
-    HIRCObjectTypes.unknown1: HIRCObject,
-    HIRCObjectTypes.unknown2: HIRCObject,
-    HIRCObjectTypes.unknown3: HIRCObject,
 }

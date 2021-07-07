@@ -8,8 +8,9 @@ from tqdm import tqdm
 
 from rsi.launcher import LauncherAPI
 from scdatatools.p4k import P4KFile
-from scdatatools.forge import DataCoreBinary, DataCoreBinaryMMap
+from scdatatools.forge import DataCoreBinary
 from scdatatools.utils import get_size, xxhash32, xxhash32_file
+from scdatatools.wwise import WwiseManager
 
 from .config import Profile
 from .localization import SCLocalization
@@ -36,8 +37,8 @@ class StarCitizen:
         if not self.p4k_file.is_file():
             raise ValueError(f'Could not find p4k file {self.p4k_file}')
 
-        self._datacore_tmp = self._datacore = None
-        self._localization = self._profile = None
+        # setup initial empty caches
+        self._datacore = self._wwise_manager = self._localization = self._profile = None
 
         for ver_file in TRY_VERSION_FILES:
             if (self.game_folder / ver_file).is_file():
@@ -147,11 +148,14 @@ class StarCitizen:
             if len(dcb) != 1:
                 raise ValueError('Could not determine the location of the datacore')
             with self.p4k.open(dcb[0]) as f:
-                self._datacore_tmp = tempfile.TemporaryFile()
-                shutil.copyfileobj(f, self._datacore_tmp)
-                self._datacore_tmp.seek(0)
-                self._datacore = DataCoreBinary(DataCoreBinaryMMap(self._datacore_tmp))
+                self._datacore = DataCoreBinary(f.read())
         return self._datacore
+
+    @property
+    def wwise(self):
+        if self._wwise_manager is None:
+            self._wwise_manager = WwiseManager(self)
+        return self._wwise_manager
 
     def gettext(self, key, language=None):
         return self.localization.gettext(key, language)

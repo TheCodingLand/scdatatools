@@ -25,12 +25,18 @@ from scdatatools import p4k
     description="Posix style file filter of which files to extract. Defaults to '*'",
     aliases=["-f"],
 )
+@argument(
+    "quiet",
+    description="Don't output progress.",
+    aliases=["-q"]
+)
 def unp4k(
     p4k_file: typing.Text,
     output: typing.Text = ".",
     file_filter: typing.Text = "*",
     convert_cryxml: bool = False,
     single: bool = False,
+    quiet: bool = False,
 ):
     output = Path(output).absolute()
     p4k_file = Path(p4k_file)
@@ -71,6 +77,6 @@ def unp4k(
         print("=" * 80)
         output.mkdir(parents=True, exist_ok=True)
         try:
-            p.extract_filter(file_filter=file_filter, path=str(output), convert_cryxml=convert_cryxml)
+            p.extract_filter(file_filter=file_filter, path=str(output), convert_cryxml=convert_cryxml, quiet=quiet)
         except KeyboardInterrupt:
             pass

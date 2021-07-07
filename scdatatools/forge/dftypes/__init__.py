@@ -366,7 +366,8 @@ class Pointer:
                 or self.instance_index == DCB_NO_PARENT
         ):
             return None
-        return self.dcb.structure_instances[self.structure_index][self.instance_index]
+        # return self.dcb.structure_instances[self.structure_index][self.instance_index]
+        return self.dcb.get_structure_instance(self.structure_index, self.instance_index)
 
     @property
     def structure_definition(self):

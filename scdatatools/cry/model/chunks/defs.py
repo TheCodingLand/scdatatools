@@ -43,7 +43,11 @@ class ChunkType(IntEnum):
 
     UnknownSC1 = 0x3004,  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
     UnknownSC2 = 0x0002,  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
+
+    # https://github.com/dymek91/Exporting-Toolkit/blob/master/shipsExporter/CryEngine/ChCr/SCOC/Chunk_AreaShape.cs
     UnknownSC3 = 0x000e,  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
+
+    # https://github.com/dymek91/Exporting-Toolkit/blob/master/shipsExporter/CryEngine/ChCr/SCOC/Chunk_Objects.cs
     UnknownSC4 = 0x0010,  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
     UnknownSC5 = 0x0008,  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
     UnknownSC6 = 0x300a,  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'

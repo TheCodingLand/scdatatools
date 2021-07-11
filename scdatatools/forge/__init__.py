@@ -219,10 +219,10 @@ class DataCoreBinary:
     def record_to_etree(self, record, depth=100):
         return dict_to_etree({f'{record.type}.{record.name}': self.record_to_dict(record, depth)})
 
-    def dump_record_xml(self, record, indent=4, *args, **kwargs):
+    def dump_record_xml(self, record, indent=2, *args, **kwargs):
         return pprint_xml_tree(self.record_to_etree(record), indent)
 
-    def dump_record_json(self, record, indent=4, *args, **kwargs):
+    def dump_record_json(self, record, indent=2, *args, **kwargs):
         return json.dumps(self.record_to_dict(record, *args, **kwargs), indent=indent, default=str, sort_keys=True)
 
     def search_filename(self, file_filter, ignore_case=True):

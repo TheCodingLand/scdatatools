@@ -13,11 +13,11 @@ from Crypto.Cipher import AES
 
 from scdatatools.cry.cryxml import etree_from_cryxml_file, pprint_xml_tree, dict_from_cryxml_file
 
-
 ZIP_ZSTD = 100
 p4kFileHeader = b"PK\x03\x14"
 DEFAULT_P4K_KEY = b"\x5E\x7A\x20\x02\x30\x2E\xEB\x1A\x3B\xB6\x17\xC3\x0F\xDE\x1E\x47"
 CRYXMLB_FORMATS = ['xml', 'mtl', 'chrparams', 'entxml', 'rmp', 'animevents']
+DEFAULT_CRYXML_CONVERT_FMT = 'xml'
 
 compressor_names = zipfile.compressor_names
 compressor_names[100] = "zstd"
@@ -145,13 +145,12 @@ class P4KInfo(zipfile.ZipInfo):
 
 
 class P4KFile(zipfile.ZipFile):
-    def __init__(self, file, mode="r", key=DEFAULT_P4K_KEY, convert_fmt='json'):
+    def __init__(self, file, mode="r", key=DEFAULT_P4K_KEY):
         # Using ZIP_STORED to bypass the get_compressor/get_decompressor logic in zipfile. Our P4KExtFile will always
         # use zstd
         self.key = key
         self.NameToInfoLower = {}
         self.subarchives = {}
-        self.convert_fmt = convert_fmt
 
         super().__init__(file, mode, compression=zipfile.ZIP_STORED)
 
@@ -352,8 +351,8 @@ class P4KFile(zipfile.ZipFile):
                 raise zipfile.BadZipFile("Truncated file header")
             fheader = struct.unpack(zipfile.structFileHeader, fheader)
             if (
-                fheader[zipfile._FH_SIGNATURE] != p4kFileHeader
-                and fheader[zipfile._FH_SIGNATURE] != zipfile.stringFileHeader
+                    fheader[zipfile._FH_SIGNATURE] != p4kFileHeader
+                    and fheader[zipfile._FH_SIGNATURE] != zipfile.stringFileHeader
             ):
                 raise zipfile.BadZipFile("Bad magic number for file header")
 
@@ -390,12 +389,14 @@ class P4KFile(zipfile.ZipFile):
             zef_file.close()
             raise
 
-    def extract_filter(self, file_filter, path=None, ignore_case=False, convert_cryxml=False, quiet=False,
-                       search_mode='re', monitor=print):
+    def extract_filter(self, file_filter, path=None, ignore_case=False, convert_cryxml=False,
+                       convert_cryxml_fmt=DEFAULT_CRYXML_CONVERT_FMT, quiet=False, search_mode='re', monitor=print):
         self.extractall(path=path, members=self.search(file_filter, ignore_case=ignore_case, mode=search_mode),
-                        convert_cryxml=convert_cryxml, quiet=quiet, monitor=monitor)
+                        convert_cryxml=convert_cryxml, convert_cryxml_fmt=convert_cryxml_fmt,
+                        quiet=quiet, monitor=monitor)
 
-    def extract(self, member, path=None, pwd=None, convert_cryxml=False, quiet=False, monitor=print):
+    def extract(self, member, path=None, pwd=None, convert_cryxml=False, convert_cryxml_fmt=DEFAULT_CRYXML_CONVERT_FMT,
+                quiet=False, monitor=print):
         """Extract a member from the archive to the current working directory,
            using its full name. Its file information is extracted as accurately
            as possible. `member' may be a filename or a ZipInfo object. You can
@@ -406,9 +407,11 @@ class P4KFile(zipfile.ZipFile):
         else:
             path = os.fspath(path)
 
-        return self._extract_member(member, path, pwd, convert_cryxml=convert_cryxml, quiet=quiet, monitor=monitor)
+        return self._extract_member(member, path, pwd, convert_cryxml=convert_cryxml,
+                                    convert_cryxml_fmt=convert_cryxml_fmt, quiet=quiet, monitor=monitor)
 
-    def extractall(self, path=None, members=None, pwd=None, convert_cryxml=False, quiet=False, monitor=print):
+    def extractall(self, path=None, members=None, pwd=None, convert_cryxml=False,
+                   convert_cryxml_fmt=DEFAULT_CRYXML_CONVERT_FMT, quiet=False, monitor=print):
         """Extract all members from the archive to the current working
            directory. `path' specifies a different directory to extract to.
            `members' is optional and must be a subset of the list returned
@@ -423,7 +426,8 @@ class P4KFile(zipfile.ZipFile):
             path = os.fspath(path)
 
         for zipinfo in members:
-            self._extract_member(zipinfo, path, pwd, convert_cryxml=convert_cryxml, quiet=quiet, monitor=monitor)
+            self._extract_member(zipinfo, path, pwd, convert_cryxml=convert_cryxml,
+                                 convert_cryxml_fmt=convert_cryxml_fmt, quiet=quiet, monitor=monitor)
 
     def search(self, file_filters, ignore_case=True, mode='re'):
         """
@@ -487,12 +491,14 @@ class P4KFile(zipfile.ZipFile):
                 raise KeyError('There is no item named %r in the archive' % name)
         return info
 
-    def save_to(self, member, path, convert_cryxml=False):
+    def save_to(self, member, path, convert_cryxml=False, convert_cryxml_fmt=DEFAULT_CRYXML_CONVERT_FMT):
         """ Extract a member into `path`. This will no recreate the archive directory structure, it will place the
         extracted file directly into `path` which must exist. Use `extract` """
-        return self._extract_member(member, path, pwd=None, convert_cryxml=convert_cryxml, quiet=False, save_to=True)
+        return self._extract_member(member, path, pwd=None, convert_cryxml=convert_cryxml,
+                                    convert_cryxml_fmt=convert_cryxml_fmt, quiet=False, save_to=True)
 
-    def _extract_member(self, member, targetpath, pwd, convert_cryxml=False, quiet=False, save_to=False, monitor=print):
+    def _extract_member(self, member, targetpath, pwd, convert_cryxml=False,
+                        convert_cryxml_fmt=DEFAULT_CRYXML_CONVERT_FMT, quiet=False, save_to=False, monitor=print):
         """Extract the ZipInfo object 'member' to a physical file on the path targetpath. """
         if not isinstance(member, P4KInfo):
             member = self.getinfo(member)
@@ -511,10 +517,10 @@ class P4KFile(zipfile.ZipFile):
                         outpath = Path(targetpath) / Path(member.filename)
                     outpath.parent.mkdir(exist_ok=True, parents=True)
                     with outpath.open('w') as t:
-                        if self.convert_fmt == 'xml':
+                        if convert_cryxml_fmt == 'xml':
                             t.write(pprint_xml_tree(etree_from_cryxml_file(f)))
                         else:
-                            json.dump(dict_from_cryxml_file(f), t, indent=4)
+                            json.dump(dict_from_cryxml_file(f), t, indent=2)
                     return str(outpath)
 
         if not quiet:
@@ -535,6 +541,7 @@ class P4KFile(zipfile.ZipFile):
 
 class _ZipFileWithFlexibleFilenames(zipfile.ZipFile):
     """ A regular ZipFile that doesn't enforce filenames perfectly matching the CD filename"""
+
     def open(self, name, mode="r", pwd=None, *, force_zip64=False):
         if mode not in {"r", "w"}:
             raise ValueError('open() requires mode "r" or "w"')
@@ -621,7 +628,6 @@ SUB_ARCHIVES = {
     'pak': Pak,
     'socpak': SOCPak
 }
-
 
 if __name__ == "__main__":
     PTU_DIR = "D:/Games/RSI/StarCitizen/PTU/"

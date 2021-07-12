@@ -4,6 +4,7 @@ import os
 import json
 import shutil
 import struct
+import typing
 import zipfile
 import fnmatch
 from pathlib import Path
@@ -145,6 +146,9 @@ class P4KInfo(zipfile.ZipInfo):
 
 
 class P4KFile(zipfile.ZipFile):
+    filelist: typing.List[P4KInfo]
+    NameToInfo: typing.Dict[typing.Text, P4KInfo]
+
     def __init__(self, file, mode="r", key=DEFAULT_P4K_KEY):
         # Using ZIP_STORED to bypass the get_compressor/get_decompressor logic in zipfile. Our P4KExtFile will always
         # use zstd
@@ -429,12 +433,15 @@ class P4KFile(zipfile.ZipFile):
             self._extract_member(zipinfo, path, pwd, convert_cryxml=convert_cryxml,
                                  convert_cryxml_fmt=convert_cryxml_fmt, quiet=quiet, monitor=monitor)
 
-    def search(self, file_filters, ignore_case=True, mode='re'):
+    def search(self, file_filters: typing.Union[list, tuple, set, str], exclude: typing.List[str] = None,
+               ignore_case: bool = True, mode: str = 're') -> typing.List[P4KInfo]:
         """
         Search the filelist by path
 
         :param file_filters:
-        :param ignore_case:
+        :param ignore_case: Match string case or not
+        :param exclude: List of filenames that should be excluded from the results.
+            This must be an exact match (although honors ignore_case).
         :param mode: Method of performing a match. Valid values are:
             `re`:   Compiles `file_filters` into a regular expression - `re.match(filename)`
             `startswith`:  Uses the string `startswith` function - if any(filename.startswith(_) for _ in file_filters)
@@ -445,38 +452,50 @@ class P4KFile(zipfile.ZipFile):
         """
         if not isinstance(file_filters, (list, tuple, set)):
             file_filters = [file_filters]
+
         # normalize path slashes from windows to posix
         file_filters = [_.replace("\\", '/') for _ in file_filters]
+        exclude = exclude or []
+
         if ignore_case:
             file_filters = [_.lower() for _ in file_filters]
+            exclude = [_.lower() for _ in exclude]
 
         if mode == 're':
+            def in_exclude(f):
+                nonlocal ignore_case, exclude
+                return f.lower() in exclude if ignore_case else f in exclude
             r = re.compile('|'.join(f'({fnmatch.translate(_)})' for _ in file_filters),
                            flags=re.IGNORECASE if ignore_case else 0)
-            return [info for fn, info in self.NameToInfo.items() if r.match(fn)]
+            return [info for fn, info in self.NameToInfo.items() if r.match(fn) and not in_exclude(fn)]
         elif mode == 'startswith':
             if ignore_case:
                 return [info for fn, info in self.NameToInfoLower.items()
-                        if any(fn.startswith(_) for _ in file_filters)]
+                        if any(fn.startswith(_) for _ in file_filters) and fn not in exclude]
             else:
-                return [info for fn, info in self.NameToInfo.items() if any(fn.startswith(_) for _ in file_filters)]
+                return [info for fn, info in self.NameToInfo.items()
+                        if any(fn.startswith(_) for _ in file_filters) and fn not in exclude]
         elif mode == 'endswith':
             if ignore_case:
                 return [info for fn, info in self.NameToInfoLower.items()
-                        if any(fn.endswith(_) for _ in file_filters)]
+                        if any(fn.endswith(_) for _ in file_filters) and fn not in exclude]
             else:
-                return [info for fn, info in self.NameToInfo.items() if any(fn.endswith(_) for _ in file_filters)]
+                return [info for fn, info in self.NameToInfo.items()
+                        if any(fn.endswith(_) for _ in file_filters) and fn not in exclude]
         elif mode == 'in':
             if ignore_case:
-                return [info for fn, info in self.NameToInfoLower.items() if fn in file_filters]
+                return [info for fn, info in self.NameToInfoLower.items()
+                        if fn in file_filters and fn not in exclude]
             else:
-                return [info for fn, info in self.NameToInfo.items() if fn in file_filters]
+                return [info for fn, info in self.NameToInfo.items()
+                        if fn in file_filters and fn not in exclude]
         elif mode == 'in_strip':
             if ignore_case:
                 return [info for fn, info in self.NameToInfoLower.items()
-                        if fn.split('.', maxsplit=1)[0] in file_filters]
+                        if fn.split('.', maxsplit=1)[0] in file_filters and fn not in exclude]
             else:
-                return [info for fn, info in self.NameToInfo.items() if fn.split('.', maxsplit=1)[0] in file_filters]
+                return [info for fn, info in self.NameToInfo.items()
+                        if fn.split('.', maxsplit=1)[0] in file_filters and fn not in exclude]
 
         raise AttributeError(f'Invalid search mode: {mode}')
 

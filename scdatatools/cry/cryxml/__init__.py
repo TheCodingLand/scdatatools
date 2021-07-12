@@ -9,6 +9,7 @@ References:
 
 __all__ = [
     "CryXMLBParser",
+    "CryXmlConversionFormat",
     "pprint_xml_tree",
     "etree_from_cryxml_file",
     "dict_from_cryxml_file",
@@ -16,6 +17,7 @@ __all__ = [
     "dict_from_cryxml_string"
 ]
 
+import enum
 from ctypes import sizeof
 from xml.etree import ElementTree
 from xml.etree.ElementTree import TreeBuilder, ParseError, XMLParser
@@ -32,6 +34,11 @@ from scdatatools.utils import etree_to_dict
 
 
 CRYXMLB_SIGNATURE = b"CryXmlB"
+
+
+class CryXmlConversionFormat(enum.Enum):
+    xml = 'xml'
+    json = 'json'
 
 
 class _StandardXmlFile(Exception):

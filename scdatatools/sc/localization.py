@@ -9,10 +9,10 @@ class SCLocalization:
         self.translations = {}
         for l in self.p4k.search('Data/Localization/*/global.ini'):
             with self.p4k.open(l) as f:
-                lang = l.split('/')[2]
+                lang = l.filename.split('/')[2]
                 self.languages.append(lang)
                 self.translations[lang] = dict(
-                    _.split('=', 1) for _ in f.read().decode('utf-8').split('\r\n') if _
+                    _.split('=', 1) for _ in f.read().decode('utf-8').split('\r\n') if '=' in _
                 )
 
     def gettext(self, key, language=None):

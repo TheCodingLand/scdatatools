@@ -20,6 +20,6 @@ def actionmap(
     if csv:
         out = io.StringIO()
         sc.default_profile.dump_actionmap_csv(out)
-        print(out.getvalue())
+        print(out.getvalue().replace('\r', ''))
     else:
         print(json.dumps(am, indent=4))

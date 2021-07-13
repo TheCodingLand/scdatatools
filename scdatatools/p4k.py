@@ -94,15 +94,19 @@ class P4KExtFile(zipfile.ZipExtFile):
 
 
 class P4KInfo(zipfile.ZipInfo):
-    def __init__(self, *args, subinfo=None, archive=None, **kwargs):
+    def __init__(self, *args, p4k=None, subinfo=None, archive=None, **kwargs):
         # ensure posix file paths as specified by the Zip format
         super().__init__(*args, **kwargs)
+        self.p4k = p4k
         self.archive = archive
         self.subinfo = subinfo
         self.filelist = []
         if self.subinfo is not None and self.subinfo.is_dir():
             self.filename += '/'  # Make sure still tracked as directory
         self.is_encrypted = False
+
+    def open(self, *args, **kwargs):
+        return self.p4k.open(self, *args, **kwargs)
 
     def _decodeExtra(self):
         # Try to decode the extra field.
@@ -179,7 +183,7 @@ class P4KFile(zipfile.ZipFile):
                 if sub_path.parts[0] == archive_name:
                     # Paths in socpaks are referenced slightly strangely.
                     sub_path = Path(*sub_path.parts[1:])
-                x = P4KInfo(str(base_p4k_path / sub_path),
+                x = P4KInfo(str(base_p4k_path / sub_path), p4k=self,
                             subinfo=si, archive=self.subarchives[filename])
                 x.extra = si.extra
                 x.comment = si.comment
@@ -243,7 +247,7 @@ class P4KFile(zipfile.ZipFile):
                 filename = filename.decode("cp437")
 
             # Create ZipInfo instance to store file information
-            x = P4KInfo(filename, archive=self)
+            x = P4KInfo(filename, p4k=self, archive=self)
             x.extra = data.read(centdir[zipfile._CD_EXTRA_FIELD_LENGTH])
             x.comment = data.read(centdir[zipfile._CD_COMMENT_LENGTH])
             x.header_offset = centdir[zipfile._CD_LOCAL_HEADER_OFFSET]
@@ -304,6 +308,7 @@ class P4KFile(zipfile.ZipFile):
         files.  If the size is known in advance, it is best to pass a ZipInfo
         instance for name, with zinfo.file_size set.
         """
+        mode = mode.strip('b')
         if mode not in {"r", "w"}:
             raise ValueError('open() requires mode "r" or "w"')
         if pwd and not isinstance(pwd, bytes):
@@ -318,7 +323,7 @@ class P4KFile(zipfile.ZipFile):
             # 'name' is already an info object
             zinfo = name
         elif mode == "w":
-            zinfo = P4KInfo(name, archive=self)
+            zinfo = P4KInfo(name, p4k=self, archive=self)
             zinfo.compress_type = self.compression
             zinfo._compresslevel = self.compresslevel
         else:

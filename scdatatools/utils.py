@@ -1,4 +1,5 @@
 import ctypes
+import io
 import sys
 import typing
 import zlib
@@ -239,3 +240,13 @@ class FileHeaderStructure(StructureWithEnums):
         if item == 'signature':
             return val.to_bytes(4, 'little')
         return val
+
+
+class NamedBytesIO(io.BytesIO):
+    def __init__(self, content: bytes, name: str) -> None:
+        super().__init__(content)
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name

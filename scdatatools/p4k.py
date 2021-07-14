@@ -98,6 +98,7 @@ class P4KInfo(zipfile.ZipInfo):
         # ensure posix file paths as specified by the Zip format
         super().__init__(*args, **kwargs)
         self.p4k = p4k
+        self.filename = self.filename.replace("\\", "/")
         self.archive = archive
         self.subinfo = subinfo
         self.filelist = []

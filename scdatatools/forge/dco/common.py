@@ -24,16 +24,21 @@ def register_record_handler(dco_type, filename_match='.*'):
     return _record_handler_wrapper
 
 
-def dco_from_guid(sc, guid: typing.Union[str, GUID]):
+def dco_from_guid(datacore, guid: typing.Union[str, GUID]):
     """
     Takes a :str:`guid` and returns a :class:`DataCoreObject` created from the proper DCO subclass for the record type
     """
-    record = sc.datacore.records_by_guid[str(guid)]
+    record = datacore.records_by_guid[str(guid)]
+    matched = {'': DataCoreObject}
+
     if record.type in RECORD_HANDLER:
+        # find every matching record handler and store them
         for check in sorted(RECORD_HANDLER[record.type], key=len, reverse=True):
             if re.match(check, record.filename):
-                return RECORD_HANDLER[record.type][check](sc, record)
-    return DataCoreObject(sc, record)
+                matched[check] = RECORD_HANDLER[record.type][check]
+
+    # use the record handler with the most specific (longest) filename check
+    return matched[sorted(matched, key=len, reverse=True)[0]](datacore, record)
 
 
 class DataCoreObject:
@@ -43,9 +48,9 @@ class DataCoreObject:
     method to create a :class:`DataCoreObject` is to the use the :func:`dco_from_guid` function, which will
     automagically use the correct subclass for the :class:`Record` type.
     """
-    def __init__(self, sc, guid_or_dco: typing.Union[str, GUID, Record]):
+    def __init__(self, datacore, guid_or_dco: typing.Union[str, GUID, Record]):
         self.record = guid_or_dco if isinstance(guid_or_dco, Record) else str(guid_or_dco)
-        self._sc = sc
+        self._datacore = datacore
 
     @property
     def guid(self):
@@ -68,3 +73,9 @@ class DataCoreObject:
 
     def to_json(self, depth=100):
         return self.record.dcb.dump_record_json(self.record, depth=depth)
+
+    def to_etree(self, depth=100):
+        return self.record.dcb.record_to_etree(self.record, depth=depth)
+
+    def to_xml(self, depth=100):
+        return self.record.dcb.dump_record_xml(self.record, depth=depth)

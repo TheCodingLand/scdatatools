@@ -12,7 +12,7 @@ from pathlib import Path
 import zstandard as zstd
 from Crypto.Cipher import AES
 
-from scdatatools.cry.cryxml import etree_from_cryxml_file, pprint_xml_tree, dict_from_cryxml_file
+from scdatatools.cry.cryxml import etree_from_cryxml_file, pprint_xml_tree, dict_from_cryxml_file, is_cryxmlb_file
 
 ZIP_ZSTD = 100
 p4kFileHeader = b"PK\x03\x14"
@@ -531,15 +531,15 @@ class P4KFile(zipfile.ZipFile):
         # TODO: handle not overwriting existing files flag?
 
         # TODO: change this to use python logging so it can be easily shut off
-        # Also convert the file to JSON if it's a CryXmlB file
+        # Convert the file to `convert_cryxml_fmt` if it's a CryXmlB file
         if member.filename.split('.', maxsplit=1)[-1].lower() in CRYXMLB_FORMATS and convert_cryxml:
             with self.open(member) as f:
-                if f.read(7) == b'CryXmlB':
-                    f.seek(0)
+                if is_cryxmlb_file(f):
                     if save_to:
                         outpath = Path(targetpath) / Path(member.filename).name
                     else:
                         outpath = Path(targetpath) / Path(member.filename)
+
                     outpath.parent.mkdir(exist_ok=True, parents=True)
                     with outpath.open('w') as t:
                         if convert_cryxml_fmt == 'xml':

@@ -30,7 +30,7 @@ DDS_CONV_FALLBACK = 'png'
 DDS_CONV_FORMAT = {
     'linux': 'png',
     'darwin': 'png',
-    'win32': 'tif'
+    'win32': 'png'  # this used to be tif, then i asked myself, why?
 }
 
 
@@ -48,7 +48,7 @@ TEXCONV = shutil.which('texconv')
 
 def _check_bin(converter=ConverterUtility.default, converter_bin=''):
     if converter != ConverterUtility.default and converter_bin:
-        return converter_bin
+        return converter, converter_bin
     elif converter == ConverterUtility.default and converter_bin:
         raise ValueError(f'Cannot specify converter_bin and `ConverterUtility.default` at the same time')
 
@@ -72,8 +72,9 @@ def _check_bin(converter=ConverterUtility.default, converter_bin=''):
         raise ValueError(f'Invalid ConverterUtility: {converter}')
 
 
-def convert_buffer(inbuf: bytes, in_format, out_format: str = 'default', converter=ConverterUtility.default,
-                   converter_cli_args: str = "", converter_bin: str = '') -> (bytes, str):
+def convert_buffer(inbuf: bytes, in_format: object, out_format: str = 'default',
+                   converter: ConverterUtility = ConverterUtility.default, converter_cli_args: str = "",
+                   converter_bin: str = '') -> (bytes, str):
     """
     Converts a buffer `inbuf` to the output format `out_format`. See :func:convert for more information on parameters
 
@@ -86,7 +87,7 @@ def convert_buffer(inbuf: bytes, in_format, out_format: str = 'default', convert
     :return: Tuple containing the `bytes` of the converted image in the specified `output_format` and the `str` format
         of the returned `bytes`
     """
-    converter_bin = _check_bin(converter, converter_bin)
+
     out_format = DDS_CONV_FORMAT.get(sys.platform, DDS_CONV_FALLBACK) if out_format == 'default' else out_format
     out_format = out_format.replace('.', '')
     _ = tempfile.NamedTemporaryFile(suffix=f'.{out_format}')
@@ -104,7 +105,7 @@ def convert_buffer(inbuf: bytes, in_format, out_format: str = 'default', convert
 
 def tex_convert(infile: typing.Union[str, Path, io.BufferedIOBase, io.RawIOBase, NamedBytesIO],
                 outfile: typing.Union[str, Path], converter: ConverterUtility = ConverterUtility.default,
-                converter_cli_args: str = "", converter_bin: str = ""):
+                converter_cli_args: str = "", converter_bin: str = "") -> bytes:
     """ Convert the texture file provided by `infile` to `outfile` using the an external converter. By default, this
     will attempt to use `texconv`. If that fails, or isn't available, then it'll attempt to use `compressonatorcli`.
     Setting `converter` explicitly will disable this behavior and only attempt the chosen `converter`.

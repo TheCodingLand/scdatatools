@@ -52,7 +52,7 @@ class DataCoreBinary:
             if not filename_or_data.is_file():
                 raise ValueError(f'Expected bytes or filename, not: {filename_or_data}')
             with filename_or_data.open('rb') as f:
-                self.raw_data = f.read()
+                self.raw_data = bytearray(f.read())
         self.raw_data = memoryview(self.raw_data)
 
         # used to track position while reading the header
@@ -225,19 +225,45 @@ class DataCoreBinary:
     def dump_record_json(self, record, indent=2, *args, **kwargs):
         return json.dumps(self.record_to_dict(record, *args, **kwargs), indent=indent, default=str, sort_keys=True)
 
-    def search_filename(self, file_filter, ignore_case=True):
-        """ Search the dco by filename """
+    def search_filename(self, file_filter, ignore_case=True, mode='fnmatch') -> typing.List[dftypes.Record]:
+        """
+        Search the datacore for objects by filename.
+
+        :param file_filter:
+        :param ignore_case:
+        :param mode: Method of performing a match. Valid values are:
+            `fnmatch`:   Compiles `file_filters` into a regular expression - `re.match(filename)`
+            `startswith`:  Uses the string `startswith` function - if any(filename.startswith(_) for _ in file_filters)
+            `endswith`:  Uses the string `startswith` function - if any(filename.endswith(_) for _ in file_filters)
+            `in`:   Performs and `in` check - filename in file_filters
+        :return: List of :class:`Record` objects that matched the filter
+        """
         file_filter = "/".join(
             file_filter.split("\\")
         )  # normalize path slashes from windows to posix
         if ignore_case:
             file_filter = file_filter.lower()
-            return [
-                _
-                for _ in self.records
-                if fnmatch.fnmatch(_.filename.lower(), file_filter)
-            ]
-        return [_ for _ in self.records if fnmatch.fnmatchcase(_.filename, file_filter)]
+
+        if mode == 'fnmatch':
+            if ignore_case:
+                return [_ for _ in self.records if fnmatch.fnmatch(_.filename.lower(), file_filter)]
+            return [_ for _ in self.records if fnmatch.fnmatchcase(_.filename, file_filter)]
+        elif mode == 'startswith':
+            if ignore_case:
+                return [_ for _ in self.records if _.filename.lower().startswith(file_filter)]
+            else:
+                return [_ for _ in self.records if _.filename.startswith(file_filter)]
+        elif mode == 'endswith':
+            if ignore_case:
+                return [_ for _ in self.records if _.filename.lower().endswith(file_filter)]
+            else:
+                return [_ for _ in self.records if _.filename.endswith(file_filter)]
+        elif mode == 'in':
+            if ignore_case:
+                return [_ for _ in self.records if file_filter in _.filename.lower()]
+            else:
+                return [_ for _ in self.records if file_filter in _.filename]
+        raise AttributeError(f'Invalid search mode: {mode}')
 
     # @property
     # def records_by_path(self):

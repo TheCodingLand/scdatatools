@@ -254,14 +254,15 @@ def is_cryxmlb_file(source):
         return source.startswith(CRYXMLB_SIGNATURE)
 
     loc = source.tell()
-    source.seek(0, 2)
-    if source.tell() < sizeof(CryXMLBHeader):
-        return False
+    try:
+        # seeking to the very end causes problems with zip file entries
+        if source.seek(-1, 2) < sizeof(CryXMLBHeader):
+            return False
 
-    source.seek(0)
-    header = CryXMLBHeader.from_buffer(source, 0)
-    source.seek(loc)
-    return header.signature == CRYXMLB_SIGNATURE
+        source.seek(0)
+        return source.read(len(CRYXMLB_SIGNATURE)) == CRYXMLB_SIGNATURE
+    finally:
+        source.seek(loc)
 
 
 def etree_from_cryxml_file(source) -> ElementTree:

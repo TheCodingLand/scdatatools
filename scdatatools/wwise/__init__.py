@@ -33,6 +33,7 @@ class WwiseManager:
         self.preloads = {}
         self.triggers = {}
         self.external_sources = {}
+        self._loaded_game_files = set()
 
         self.ww2ogg = ww2ogg if ww2ogg is not None else shutil.which('ww2ogg.exe')
         if self.ww2ogg is not None:
@@ -41,14 +42,23 @@ class WwiseManager:
         if self.revorb is not None:
             self.revorb = Path(self.revorb)
 
+    def load_all_game_files(self):
+        for p4kfile in self.sc.p4k.search(GAME_AUDIO_P4K_SEARCH):
+            self.load_game_audio_file(self.sc.p4k.open(p4kfile))
+
     def load_game_audio_file(self, game_audio_file: typing.IO):
         game_audio_file.seek(0)
         raw = game_audio_file.read()
+
+        if game_audio_file.name in self._loaded_game_files:
+            return
+
         if is_cryxmlb_file(raw):
             try:
                 ga = dict_from_cryxml_string(raw)
             except Exception as e:
                 logging.exception(f'Exception processing GameAudio file: {game_audio_file.name}', exc_info=e)
+                return
 
             ga_name = Path(game_audio_file.name).stem
             self.preloads[ga_name] = {'triggers': {}, 'external_sources': {}}
@@ -75,9 +85,11 @@ class WwiseManager:
                     self.preloads[ga_name]['external_sources'][atl_name] = ext_source
                     self.external_sources[atl_name] = ext_source
 
+            self._loaded_game_files.add(game_audio_file.name)
+
     def wems_for_atl_name(self, atl_name: str) -> typing.Dict[str, P4KInfo]:
         if not atl_name:
-            return []
+            return {}
         if atl_name in self.external_sources:
             wf = self.external_sources[atl_name]['ATLExternalSourceEntry']['WwiseExternalSource']['@wwise_filename']
             wf_name = Path(wf).stem

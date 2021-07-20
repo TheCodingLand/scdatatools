@@ -313,11 +313,11 @@ class StructureInstance:
 
     @cached_property
     def properties(self):
-        props = AttrDict()
+        props = {}
         offset = 0
         for prop_def in self.structure_definition.properties:
             props[prop_def.name], offset = self.read_property(offset, prop_def)
-        return props
+        return AttrDict(sorted(props.items(), key=lambda _: str.casefold(_[0])))
 
     def __repr__(self):
         return f'<StructInstance {self.name} props:{self.structure_definition.property_count}>'

@@ -54,6 +54,7 @@ class ChCr:
             except Exception as e:
                 sys.stderr.write(f'\nError processing chunk {repr(h)}: {repr(e)}\n')
                 self.chunks[h.id] = chunks.Chunk(h, self.raw_data)
+                # raise
 
     @property
     def version(self):

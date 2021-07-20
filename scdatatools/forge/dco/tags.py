@@ -4,8 +4,8 @@ from .common import DataCoreObject, register_record_handler
 
 @register_record_handler('Tag')
 class Tag(DataCoreObject):
-    def __init__(self, sc, tag_guid):
-        super().__init__(sc, tag_guid)
+    def __init__(self, datacore, tag_guid):
+        super().__init__(datacore, tag_guid)
         assert self.record.type == 'Tag'
 
     @property
@@ -18,4 +18,4 @@ class Tag(DataCoreObject):
 
     @property
     def children(self):
-        return [Tag(self._sc, t.name) for t in self.record.properties['children']]
+        return [Tag(self._datacore, t.name) for t in self.record.properties['children']]

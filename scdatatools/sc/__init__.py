@@ -14,6 +14,7 @@ from scdatatools.wwise import WwiseManager
 
 from .config import Profile
 from .localization import SCLocalization
+from .utils import extract_ship
 
 # Files that we will NOT skip the hash for when generating inventory with skip_data_hash
 P4K_ALWAYS_HASH_DATA_FILES = ['.cfg', '.crt', '.dpl', '.eco', '.id', '.ini', '.xml', '.pak', '.socpak', '.entxml']
@@ -69,6 +70,13 @@ class StarCitizen:
     def is_loaded(self):
         return self._is_loaded
 
+    def load_all(self):
+        """ Ensure the p4k, datacore, localization and wwise manager are loaded """
+        assert(self.p4k is not None)
+        assert(self.datacore is not None)
+        assert(self.localization is not None)
+        assert(self.wwise is not None)
+
     def generate_inventory(self, p4k_filters=[], skip_local=False, skip_p4k=False, skip_data_hash=False):
         inv = {}
         p4k_path = Path('Data.p4k')
@@ -121,6 +129,11 @@ class StarCitizen:
             else:
                 inv[path] = (get_size(data), xxhash32(data))
         return inv
+
+    def extract_ship(self, ship_guid_or_path, outdir, remove_outdir=False, monitor=print):
+        """ Extracts a Ship defined in the Datacore. """
+        return extract_ship(self, ship_guid_or_path=ship_guid_or_path, outdir=outdir,
+                            remove_outdir=remove_outdir, monitor=monitor)
 
     @property
     def localization(self):

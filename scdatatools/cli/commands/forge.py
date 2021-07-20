@@ -10,18 +10,18 @@ from scdatatools import forge
 from scdatatools import p4k
 
 
-def _dump_record(dcb, record, output, xml=False, quiet=False):
+def _dump_record(dcb, record, output, guid, guid_if_exists, xml, quiet):
     if output == '-':
         if xml:
             sys.stdout.write(dcb.dump_record_xml(record))
         else:
             sys.stdout.write(dcb.dump_record_json(record))
     else:
-        if not output.suffix:
+        if output.is_dir():
             output = output / Path(record.filename)
         output.parent.mkdir(parents=True, exist_ok=True)
         suffix = '.xml' if xml else '.json'
-        if output.is_file():
+        if guid or (guid_if_exists and output.is_file()):
             output = output.parent / f'{output.stem}.{record.id.value}{suffix}'
         else:
             output = output.parent / f'{output.stem}{suffix}'
@@ -40,6 +40,11 @@ def _dump_record(dcb, record, output, xml=False, quiet=False):
 @command(help="Convert a DataForge file to a readable format", exclusive_arguments=('xml', 'json'))
 @argument("forge_file", description="DataForge (.dcb) file to extract data from. (or Data.p4k)", positional=True)
 @argument("single", description="Extract first matching file only", aliases=["-1"])
+@argument("guid", aliases=["-g"],
+          description="Include the GUID in the filename (avoids overwriting from records with the same 'filename') "
+                      "(Default: False)")
+@argument("guid_if_exists", aliases=["-G"],
+          description="Include the GUID in the filename only if the output file already exists. (Default: True)")
 @argument("xml", aliases=["-x"], description="Convert to XML (Default)")
 @argument("json", aliases=["-j"], description="Convert to JSON")
 @argument(
@@ -62,6 +67,8 @@ def unforge(
         forge_file: typing.Text,
         file_filter: typing.Text = "*",
         output: typing.Text = ".",
+        guid: bool = False,
+        guid_if_exists: bool = True,
         xml: bool = True,
         json: bool = False,
         single: bool = False,
@@ -100,10 +107,9 @@ def unforge(
             sys.exit(2)
         record = records[0]
 
-        print(f"Extracting {record.filename}")
-        _dump_record(dcb, record, output, not json, quiet=quiet)
+        _dump_record(dcb, record, output, guid, guid_if_exists, not json, quiet=quiet)
     else:
         print(f"Extracting files into {output} with filter '{file_filter}'")
         print("=" * 120)
         for record in dcb.search_filename(file_filter):
-            _dump_record(dcb, record, output, not json, quiet=quiet)
+            _dump_record(dcb, record, output, guid, guid_if_exists, not json, quiet=quiet)

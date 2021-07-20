@@ -16,6 +16,7 @@ BRUTE_FORCE_TYPES = [
     hirc_defs.HIRCObjectTypes.blend_container,
     hirc_defs.HIRCObjectTypes.switch,
     hirc_defs.HIRCObjectTypes.music_switch_container,
+    hirc_defs.HIRCObjectTypes.music_playlist_container,
     hirc_defs.HIRCObjectTypes.dialogue_event,
     hirc_defs.HIRCObjectTypes.music_segment,
     hirc_defs.HIRCObjectTypes.music_track,
@@ -129,8 +130,6 @@ class BankManager:
                                  f'{obj_dict["bank"].filename}: {e}')
             return wems
         elif obj.type in BRUTE_FORCE_TYPES:
-            # logger.warning(f'find_wems_from_hirc - Unhandled object type in {obj_dict["bank"].filename}: '
-            #                f'{obj.type.name}.{obj.id} ({obj.type})')
             found_ids = [
                 _ for _ in self.search_for_ids_in_buf(obj_dict['bank'].raw_data[obj.offset:obj.offset+obj.length])
                 if _['object'].id != obj.id
@@ -140,6 +139,9 @@ class BankManager:
             for oid in found_ids:
                 wems.extend(self._find_wems_from_hirc_object(oid, _searched=_searched + [obj.id]))
             return wems
+        else:
+            logger.warning(f'find_wems_from_hirc - Unhandled object type in {obj_dict["bank"].filename}: '
+                           f'{obj.type.name}.{obj.id} ({obj.type})')
         return []
 
     def wems_for_event(self, event_id: int) -> list:

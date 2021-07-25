@@ -9,6 +9,10 @@ from pathlib import Path
 from collections import defaultdict
 from xml.etree import ElementTree
 
+from pyquaternion import Quaternion
+
+from scdatatools.cry.model.utils import quaternion_to_dict
+
 
 def xxhash32_file(file_or_path):
     if hasattr(file_or_path, 'read'):
@@ -223,7 +227,7 @@ class StructureWithEnums:
         for field in self._fields_:
             attr, attrType = field
             if attr in self._map:
-                attrType = repr(self._map[attr]) if len(self._map[attr]) > 1 else self._map[attr][0].__name__
+                attrType = repr(self._map[attr]) if len(self._map[attr]) > 1 else self._map[attr].__name__
             else:
                 attrType = attrType.__name__
             value = getattr(self, attr)
@@ -250,3 +254,38 @@ class NamedBytesIO(io.BytesIO):
     @property
     def name(self):
         return self._name
+
+
+class SCJSONEncoder(json.JSONEncoder):
+    """ A :class:`JSONEncoder` which will handle _any_ element by eventually failing back to `str`. It will also:
+
+     - Respect classes that have a `to_dict`, `to_json`, `dict` or `json` method.
+     - Handle Quaternions with :func:`quaternion_to_dict`
+     - Convert `set`s to `list`s
+     - Path's use `as_posix`
+    """
+    def default(self, obj):
+        if hasattr(obj, 'dict'):
+            return obj.dict()
+        elif hasattr(obj, 'to_dict'):
+            return obj.to_dict()
+        elif hasattr(obj, 'to_json'):
+            r = obj.to_json()
+            if isinstance(r, str):
+                return json.loads(r)
+            return r
+        elif hasattr(obj, 'json'):
+            r = obj.json()
+            if isinstance(r, str):
+                return json.loads(r)
+            return r
+        elif isinstance(obj, Quaternion):
+            return quaternion_to_dict(obj)
+        elif isinstance(obj, set):
+            return list(obj)
+        elif isinstance(obj, Path):
+            return obj.as_posix()
+        try:
+            return super().default(obj)
+        except TypeError:
+            return str(obj)

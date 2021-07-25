@@ -1,12 +1,18 @@
+import sys
 import json
+import math
 import ctypes
 import struct
 import logging
-import sys
 from io import BytesIO
+
+import hexdump
+import numpy as np
+from pyquaternion import Quaternion
 
 from scdatatools.utils import StructureWithEnums
 from scdatatools.cry.cryxml import etree_from_cryxml_file, dict_from_cryxml_file
+from scdatatools.cry.model.utils import Vector3D
 
 from . import defs
 
@@ -48,14 +54,14 @@ class Chunk:
         try:
             if length is None:
                 length = len(self.data) - self._offset
-            return self.data[self._offset:self._offset+length]
+            return self.data[self._offset:self._offset + length]
         finally:
             self._offset = min(self._offset + length, len(self.data))
 
     def peek(self, length=None):
         if length is None:
             length = len(self.data) - self._offset
-        return self.data[self._offset:self._offset+length]
+        return self.data[self._offset:self._offset + length]
 
     def tell(self):
         return self._offset
@@ -91,6 +97,10 @@ class Chunk900(Chunk):
 
     def __repr__(self):
         return f'<Chunk900 type:{repr(self.header.type)} size:{self.size} offset:{self.header.offset}>'
+
+    @property
+    def id(self):
+        return ''
 
     @classmethod
     def from_buffer(cls, header, data):
@@ -177,22 +187,8 @@ class AreaShapeObject(Chunk):
         #    https://github.com/dymek91/Exporting-Toolkit/blob/master/shipsExporter/CryEngine/ChCr/SCOC/AreaShapes.cs
 
 
-class IncludedObjectType1(ctypes.LittleEndianStructure):
+class IncludedObjectType(ctypes.LittleEndianStructure):
     _pack_ = 1
-    _fields_ = [
-        ('object_type', ctypes.c_uint32),
-        ('vector1', ctypes.c_double * 3),
-        ('vector2', ctypes.c_double * 3),
-        ('unknown1', ctypes.c_uint64),
-        ('id', ctypes.c_uint16),
-        ('temp1', ctypes.c_uint16),
-        ('rotMatrix', ctypes.c_double * 12),
-        ('unknown2', ctypes.c_uint32 * 5),
-        ('flags', ctypes.c_uint32),
-    ]
-
-    def size(self):
-        return ctypes.sizeof(self) + (8 if self.flags == 0x00ff0000 else 0)
 
     @property
     def filename(self):
@@ -205,15 +201,70 @@ class IncludedObjectType1(ctypes.LittleEndianStructure):
         obj.io_chunk = io_chunk
         return obj
 
+
+class IncludedObjectType0(IncludedObjectType):
+    _pack_ = 1
+    _fields_ = [('object_type', ctypes.c_uint32), ('unknown', ctypes.c_uint32)]
+
+    @property
+    def filename(self):
+        return ''
+
     def __str__(self):
-        return f"""{self.filename} [{self.id}]:\n{super().__str__()}"""
+        return ''
+
+
+class IncludedObjectType1(IncludedObjectType):
+    _pack_ = 1
+    _fields_ = [
+        ('object_type', ctypes.c_uint32),
+        ('raw_vector1', ctypes.c_double * 3),
+        ('raw_vector2', ctypes.c_double * 3),
+        ('unknown1', ctypes.c_uint64),
+        ('id', ctypes.c_uint16),
+        ('temp1', ctypes.c_uint16),
+        ('raw_rotMatrix', ctypes.c_double * 12),
+        ('unknown', ctypes.c_uint32 * 4),
+    ]
+
+    @classmethod
+    def from_buffer(cls, source, offset, io_chunk):
+        obj = type(cls).from_buffer(cls, source, offset)
+        obj.source_offset = offset
+        obj.io_chunk = io_chunk
+        obj.vector1 = np.array(obj.raw_vector1)
+        obj.vector2 = np.array(obj.raw_vector2)
+        obj.rotMatrix = np.array(obj.raw_rotMatrix).reshape((3, 4))
+        return obj
+
+    @property
+    def pos(self) -> dict:
+        return Vector3D(*self.rotMatrix[:, 3])
+
+    @property
+    def scale(self) -> dict:
+        return Vector3D(*[
+            np.sqrt(np.dot(self.rotMatrix[:, 0], self.rotMatrix[:, 0])),
+            np.sqrt(np.dot(self.rotMatrix[:, 1], self.rotMatrix[:, 1])),
+            np.sqrt(np.dot(self.rotMatrix[:, 2], self.rotMatrix[:, 2]))
+        ])
+
+    @property
+    def rotation(self):
+        return Quaternion(matrix=self.rotMatrix[:, :3])
+
+    def __str__(self):
+        s = f"""[{self.id}] {self.filename}:\n\t\t"""
+        s += '\n\t\t'.join(f'{a}: {getattr(self, a)}' for a in ['pos', 'scale', 'rotation'])
+        return s
 
     def __repr__(self):
         return f'<{self.__class__.__name__} id:{self.id}>'
 
 
 INCLUDED_OBJECT_TYPES = {
-    0x0001: IncludedObjectType1
+    0x0000: IncludedObjectType0,
+    0x0001: IncludedObjectType1,
     # TODO: other ICOs
     #   0x07?
     #   0x10?
@@ -249,25 +300,44 @@ class IncludedObjects(Chunk):
         self.read(28)  # skip 7 unknown uint32
         len_objects = struct.unpack('<I', self.read(4))[0]
 
+        _last_known = 0
         while len_objects > 0:
             obj_type = struct.unpack('<I', self.peek(4))[0]
             obj_class = INCLUDED_OBJECT_TYPES.get(obj_type)
 
             if obj_class is None:
-                logger.error(f'Unknown IncludedGeometry Object Type: 0x{obj_type:x} offset: {self.tell()}')
-                break
-
-            self.objects.append(obj_class.from_buffer(self.data, self.tell(), self))
-            obj_size = self.objects[-1].size()
-            self.seek(obj_size)
-            len_objects -= obj_size
-        assert(len_objects == 0)
+                # TODO: This is brute force-y and hack-y and i dont like it. but there seems to be a ton of variation in
+                #  the data found between chunks that i havent quite been able to pin down. it _seems_ to be safe to
+                #  work this way though
+                if _last_known == 0:
+                    _last_known = self.tell()
+                # skip a uint32
+                self.seek(4)
+                len_objects -= 4
+            else:
+                if _last_known > 0:
+                    logger.warning(f'SOC IncludedObject: Skipped block of {self.tell() - _last_known} bytes starting '
+                                   f'at 0x{_last_known:x} - {hexdump.dump(self.data[_last_known:_last_known+4])}')
+                    _last_known = 0
+                self.objects.append(obj_class.from_buffer(self.data, self.tell(), self))
+                obj_size = ctypes.sizeof(self.objects[-1])
+                self.seek(obj_size)
+                len_objects -= obj_size
+        if _last_known > 0:
+            logger.debug(f'SOC IncludedObject: Skipped block of {self.tell() - _last_known} bytes starting at '
+                         f'0x{_last_known:x}')
+        assert (len_objects == 0)
 
     def __str__(self):
         cgfs = '\n    '.join(self.cgfs)
         materials = '\n    '.join(self.materials)
         tints = '\n    '.join(self.tint_palettes)
-        objects = '\n    '.join(self.objects)
+        objects = ''
+        for object in self.objects:
+            try:
+                objects += f'\n    {str(object)}'
+            except Exception as e:
+                objects += f'\n    {repr(object)} ({repr(e)})'
         return \
             f"""Geometry:
     {cgfs}
@@ -283,7 +353,7 @@ Objects:
 """
 
     def __repr__(self):
-        return f'<IncludedGeometry cgfs:{len(self.cgfs)} mtls:{len(self.materials)} tints:{len(self.tint_palettes)}>'
+        return f'<IncludedObjects cgfs:{len(self.cgfs)} mtls:{len(self.materials)} tints:{len(self.tint_palettes)}>'
 
 
 IVO_CHUNK_FOR_TYPE = {

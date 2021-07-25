@@ -749,8 +749,6 @@ class ImportSCPrefab(Operator, ImportHelper):
     )
 
     def execute(self, context):
-        import pydevd_pycharm
-        pydevd_pycharm.settrace('localhost', port=59511, stdoutToServer=True, stderrToServer=True)
         if 'FINISHED' in preimport_prefab(context, self.filepath):
             if 'FINISHED' in import_cleanup(context):
                 return import_prefab(context, self.filepath)

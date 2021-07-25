@@ -16,6 +16,8 @@ requirements = [
     "pycryptodome~=3.9.0",
     "zstandard~=0.12.0",
     "python-nubia==0.2b2",
+    "hexdump",
+    "pyquaternion",
     "fnvhash",
     "xxhash",
     "tqdm",

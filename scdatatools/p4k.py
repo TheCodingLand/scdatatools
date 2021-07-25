@@ -17,7 +17,7 @@ from scdatatools.cry.cryxml import etree_from_cryxml_file, pprint_xml_tree, dict
 ZIP_ZSTD = 100
 p4kFileHeader = b"PK\x03\x14"
 DEFAULT_P4K_KEY = b"\x5E\x7A\x20\x02\x30\x2E\xEB\x1A\x3B\xB6\x17\xC3\x0F\xDE\x1E\x47"
-CRYXMLB_FORMATS = ['xml', 'mtl', 'chrparams', 'entxml', 'rmp', 'animevents']
+CRYXMLB_FORMATS = ['xml', 'mtl', 'chrparams', 'entxml', 'rmp', 'animevents', 'adb']
 DEFAULT_CRYXML_CONVERT_FMT = 'xml'
 
 compressor_names = zipfile.compressor_names

@@ -1,20 +1,25 @@
 import json
 import shutil
-import subprocess
 import typing
-import enum
 import logging
+import subprocess
 from pathlib import Path
+from itertools import chain
 from xml.etree import ElementTree
 
-from scdatatools.cry.model import chunks as ChCrChunks
-from scdatatools.cry.model.chcr import ChCr
+from pyquaternion import Quaternion
+
 from scdatatools.cry.model.ivo import Ivo
-from scdatatools.forge.dco import dco_from_guid, DataCoreObject
+from scdatatools.cry.model.chcr import ChCr
+from scdatatools.utils import SCJSONEncoder
 from scdatatools.forge.dftypes import Record
-from scdatatools.cry.cryxml import dict_from_cryxml_file, dict_from_cryxml_string, CryXmlConversionFormat
-from scdatatools.utils import etree_to_dict, norm_path, dict_search
+from scdatatools.cry.model import chunks as ChCrChunks
+from scdatatools.forge.dco import dco_from_guid, DataCoreObject
 from scdatatools.sc.textures import unsplit_dds, convert_buffer
+from scdatatools.utils import etree_to_dict, norm_path, dict_search
+from scdatatools.cry.model.utils import Vector3D, quaternion_to_dict
+from scdatatools.cry.cryxml import dict_from_cryxml_file, dict_from_cryxml_string, CryXmlConversionFormat
+
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +47,38 @@ RECORD_KEYS_WITH_AUDIO = [
 ]
 
 
+class Geometry(dict):
+    def __init__(self, name, geom_file, pos=None, rotation=None, scale=None, materials=None, attrs=None, parent=None):
+        super().__init__()
+        self['name'] = name
+        self['geom_file'] = geom_file
+        self['instances'] = {}
+        self['materials'] = set() if materials is None else set(materials)
+        if pos:
+            self.add_instance('', pos, rotation, scale)
+        self['attrs'] = attrs or {}
+        self.parent = parent
+
+    def add_instance(self, name, pos, rotation=None, scale=None, materials=None, attrs=None):
+        if not name:
+            name = str(len(self['instances']))
+        if materials:
+            self['materials'].update(materials)
+        self['instances'][name] = {
+            'pos': pos,
+            'rotation': quaternion_to_dict(rotation or Quaternion(x=0, y=0, z=0, w=1)),
+            'scale': scale or Vector3D(1, 1, 1),
+            'materials': materials or [],
+            'attrs': attrs or {}
+        }
+
+    def add_sub_geometry(self, name, *args, **kwargs):
+        self['sub_geometry'][name] = Geometry(name, parent=self, *args, **kwargs)
+
+    def __hash__(self):
+        return hash(tuple(self))
+
+
 # TODO: This is _very_ much a hacked together proof-of-concept/experiment. Once all of the individual components have
 #   been identified, some thought needs to go into how to make this more maintainable, and possibly more performant.
 #   Thoughts should also go into how to extract other entities (weapons, armor, buildings, etc.)
@@ -56,6 +93,9 @@ class EntityExtractor:
             'records_to_process': set(),
             'item_ports': {},
             'exclude': set(),
+            'geometry': {},
+            'found_geometry': {},
+            'record_geometry': {},
         }
 
     def __init__(self, sc, entity: typing.Union[DataCoreObject, Record]):
@@ -141,7 +181,7 @@ class EntityExtractor:
             self.log(f'+ record: {Path(record.filename).relative_to(RECORDS_BASE_PATH).as_posix()}')
             self._cache['found_records'].add(record.guid)
             self._cache['records_to_process'].add(record)
-            outrec = self.outdir / 'Data' / 'Game.dcb' / record.filename.replace('.xml', f'.{self.convert_cryxml_fmt}')
+            outrec = self.outdir / 'Data' / record.filename.replace('.xml', f'.{self.convert_cryxml_fmt}')
             outrec.parent.mkdir(exist_ok=True, parents=True)
             with outrec.open('w') as out:
                 if self.convert_cryxml_fmt == 'xml':
@@ -153,30 +193,43 @@ class EntityExtractor:
         if trigger_name in self.sc.wwise.triggers:
             self._cache['audio_to_extract'].add(trigger_name)
 
-    def _handle_ext_geom(self, obj):
-        if 'Geometry' in obj.properties:
-            self._handle_ext_geom(obj.properties['Geometry'])
-        if 'SubGeometry' in obj.properties:
-            for sg in obj.properties.get('SubGeometry', []):
-                self._handle_ext_geom(sg)
-        if 'Material' in obj.properties:
-            self._handle_ext_geom(obj.properties['Material'])
-
-        if 'path' in obj.properties:
-            self._add_file_to_extract(obj.properties['path'])
-        if 'Palette' in obj.properties:
+    def _handle_ext_geom(self, rec, obj):
+        if obj.name == 'SGeometryDataParams':
+            mtl = obj.properties['Material'].properties['path']
+            self._add_file_to_extract(mtl)
+            p = None
+            tints_dir = self.outdir / 'tint_palettes' / self.entity.name
             try:
                 tint_id = str(obj.properties['Palette'].properties['RootRecord'])
                 if tint_id != '00000000-0000-0000-0000-000000000000':
                     p = self.sc.datacore.records_by_guid[tint_id]
-                    tints_dir = self.outdir / 'tint_palettes' / self.entity.name
                     with (tints_dir / f'{p.name}.json').open('w') as f:
                         f.write(self.sc.datacore.dump_record_json(p))
                     self._add_file_to_extract(p.properties['root'].properties['decalTexture'])
             except Exception as e:
                 self.log(f'could not dump tint: {e}', logging.WARNING)
 
-    def _handle_component_loadouts(self, obj):
+            geom_name = Path(obj.properties['Geometry'].properties['path']).as_posix().lower()
+            if geom_name not in self._cache['found_geometry']:
+                self._cache['found_geometry'][geom_name] = Geometry(
+                    name=Path(obj.properties['Geometry'].properties['path']).as_posix(),
+                    geom_file=Path(obj.properties['Geometry'].properties['path']), materials=[mtl],
+                    attrs={'palette': (tints_dir / f'{p.name}.json').as_posix()} if p is not None else {},
+                    pos=Vector3D() if rec.guid == self.entity.guid else None
+                )
+            self._cache['record_geometry'].setdefault(rec.guid, set()).add(geom_name)
+
+        if 'Geometry' in obj.properties:
+            self._handle_ext_geom(rec, obj.properties['Geometry'])
+        if 'SubGeometry' in obj.properties:
+            for sg in obj.properties.get('SubGeometry', []):
+                self._handle_ext_geom(rec, sg)
+        if 'Material' in obj.properties:
+            self._handle_ext_geom(rec, obj.properties['Material'])
+        if 'path' in obj.properties:
+            self._add_file_to_extract(obj.properties['path'])
+
+    def _handle_component_loadouts(self, rec, obj):
         try:
             for entry in obj.properties['loadout'].properties.get('entries', []):
                 try:
@@ -185,13 +238,97 @@ class EntityExtractor:
                         self._cache['item_ports'].setdefault(entry.properties['itemPortName'], set()).add(ipe)
                         self._add_record_to_extract(ipe)
                     if entry.properties['loadout']:
-                        self._handle_component_loadouts(entry)
+                        self._handle_component_loadouts(rec, entry)
                 except Exception as e:
                     self.log(f'processing component SEntityComponentDefaultLoadoutParams: {repr(e)}', logging.ERROR)
         except Exception as e:
             self.log(f'processing component SEntityComponentDefaultLoadoutParams: {obj} {repr(e)}', logging.ERROR)
 
-    def _handle_vehicle_components(self, vc):
+    def _handle_soc(self, soc):
+        for chunk in soc.chunks.values():
+            if isinstance(chunk, ChCrChunks.IncludedObjects):
+                for fn in chunk.filenames:
+                    self._add_file_to_extract(fn)
+                materials = chunk.materials
+                for obj in chunk.objects:
+                    if isinstance(obj, ChCrChunks.IncludedObjectType1):
+                        geom_name = Path(obj.filename).as_posix().lower()
+                        if geom_name not in self._cache['found_geometry']:
+                            self._cache['found_geometry'][geom_name] = Geometry(
+                                name=Path(obj.filename).as_posix(), geom_file=Path(obj.filename)
+                            )
+                        self._cache['found_geometry'][geom_name].add_instance('', obj.pos, obj.rotation,
+                                                                              obj.scale, materials)
+            if isinstance(chunk, ChCrChunks.CryXMLBChunk):
+                # TODO: read cryxmlb chunk, it seems to be all related to lighting/audio?
+                d = chunk.dict()
+                # Root can be Entities or SCOC_Entities
+                for entity in d.get('Entities', d.get('SCOC_Entities', {})).get('Entity'):
+                    if 'EntityGeometryResource' in entity.get('PropertiesDataCore', {}):
+                        geom_file = Path(entity['PropertiesDataCore']['EntityGeometryResource']['Geometry']['Geometry']['Geometry']['@path'])
+                        geom_name = geom_file.as_posix().lower()
+                        if geom_name not in self._cache['found_geometry']:
+                            self._cache['found_geometry'][geom_name] = Geometry(
+                                name=Path(geom_file).as_posix(), geom_file=geom_file
+                            )
+                        x, y, z, w = (float(_) for _ in entity.get('@Rotate', '0,0,0,1').split(','))
+                        self._cache['found_geometry'][geom_name].add_instance(
+                            name=entity['@Name'],
+                            pos=Vector3D(*(float(_) for _ in entity['@Pos'].split(','))),
+                            rotation=Quaternion(x=x, y=y, z=z, w=w),
+                            materials=[entity.get("@Material", '')],
+                            attrs={
+                                'layer': entity['@Layer']
+                            }
+                        )
+                    # # region audio entities
+                    # if entity['@EntityClass'] == 'AudioTriggerSpot':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'AreaShape':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'AudioAreaAmbience':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'AudioAreaAmbience':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'AudioEnvironmentFeedbackPoint':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'VibrationAudioPoint':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'Room':
+                    #     pass  # TODO:
+                    # # endregion audio entities
+                    # # region lighting
+                    # elif entity['@EntityClass'] == 'EnvironmentLight':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'Light':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'LightBox':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'LightGroup':
+                    #     pass  # TODO:
+                    # # endregion lighting
+                    # # region geometry
+                    # elif entity['@EntityClass'] == 'GeomEntity':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'Door_Ship_Automatic':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'Door_Ship_Automatic_Advanced':
+                    #     pass  # TODO:
+                    # # endregion geometry
+                    # # region other
+                    # elif entity['@EntityClass'] == 'FogVolume':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'NavigationArea':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'AreaBox':
+                    #     pass  # TODO:
+                    # elif entity['@EntityClass'] == 'EntityComponentRoomConnector':
+                    #     pass  # TODO:
+                    # else:
+                    #     self.log(f'Unknown SOC CryXmlB EntityClass: {entity["@EntityClass"]}')
+                    # # endregion other
+
+    def _handle_vehicle_components(self, rec, vc):
         for prop in ['landingSystem']:
             if vc.properties.get(prop):
                 self._add_record_to_extract(vc.properties[prop])
@@ -208,13 +345,35 @@ class EntityExtractor:
                     # extract all files inside the socpak
                     archive = self.sc.p4k.NameToInfoLower[f'data/{p4k_path}'.lower()]
                     self._add_file_to_extract([_.filename for _ in archive.filelist])
+                    p4k_path = Path(p4k_path)
+                    soc_path = p4k_path.parent / p4k_path.stem / f'{p4k_path.stem}.soc'
+                    soc = self.sc.p4k.NameToInfoLower.get(f'data/{soc_path.as_posix()}')
+                    if soc is not None:
+                        soc = ChCr(soc.open().read())
+                        self._handle_soc(soc)
                 except Exception as e:
                     self.log(f'failed to process object container "{p4k_path}": {repr(e)}', logging.ERROR)
 
-    def _handle_audio_component(self, ac):
+    def _handle_audio_component(self, rec, ac):
         print("TODO: 'ShipAudioComponentParams'")
         print("TODO: 'AudioPassByComponentParams'")
         # TODO: dict search component for audioTrigger?
+
+    def _handle_landinggear(self, r):
+        for gear in r.record.properties['gears']:
+            self._handle_ext_geom(r, gear.properties['geometry'])
+            geom_name = Path(gear.properties['geometry'].properties['path']).as_posix().lower()
+            if geom_name in self._cache['found_geometry']:
+                geom = self._cache['found_geometry'][geom_name]
+            else:
+                geom = Geometry(
+                    name=gear.properties['bone'],
+                    geom_file=gear.properties['geometry'].properties['path'],
+                )
+                self._cache['found_geometry'][geom_name] = geom
+            self._cache['item_ports'].setdefault(gear.properties['bone'], set()).add(geom_name)
+            # geom.add_instance(gear.properties['bone'],
+            #                   pos=Vector3D(**gear.properties['spring'].properties['offset'].properties))
 
     def _search_record(self, r):
         """ This is a brute-force method of extracting related files from a datacore record. It does no additional
@@ -230,22 +389,22 @@ class EntityExtractor:
     def _process_record(self, r):
         if r.type == 'EntityClassDefinition':
             if 'SGeometryResourceParams' in r.components:
-                self._handle_ext_geom(r.components['SGeometryResourceParams'])
+                self._handle_ext_geom(r, r.components['SGeometryResourceParams'])
             if 'SEntityComponentDefaultLoadoutParams' in r.components:
-                self._handle_component_loadouts(r.components['SEntityComponentDefaultLoadoutParams'])
+                self._handle_component_loadouts(r, r.components['SEntityComponentDefaultLoadoutParams'])
             if 'VehicleComponentParams' in r.components:
-                self._handle_vehicle_components(r.components['VehicleComponentParams'])
+                self._handle_vehicle_components(r, r.components['VehicleComponentParams'])
             if 'ShipAudioComponentParams' in r.components:
-                self._handle_audio_component(r.components['ShipAudioComponentParams'])
+                self._handle_audio_component(r, r.components['ShipAudioComponentParams'])
             if 'AudioPassByComponentParams' in r.components:
-                self._handle_audio_component(r.components['AudioPassByComponentParams'])
+                self._handle_audio_component(r, r.components['AudioPassByComponentParams'])
 
             audio_comps = [
                 'EntityPhysicalAudioParams'
             ]
             for comp in audio_comps:
                 if 'comp' in r.components:
-                    self._search_record_audio(r.components[comp])
+                    self._search_record_audio(r, r.components[comp])
 
             additional_comps = [
                 'SAnimationControllerParams',
@@ -253,6 +412,8 @@ class EntityExtractor:
             for comp in additional_comps:
                 if 'comp' in r.components:
                     self._search_record(r.components[comp])
+        elif r.type == 'VehicleLandingGearSystem':
+            self._handle_landinggear(r)
         else:
             self.log(f'unhandled type: {r}', logging.WARNING)
 
@@ -310,6 +471,7 @@ class EntityExtractor:
                 self.log(f'unhandled p4k file: {path}', logging.WARNING)
         except Exception as e:
             self.log(f'processing {path}: {e}', logging.ERROR)
+            raise
 
     def log(self, msg, level=logging.INFO):
         if self.monitor is not None:
@@ -400,6 +562,23 @@ class EntityExtractor:
         ################################################################################################################
 
         ################################################################################################################
+        # region generate blueprint
+        with (self.outdir / f'{self.entity.name}_bp.json').open('w') as bpfile:
+            bp = {
+                'item_ports': {},
+                'geometry': self._cache['found_geometry'],
+            }
+            for port, ents in self._cache['item_ports'].items():
+                for ent in ents:
+                    if ent in self._cache['record_geometry']:
+                        bp['item_ports'].setdefault(port, set()).update(self._cache['record_geometry'][ent])
+                    elif ent in self._cache['found_geometry']:
+                        bp['item_ports'].setdefault(port, set()).add(ent)
+            json.dump(bp, bpfile, indent=2, cls=SCJSONEncoder)
+        # endregion generate blueprint
+        ################################################################################################################
+
+        ################################################################################################################
         # region write all files to disk
         try:
             self.log('\n\nExtracting files\n' + '-' * 80)
@@ -459,7 +638,7 @@ class EntityExtractor:
         ################################################################################################################
 
         ################################################################################################################
-        # region process models
+        # region convert models
         cgf_converter = cgf_converter or CGF_CONVERTER
         if auto_convert_textures and not cgf_converter:
             self.log(
@@ -478,7 +657,7 @@ class EntityExtractor:
                 except subprocess.CalledProcessError as e:
                     self.log(f'converting {model_file}: repr{e}', logging.ERROR)
 
-        # endregion process models
+        # endregion convert models
         ################################################################################################################
 
         self.log(f'finished extracting {self.entity.name}')

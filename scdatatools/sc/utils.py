@@ -82,6 +82,10 @@ class Geometry(dict):
 # TODO: This is _very_ much a hacked together proof-of-concept/experiment. Once all of the individual components have
 #   been identified, some thought needs to go into how to make this more maintainable, and possibly more performant.
 #   Thoughts should also go into how to extract other entities (weapons, armor, buildings, etc.)
+#
+# TODO: General to-dos,
+#   - properly handle `cdf` references (describes a model and attachments to that model with rigging
+#
 
 class EntityExtractor:
     def _reset(self):
@@ -244,7 +248,7 @@ class EntityExtractor:
         except Exception as e:
             self.log(f'processing component SEntityComponentDefaultLoadoutParams: {obj} {repr(e)}', logging.ERROR)
 
-    def _handle_soc(self, soc):
+    def _handle_soc(self, bone_name, soc):
         for chunk in soc.chunks.values():
             if isinstance(chunk, ChCrChunks.IncludedObjects):
                 for fn in chunk.filenames:
@@ -257,76 +261,35 @@ class EntityExtractor:
                             self._cache['found_geometry'][geom_name] = Geometry(
                                 name=Path(obj.filename).as_posix(), geom_file=Path(obj.filename)
                             )
-                        self._cache['found_geometry'][geom_name].add_instance('', obj.pos, obj.rotation,
-                                                                              obj.scale, materials)
+                        self._cache['found_geometry'][geom_name].add_instance('', pos=obj.pos, rotation=obj.rotation,
+                                                                              scale=obj.scale, materials=materials,
+                                                                              attrs={'bone_name': bone_name})
             if isinstance(chunk, ChCrChunks.CryXMLBChunk):
                 # TODO: read cryxmlb chunk, it seems to be all related to lighting/audio?
                 d = chunk.dict()
                 # Root can be Entities or SCOC_Entities
                 for entity in d.get('Entities', d.get('SCOC_Entities', {})).get('Entity'):
-                    if 'EntityGeometryResource' in entity.get('PropertiesDataCore', {}):
-                        geom_file = Path(entity['PropertiesDataCore']['EntityGeometryResource']['Geometry']['Geometry']['Geometry']['@path'])
-                        geom_name = geom_file.as_posix().lower()
-                        if geom_name not in self._cache['found_geometry']:
-                            self._cache['found_geometry'][geom_name] = Geometry(
-                                name=Path(geom_file).as_posix(), geom_file=geom_file
+                    try:
+                        if 'EntityGeometryResource' in entity.get('PropertiesDataCore', {}):
+                            geom_file = Path(entity['PropertiesDataCore']['EntityGeometryResource']['Geometry']['Geometry']['Geometry']['@path'])
+                            geom_name = geom_file.as_posix().lower()
+                            if geom_name not in self._cache['found_geometry']:
+                                self._cache['found_geometry'][geom_name] = Geometry(
+                                    name=Path(geom_file).as_posix(), geom_file=geom_file
+                                )
+                            x, y, z, w = (float(_) for _ in entity.get('@Rotate', '0,0,0,1').split(','))
+                            self._cache['found_geometry'][geom_name].add_instance(
+                                name=entity['@Name'],
+                                pos=Vector3D(*(float(_) for _ in entity['@Pos'].split(','))) if '@Pos' in entity else Vector3D(),
+                                rotation=Quaternion(x=x, y=y, z=z, w=w),
+                                materials=[entity.get("@Material", '')],
+                                attrs={
+                                    'bone_name': bone_name,
+                                    'layer': entity['@Layer']
+                                }
                             )
-                        x, y, z, w = (float(_) for _ in entity.get('@Rotate', '0,0,0,1').split(','))
-                        self._cache['found_geometry'][geom_name].add_instance(
-                            name=entity['@Name'],
-                            pos=Vector3D(*(float(_) for _ in entity['@Pos'].split(','))),
-                            rotation=Quaternion(x=x, y=y, z=z, w=w),
-                            materials=[entity.get("@Material", '')],
-                            attrs={
-                                'layer': entity['@Layer']
-                            }
-                        )
-                    # # region audio entities
-                    # if entity['@EntityClass'] == 'AudioTriggerSpot':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'AreaShape':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'AudioAreaAmbience':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'AudioAreaAmbience':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'AudioEnvironmentFeedbackPoint':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'VibrationAudioPoint':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'Room':
-                    #     pass  # TODO:
-                    # # endregion audio entities
-                    # # region lighting
-                    # elif entity['@EntityClass'] == 'EnvironmentLight':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'Light':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'LightBox':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'LightGroup':
-                    #     pass  # TODO:
-                    # # endregion lighting
-                    # # region geometry
-                    # elif entity['@EntityClass'] == 'GeomEntity':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'Door_Ship_Automatic':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'Door_Ship_Automatic_Advanced':
-                    #     pass  # TODO:
-                    # # endregion geometry
-                    # # region other
-                    # elif entity['@EntityClass'] == 'FogVolume':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'NavigationArea':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'AreaBox':
-                    #     pass  # TODO:
-                    # elif entity['@EntityClass'] == 'EntityComponentRoomConnector':
-                    #     pass  # TODO:
-                    # else:
-                    #     self.log(f'Unknown SOC CryXmlB EntityClass: {entity["@EntityClass"]}')
-                    # # endregion other
+                    except Exception as e:
+                        self.log(f'Failed to parse soc cryxmlb entity "{entity["@Name"]}": {repr(e)}')
 
     def _handle_vehicle_components(self, rec, vc):
         for prop in ['landingSystem']:
@@ -350,9 +313,10 @@ class EntityExtractor:
                     soc = self.sc.p4k.NameToInfoLower.get(f'data/{soc_path.as_posix()}')
                     if soc is not None:
                         soc = ChCr(soc.open().read())
-                        self._handle_soc(soc)
+                        self._handle_soc(oc.properties['boneName'], soc)
                 except Exception as e:
                     self.log(f'failed to process object container "{p4k_path}": {repr(e)}', logging.ERROR)
+                    raise
 
     def _handle_audio_component(self, rec, ac):
         print("TODO: 'ShipAudioComponentParams'")
@@ -363,17 +327,12 @@ class EntityExtractor:
         for gear in r.record.properties['gears']:
             self._handle_ext_geom(r, gear.properties['geometry'])
             geom_name = Path(gear.properties['geometry'].properties['path']).as_posix().lower()
-            if geom_name in self._cache['found_geometry']:
-                geom = self._cache['found_geometry'][geom_name]
-            else:
-                geom = Geometry(
-                    name=gear.properties['bone'],
+            if geom_name not in self._cache['found_geometry']:
+                self._cache['found_geometry'][geom_name] = Geometry(
+                    name=geom_name,
                     geom_file=gear.properties['geometry'].properties['path'],
                 )
-                self._cache['found_geometry'][geom_name] = geom
             self._cache['item_ports'].setdefault(gear.properties['bone'], set()).add(geom_name)
-            # geom.add_instance(gear.properties['bone'],
-            #                   pos=Vector3D(**gear.properties['spring'].properties['offset'].properties))
 
     def _search_record(self, r):
         """ This is a brute-force method of extracting related files from a datacore record. It does no additional
@@ -485,7 +444,8 @@ class EntityExtractor:
                 convert_cryxml_fmt: CryXmlConversionFormat = 'xml', skip_lods: bool = True,
                 auto_unsplit_textures: bool = True, auto_convert_textures: bool = False,
                 report_tex_conversion_errors: bool = False, extract_sounds: bool = True,
-                auto_convert_models: bool = False, ww2ogg: str = '', revorb: str = '', cgf_converter: str = '',
+                auto_convert_models: bool = False, auto_convert_sounds: bool = False,
+                ww2ogg: str = '', revorb: str = '', cgf_converter: str = '',
                 exclude: typing.List[str] = None, monitor: typing.Callable = None) -> typing.List[str]:
         """
         :param outdir: Output directory to extract data into
@@ -502,6 +462,7 @@ class EntityExtractor:
             the trigger name associated with the sound, and the wem_id of the sound file. There may be multiple sounds
             associated with each trigger name. (Default: True)
         :param auto_convert_models: If True, `cgf-converter` will be run on each extracted model file. (Default: False)
+        :param auto_convert_sounds: If True, `ww2ogg` and `revorb` will be run on each extracted wem. (Default: False)
         :param ww2ogg: Override which `ww2ogg` binary used for audio conversion. Will be auto-discovered by default.
         :param revorb: Override which `revorb` binary used for audio conversion. Will be auto-discovered by default.
         :param cgf_converter: Override which `cgf-converter` binary used for model conversion.
@@ -563,7 +524,7 @@ class EntityExtractor:
 
         ################################################################################################################
         # region generate blueprint
-        with (self.outdir / f'{self.entity.name}_bp.json').open('w') as bpfile:
+        with (self.outdir / f'{self.entity.name}.scbp').open('w') as bpfile:
             bp = {
                 'item_ports': {},
                 'geometry': self._cache['found_geometry'],

@@ -1,8 +1,25 @@
-import importlib
+import os
 from pathlib import Path
 
-from .utils import install_blender_addon
-from ..utils import available_blender_installations
+
+from .utils import install_blender_addon, reload_scdt_blender_modules
+
+
+try:
+    import bpy
+except ImportError:
+    # Not inside of blender, ignore the blender modules
+    modules = []
+else:
+    from . import preferences
+    from scdatatools.blender import blueprints, prefab, materials
+
+    modules = [
+        blueprints,
+        prefab,
+        materials
+    ]
+
 
 ADDON_TEMPLATE = """
 # SC DataTools Add-on
@@ -30,15 +47,31 @@ from scdatatools.blender.addon import *
 
 def install(version) -> Path:
     """ Installs the scdatatools add-on into the Blender version `version`. """
-    return install_blender_addon(version, 'scdt', ADDON_TEMPLATE)
+    return install_blender_addon(version, 'scdt_addon', ADDON_TEMPLATE)
 
 
 def register():
-    from scdatatools.blender import prefab
-    importlib.reload(prefab)
-    prefab.register()
+    if not modules:
+        return
+
+    if (pycharm_debug_port := int(os.environ.get('SCDV_PYCHARM_DEBUG', 0))) > 0:
+        import pydevd_pycharm
+        print(f'Connecting to pycharm debug on {pycharm_debug_port}')
+        pydevd_pycharm.settrace('localhost', port=pycharm_debug_port, stdoutToServer=True, stderrToServer=True)
+
+    reload_scdt_blender_modules()
+
+    for module in modules:
+        module.register()
+
+    preferences.register()
 
 
 def unregister():
-    from scdatatools.blender import prefab
-    prefab.unregister()
+    if not modules:
+        return
+
+    for module in modules:
+        module.unregister()
+
+    preferences.unregister()

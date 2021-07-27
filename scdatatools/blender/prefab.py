@@ -17,15 +17,12 @@ from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty
 from bpy.types import Operator
 
-# import_basedir = r'X:\\SC312\Data\\'
-import_basedir = r"I:/sc/full/Data/"
-# xmlPath = importBaseDir + 'Objects/Spaceships/Ships/ANVL/Pisces/anvl_pisces_ext_XL.mtl'
+from .utils import write_to_logfile, search_for_data_dir_in_path
+
 
 log_files = "Geometry"
 log_mats = "Materials"
 log_errors = "Errors"
-# xml_parent = './/*[@Prefab]'
-# xml_parent = './Prefab/Objects/Object/Components/Component/Properties'
 xml_parent = "./PrefabLibrary/Prefab/Objects/Object"
 xml_property = "Prefab"
 
@@ -33,15 +30,10 @@ xml_property = "Prefab"
 def preimport_prefab(
     context,
     xml_path,
-    # option_brushes=True,
-    # option_component=True,
-    # option_lights=True,
-    # option_spawn=False,
-    # option_preconvert=False,
+    data_dir,
     option_fixorphans=True,
     option_findmtls=True,
     option_import=True,
-    # option_findmats=True,
 ):
     file_list = []
     mat_list = []
@@ -61,46 +53,37 @@ def preimport_prefab(
 
     for element in xml_root.findall(".//*[@Prefab]"):
         filename = element.attrib["Prefab"]
-        path = import_basedir + filename.lower()
-        path = path.replace("\\", "/")
-        path = path.lower()
+        path = data_dir / filename.lower()
         if path not in file_list:
             file_list.append(path)
 
     for element in xml_root.findall(".//*[@Material]"):
         filename = element.attrib["Material"]
-        path = import_basedir + filename.lower() + ".mtl"
-        path = path.replace("\\", "/")
-        path = path.lower()
+        path = data_dir / (filename.lower() + ".mtl")
         if path not in mat_list:
             mat_list.append(path)
 
     if option_import:
         log_text = bpy.data.texts.get(log_errors) or bpy.data.texts.new(log_errors)
         for file in file_list:
-            dae_filename = file
-            dae_filename = dae_filename.replace(".cgf", ".dae")
-            dae_filename = dae_filename.replace(".cga", ".dae")
+            dae_filename = file.with_suffix('.dae')
             try:
-                bpy.ops.wm.collada_import(filepath=dae_filename)
+                bpy.ops.wm.collada_import(filepath=dae_filename.as_posix())
             except Exception as e:
-                # print("Import Error: " + file + "\n")
-                log_text.write("Import Failed: " + file + "\n")
+                log_text.write(f"Import Failed: {file }\n")
                 continue
             import_obj = context.selected_objects
             for obj in import_obj:
-                obj["Filename"] = dae_filename
+                obj["Filename"] = dae_filename.as_posix()
                 try:
                     bpy.data.collections[xml_path].objects.link(obj)
                 except:
                     pass
 
     if option_fixorphans:
-        for obj in context.scene.objects[:]:
+        for obj in context.scene.objects:
             if "Merged" in obj.name:
-                filename = obj["Filename"].rpartition("/")[2]
-                filename = filename.replace(".dae", "")
-                print(filename)
+                filename = Path(obj["Filename"]).stem
                 obj.name = filename + ".Merged"
                 if (
                     context.scene.objects.get(filename)
@@ -111,14 +94,13 @@ def preimport_prefab(
 
     if option_findmtls:
         for file in file_list:
-            folder = glob.glob(file.rsplit("/", 1)[0] + "/*.mtl")
-            print(folder)
+            folder = file.parent.glob("*.mtl")
             for mtl in folder:
                 if not mtl in mat_list:
                     mat_list.append(mtl)
 
     # one last pass to tag the root parent nodes
-    for obj in context.scene.objects[:]:
+    for obj in context.scene.objects:
         if obj.parent is None:
             obj["Root"] = True
 
@@ -130,25 +112,21 @@ def preimport_prefab(
 
     # if file_list: file_list = file_list.sort()
     for file in file_list:
-        file = file.replace(r"/", "\\")
         print(file)
-        log_text.write(file + "\n")
+        log_text.write(str(file) + "\n")
     log_text = bpy.data.texts.get(log_mats) or bpy.data.texts.new(log_mats)
 
     for mat in mat_list:
         print(mat)
-        log_text.write(mat + "\n")
+        log_text.write(f"{mat}\n")
 
     return {"FINISHED"}
 
 
-def import_cleanup(
-        context, option_deleteproxymat=True, option_offsetdecals=False
-):
+def import_cleanup(context, option_deleteproxymat=True, option_offsetdecals=False):
     bpy.ops.material.materialutilities_merge_base_names(is_auto=True)
 
-    for obj in context.scene.objects[:]:
-
+    for obj in context.scene.objects:
         split = obj.name.split(".")
         obj.name = obj.name.replace("_out", "")
         # obj.name = obj.name.split(".")[0]
@@ -232,6 +210,7 @@ def import_cleanup(
 def import_prefab(
     context,
     xml_path,
+    data_dir,
     option_brushes=True,
     option_component=True,
     option_lights=False,
@@ -247,7 +226,7 @@ def import_prefab(
         root_empty.name = element.get("Name") + ".root"
         root_empty["_id"] = element.get("Id")
         context.scene.collection.objects.link(root_empty)
-        writetoLog(
+        write_to_logfile(
             "Processing " + element.get("Name") + " - Entities: " + str(len(element[0]))
         )
         total_elements = str(len(element[0]))
@@ -258,14 +237,11 @@ def import_prefab(
         for subelement in element[0]:
             index_elements += 1
             if option_brushes and subelement.get("Type") == "Brush":
-                writetoLog(subelement.get("Type") + ": " + subelement.get("Name"))
-                new_assetfilename = import_basedir + subelement.get("Prefab")
-                new_assetfilename = new_assetfilename.replace("\\", "/")
-                new_assetfilename = new_assetfilename.replace(".cgf", ".dae")
-                new_assetfilename = new_assetfilename.replace(".cga", ".dae")
+                write_to_logfile(subelement.get("Type") + ": " + subelement.get("Name"))
+                new_assetfilename = (data_dir / subelement.get("Prefab")).with_suffix('.dae')
                 if subelement.get("Material"):
-                    writetoLog(
-                        import_basedir + str(subelement.get("Material")) + ".mtl",
+                    write_to_logfile(
+                        data_dir / (str(subelement.get("Material")) + ".mtl"),
                         "Material",
                     )
                 new_assets = [
@@ -274,12 +250,12 @@ def import_prefab(
                     if obj.get("_id") == new_assetfilename
                 ]
                 if len(new_assets) == 0:
-                    if not import_assets(context, new_assetfilename, option_import=option_import,
+                    if not import_assets(context, new_assetfilename.as_posix(), option_import=option_import,
                                          option_fixorphans=option_fixorphans):
                         continue
                 new_asset = get_root_parent(context.selected_objects)
                 if new_asset is None:
-                    writetoLog("Root not found for " + new_assetfilename, "Error")
+                    write_to_logfile(f"Root not found for {new_assetfilename}", "Error")
                     continue
                 new_assets = context.selected_objects
                 new_asset.name = subelement.get("Name")
@@ -302,20 +278,18 @@ def import_prefab(
                     add_to_collection(context, element.get("Name"), new_assets)
                 # context.scene.collection.objects.link(new_asset)
             elif option_component and subelement.get("Type") == "EntityWithComponent":
-                writetoLog(subelement.get("Type") + ": " + subelement.get("Name"))
+                write_to_logfile(subelement.get("Type") + ": " + subelement.get("Name"))
                 if subelement[0][0].find("Properties") == "NoneType":
                     continue
-                new_assetfilename = import_basedir + str(
+                new_assetfilename = (data_dir / str(
                     subelement[0][0].find("Properties").get("FilePath")
-                )
-                new_assetfilename = new_assetfilename.replace(".cgf", ".dae")
-                new_assetfilename = new_assetfilename.replace(".cga", ".dae")
+                )).with_suffix('.dae')
                 if subelement.get("Material"):
-                    writetoLog(
-                        import_basedir + str(subelement.get("Material")) + ".mtl",
+                    write_to_logfile(
+                        data_dir / (str(subelement.get("Material")) + ".mtl"),
                         "Material",
                     )
-                if not import_assets(context, new_assetfilename, option_import=option_import):
+                if not import_assets(context, new_assetfilename.as_posix(), option_import=option_import):
                     continue
                 new_asset = get_root_parent(context.selected_objects)
                 new_assets = context.selected_objects
@@ -342,7 +316,7 @@ def import_prefab(
                 and subelement.get("EntityClass") == "Light"
             ):
 
-                writetoLog(subelement.get("Type") + ": " + subelement.get("Name"))
+                write_to_logfile(subelement.get("Type") + ": " + subelement.get("Name"))
 
                 lightType = subelement.findall(
                     "./PropertiesDataCore/EntityComponentLight"
@@ -449,7 +423,7 @@ def import_prefab(
                 new_lightdata.energy = float(intensity) * 100
                 new_lightdata.use_nodes = True
                 if texture:
-                    ies_name = import_basedir + str(texture)
+                    ies_name = data_dir / str(texture)
                     new_lightdata["Texture"] = ies_name
                     ies_group = new_lightdata.node_tree.nodes.new(
                         type="ShaderNodeGroup"
@@ -574,14 +548,14 @@ def import_assets(context, new_assetfilename, option_import=True, option_fixorph
     if not new_assets:
         if option_import:
             if os.path.isfile(new_assetfilename) is False:
-                writetoLog("Not found " + new_assetfilename, "Error")
+                write_to_logfile("Not found " + new_assetfilename, "Error")
                 new_empty = bpy.data.objects.new("empty", None)
                 new_empty.empty_display_type = "CUBE"
                 return False
             try:
                 import_return = bpy.ops.wm.collada_import(filepath=new_assetfilename)
             except:
-                writetoLog("Import Error " + new_assetfilename, "Error")
+                write_to_logfile("Import Error " + new_assetfilename, "Error")
                 new_empty = bpy.data.objects.new("empty", None)
                 new_empty.empty_display_type = "CUBE"
                 new_empty["Filename"] = new_assetfilename
@@ -590,31 +564,31 @@ def import_assets(context, new_assetfilename, option_import=True, option_fixorph
         new_assets = context.selected_objects
 
         if len(new_assets) == 0:
-            writetoLog("Nothing created " + new_assetfilename)
+            write_to_logfile("Nothing created " + new_assetfilename)
             return False
         else:
-            writetoLog("Imported " + str(len(new_assets)) + " new objects")
+            write_to_logfile("Imported " + str(len(new_assets)) + " new objects")
 
         new_assets_parent = [
             obj for obj in new_assets if obj.type == "EMPTY" and "$" not in obj.name
         ]
 
         for obj in new_assets_parent:
-            writetoLog("Possible parent " + obj.name)
+            write_to_logfile("Possible parent " + obj.name)
         for obj in new_assets:
-            writetoLog("Imported " + str(obj.type) + " " + str(obj.name))
+            write_to_logfile("Imported " + str(obj.type) + " " + str(obj.name))
             obj["Filename"] = str(new_assetfilename)
             if option_fixorphans and ".Merged" in obj.name:
-                writetoLog("Fixing " + obj.name)
+                write_to_logfile("Fixing " + obj.name)
                 obj.name = Path(new_assetfilename).stem + ".Merged"
-                writetoLog("Fixed " + obj.name)
+                write_to_logfile("Fixed " + obj.name)
                 try:
                     obj.parent = new_assets_parent[0]
-                    writetoLog(
+                    write_to_logfile(
                         "Reparented " + obj.name + " to " + new_assets_parent[0].name
                     )
                 except:
-                    writetoLog("Unable to reparent " + obj.name)
+                    write_to_logfile("Unable to reparent " + obj.name)
         return True
     else:
         # writetoLog('Duplicating ' + new_assetfilename)
@@ -632,7 +606,7 @@ def import_assets(context, new_assetfilename, option_import=True, option_fixorph
             if obj.parent:
                 obj.parent = get_root_parent(new_assets)
                 if obj.parent == None:
-                    writetoLog(
+                    write_to_logfile(
                         "Unable to reparent "
                         + obj.name
                         + " to asset "
@@ -645,9 +619,11 @@ def import_assets(context, new_assetfilename, option_import=True, option_fixorph
 
 
 def createLightTexture(texture):
-    texture = texture.replace(".dds", ".tif")
+    texture = Path(texture).with_suffix('.tif')
+    if texture.with_suffix('.png').is_file():
+        texture = texture.with_suffix('.png')
     texture_name = Path(texture).stem
-    writetoLog("IES: " + texture)
+    write_to_logfile(f"IES: {texture}")
 
     if bpy.data.node_groups.get(texture_name):
         return bpy.data.node_groups.get(texture_name)
@@ -662,10 +638,10 @@ def createLightTexture(texture):
     try:
         new_node_texture.image = bpy.data.images.get(
             texture_name
-        ) or bpy.data.images.load(texture)
+        ) or bpy.data.images.load(str(texture))
         new_node_texture.image.colorspace_settings.name = "Non-Color"
     except:
-        writetoLog("IES not found: " + texture, "Error")
+        write_to_logfile(f"IES not found: {texture}", "Error")
     new_node_mapping = new_node.nodes.new("ShaderNodeMapping")
     new_node_mapping.location = (200, 0)
     new_node_mapping.inputs["Location"].default_value = (0.5, 0.5, 0)
@@ -685,13 +661,6 @@ def createLightTexture(texture):
     return new_node
 
 
-def makeTuple(input):
-    output = input.rsplit(",")
-    for i in range(0, len(output)):
-        output[i] = float(str(output[i])[0:6])
-    return output
-
-
 def makeQuatTuple(input):
     output = input.rsplit(",")
     for i in range(0, len(output)):
@@ -701,16 +670,10 @@ def makeQuatTuple(input):
     return output
 
 
-def writetoLog(log_text, log_name="Output"):
-    log_file = bpy.data.texts.get(log_name) or bpy.data.texts.new(log_name)
-    log_file.write("[" + str(datetime.now()) + "] " + log_text + "\n")
-    print("[" + str(datetime.now()) + "] " + log_text)
-
-
 class ImportSCPrefab(Operator, ImportHelper):
-    """This appears in the tooltip of the operator and in the generated docs"""
+    """ Import an xml from the Prefabs XML from Star Citizen """
 
-    bl_idname = "sctools.buildprefab"  # important since its how bpy.ops.import_test.some_data is constructed
+    bl_idname = "scdt.build_prefab"  # important since its how bpy.ops.import_test.some_data is constructed
     bl_label = "Import SC Prefab"
 
     # ImportHelper mixin class uses this
@@ -721,6 +684,16 @@ class ImportSCPrefab(Operator, ImportHelper):
         options={"HIDDEN"},
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
+
+    import_data_dir: StringProperty(
+        name='Data Dir',
+        default='',
+        description=(
+            "The Data directory containing the assets for the selected Prefab. If blank, this will look for "
+            "Data in the parant directories of the Prefab."
+        )
+    )
+
 
     option_brushes: BoolProperty(
         name="option_brushes",
@@ -749,35 +722,14 @@ class ImportSCPrefab(Operator, ImportHelper):
     )
 
     def execute(self, context):
-        if 'FINISHED' in preimport_prefab(context, self.filepath):
+        data_dir = Path(self.import_data_dir) if self.import_data_dir else search_for_data_dir_in_path(self.filepath)
+
+        if not data_dir:
+            print(f'Could not determine data directory for prefab')
+        elif 'FINISHED' in preimport_prefab(context, self.filepath, data_dir=data_dir):
             if 'FINISHED' in import_cleanup(context):
-                return import_prefab(context, self.filepath)
+                return import_prefab(context, self.filepath, data_dir=data_dir)
         return {'CANCELLED'}
-
-
-class ImportParseXml(Operator, ImportHelper):
-    bl_idname = "import_sctools.preimport"
-    bl_label = "Pre-Import SC Prefab"
-
-    # ImportHelper mixin class uses this
-    filename_ext = ".xml"
-
-    filter_glob: StringProperty(
-        default="*.xml",
-        options={"HIDDEN"},
-        maxlen=255,  # Max internal buffer length, longer would be clamped.
-    )
-
-    # List of operator properties, the attributes will be assigned
-    # to the class instance from the operator settings before calling.
-    option_brushes: BoolProperty(
-        name="Import Brushes",
-        description="Import Brushes",
-        default=True,
-    )
-
-    def execute(self, context):
-        return preimport_prefab(self.filepath)
 
 
 def menu_func_import(self, context):
@@ -792,7 +744,3 @@ def register():
 def unregister():
     bpy.utils.unregister_class(ImportSCPrefab)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
-
-
-if __name__ == "__main__":
-    register()

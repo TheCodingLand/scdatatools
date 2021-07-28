@@ -278,7 +278,7 @@ class EntityExtractor:
                                 self._cache['found_geometry'][geom_name] = Geometry(
                                     name=Path(geom_file).as_posix(), geom_file=geom_file
                                 )
-                            x, y, z, w = (float(_) for _ in entity.get('@Rotate', '0,0,0,1').split(','))
+                            w, x, y, z = (float(_) for _ in entity.get('@Rotate', '1,0,0,0').split(','))
                             self._cache['found_geometry'][geom_name].add_instance(
                                 name=entity['@Name'],
                                 pos=Vector3D(

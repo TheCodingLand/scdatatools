@@ -55,9 +55,12 @@ def register():
         return
 
     if (pycharm_debug_port := int(os.environ.get('SCDV_PYCHARM_DEBUG', 0))) > 0:
-        import pydevd_pycharm
-        print(f'Connecting to pycharm debug on {pycharm_debug_port}')
-        pydevd_pycharm.settrace('localhost', port=pycharm_debug_port, stdoutToServer=True, stderrToServer=True)
+        try:
+            import pydevd_pycharm
+            print(f'Connecting to pycharm debug on {pycharm_debug_port}')
+            pydevd_pycharm.settrace('localhost', port=pycharm_debug_port, stdoutToServer=True, stderrToServer=True)
+        except Exception as e:
+            print(f'Could not connect to pycharm debugger: {repr(e)}')
 
     reload_scdt_blender_modules()
 

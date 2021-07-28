@@ -11,6 +11,7 @@ from bpy.props import StringProperty, BoolProperty, CollectionProperty
 from bpy.types import Operator, OperatorFileListElement
 
 from scdatatools.blender import materials
+from scdatatools.utils import redirect_to_tqdm
 from scdatatools.blender.utils import write_to_logfile, select_children
 
 
@@ -21,15 +22,21 @@ def remove_proxy_meshes() -> bool:
         print("Could not find proxy material")
         return False
 
+    cur_mode = bpy.context.active_object.mode if bpy.context.active_object is not None else 'OBJECT'
     try:
         bpy.ops.object.select_all(action='DESELECT')
         bpy.ops.object.select_by_type(type='MESH')
-        cur_mode = bpy.context.active_object.mode if bpy.context.active_object is not None else 'OBJECT'
-        bpy.ops.object.mode_set(mode='EDIT')
+        # bpy.ops.object.mode_set(mode='EDIT')
+        if cur_mode != 'EDIT':
+            bpy.ops.object.editmode_toggle()
+
         bpy.context.object.active_material = bpy.data.materials['proxy']
         bpy.ops.object.material_slot_select()
         bpy.ops.mesh.delete(type='FACE')
-        bpy.ops.object.mode_set(mode=cur_mode)
+
+        if cur_mode != 'EDIT':
+            bpy.ops.object.editmode_toggle()
+        # bpy.ops.object.mode_set(mode=cur_mode)
     except Exception as e:
         print(f'Failed to remove proxy meshes: {repr(e)}')
         return False
@@ -65,7 +72,8 @@ def import_assets(context, new_assetfilename, parent_map=None, option_import=Tru
                 return False
             try:
                 bpy.ops.wm.collada_import(filepath=new_assetfilename)
-            except:
+            except Exception as e:
+                print(f'ERROR: Error during collada import: {repr(e)}')
                 new_empty = bpy.data.objects.new("empty", None)
                 new_empty.empty_display_type = "CUBE"
                 new_empty["Filename"] = new_assetfilename
@@ -90,8 +98,8 @@ def import_assets(context, new_assetfilename, parent_map=None, option_import=Tru
                 try:
                     obj.parent = new_assets_parent[0]
                     print("Re-parented " + obj.name + " to " + new_assets_parent[0].name)
-                except:
-                    print("Unable to re-parent " + obj.name)
+                except Exception as e:
+                    print(f"Unable to re-parent {obj.name}: {repr(e)}")
         return True
     else:
         parent = parent_map[new_assetfilename]
@@ -196,63 +204,65 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
 
         for entity in tqdm.tqdm(bp['geometry'].values(), desc='Importing Geometry', postfix='',
                                 total=len(bp['geometry']), unit='g'):
-            geom_file = Path(entity['geom_file'])
-            dae_file = data_dir / geom_file.parent / f'{geom_file.stem}.dae'
+            with redirect_to_tqdm():
+                geom_file = Path(entity['geom_file'])
+                dae_file = data_dir / geom_file.parent / f'{geom_file.stem}.dae'
 
-            if not dae_file.is_file():
-                print(f'WARNING: Skipping entity {geom_file}: could not find dae ')
-                continue
-
-            mats.update(entity['materials'])
-
-            for name, i in entity['instances'].items():
-                write_to_logfile(f'Importing {dae_file} [{name}]')
-
-                if not import_assets(bpy.context, dae_file.as_posix(), parent_map=parent_map):
+                if not dae_file.is_file():
+                    print(f'WARNING: Skipping entity {geom_file}: could not find dae ')
                     continue
 
-                new_parents = [obj for obj in bpy.context.selected_objects if obj.parent is None]
+                mats.update(entity['materials'])
 
-                map_name = dae_file.as_posix().lower()
-                if map_name not in parent_map:
-                    parent_map[map_name] = new_parents[0]
+                for name, i in entity['instances'].items():
+                    write_to_logfile(f'Importing {dae_file} [{name}]')
 
-                for obj in new_parents:
-                    obj.location = (i['pos']['x'], i['pos']['y'], i['pos']['z'])
-                    obj.rotation_mode = "QUATERNION"
-                    if isinstance(i['rotation'], list):
-                        # 3x3 rotation matrix
-                        rot_matrix = mathutils.Matrix(i['rotation'])
-                        obj.rotation_quaternion = rot_matrix.to_quaternion()
-                    else:
-                        # dict of a quaternion
-                        obj.rotation_quaternion = (i['rotation']['w'], i['rotation']['x'],
-                                                   i['rotation']['y'], i['rotation']['z'])
-                    obj.scale = (i['scale']['x'], i['scale']['y'], i['scale']['z'])
-                    if bone_name := i['attrs'].get('bone_name', ''):
-                        if bone_name in bpy.data.objects:
-                            port = bpy.data.objects[bone_name]
-                            obj.parent = port
-                            bpy.ops.object.parent_clear(type='CLEAR_INVERSE')
-
-        for port_name, geom in tqdm.tqdm(bp['item_ports'].items(), desc='Importing Hardpoints',
-                                         total=len(bp['item_ports']), unit='h'):
-            if port_name in bpy.data.objects:
-                port = bpy.data.objects[port_name]
-                for geom_name in geom:
-                    if geom_name not in bp['geometry']:
-                        continue
-
-                    write_to_logfile(f'item_port {port_name} [{geom_name}]')
-                    geom_file = Path(bp['geometry'][geom_name]['geom_file'])
-                    dae_file = data_dir / geom_file.parent / f'{geom_file.stem}.dae'
                     if not import_assets(bpy.context, dae_file.as_posix(), parent_map=parent_map):
                         continue
 
                     new_parents = [obj for obj in bpy.context.selected_objects if obj.parent is None]
+
+                    map_name = dae_file.as_posix().lower()
+                    if map_name not in parent_map:
+                        parent_map[map_name] = new_parents[0]
+
                     for obj in new_parents:
-                        obj.parent = port
-                        bpy.ops.object.parent_clear(type='CLEAR_INVERSE')
+                        obj.location = (i['pos']['x'], i['pos']['y'], i['pos']['z'])
+                        obj.rotation_mode = "QUATERNION"
+                        if isinstance(i['rotation'], list):
+                            # 3x3 rotation matrix
+                            rot_matrix = mathutils.Matrix(i['rotation'])
+                            obj.rotation_quaternion = rot_matrix.to_quaternion()
+                        else:
+                            # dict of a quaternion
+                            obj.rotation_quaternion = (i['rotation']['w'], i['rotation']['x'],
+                                                       i['rotation']['y'], i['rotation']['z'])
+                        obj.scale = (i['scale']['x'], i['scale']['y'], i['scale']['z'])
+                        if bone_name := i['attrs'].get('bone_name', ''):
+                            if bone_name in bpy.data.objects:
+                                port = bpy.data.objects[bone_name]
+                                obj.parent = port
+                                bpy.ops.object.parent_clear(type='CLEAR_INVERSE')
+
+        for port_name, geom in tqdm.tqdm(bp['item_ports'].items(), desc='Importing Hardpoints',
+                                         total=len(bp['item_ports']), unit='h'):
+            with redirect_to_tqdm():
+                if port_name in bpy.data.objects:
+                    port = bpy.data.objects[port_name]
+                    for geom_name in geom:
+                        if geom_name not in bp['geometry']:
+                            continue
+
+                        write_to_logfile(f'item_port {port_name} [{geom_name}]')
+                        geom_file = Path(bp['geometry'][geom_name]['geom_file'])
+                        dae_file = data_dir / geom_file.parent / f'{geom_file.stem}.dae'
+                        if not import_assets(bpy.context, dae_file.as_posix(), parent_map=parent_map):
+                            continue
+
+                        new_parents = [obj for obj in bpy.context.selected_objects if obj.parent is None]
+                        for obj in new_parents:
+                            obj.parent = port
+                            bpy.ops.object.parent_clear(type='CLEAR_INVERSE')
 
         if self.remove_physics_proxies:
             remove_sc_physics_proxies()

@@ -5,10 +5,13 @@ import typing
 import zlib
 import json
 import xxhash
+import inspect
+import contextlib
 from pathlib import Path
 from collections import defaultdict
 from xml.etree import ElementTree
 
+import tqdm
 import numpy
 from pyquaternion import Quaternion
 
@@ -292,3 +295,23 @@ class SCJSONEncoder(json.JSONEncoder):
             return super().default(obj)
         except TypeError:
             return str(obj)
+
+
+@contextlib.contextmanager
+def redirect_to_tqdm():
+    class DummyFile(object):
+        def __init__(self, file):
+            self.file = file
+
+        def write(self, x):
+            tqdm.tqdm.write(x, end="", file=self.file)
+
+        def __eq__(self, other):
+            return other is self.file
+
+    old_stdout = sys.stdout
+    try:
+        sys.stdout = DummyFile(old_stdout)
+        yield
+    finally:
+        sys.stdout = old_stdout

@@ -4,6 +4,7 @@ import typing
 import logging
 import subprocess
 from pathlib import Path
+import concurrent.futures
 from xml.etree import ElementTree
 
 from pyquaternion import Quaternion
@@ -126,9 +127,6 @@ class EntityExtractor:
         # we need will be uniquely named
         self._records_by_name = {_.name: _ for _ in self.sc.datacore.records}
 
-        # create a convenience quick lookup for base filenames
-        self._p4k_files = set(_.lower().split('.', maxsplit=1)[0] for _ in self.sc.p4k.namelist())
-
     def _add_file_to_extract(self, path: typing.Union[str, list, tuple, set]):
         if not path:
             return
@@ -146,7 +144,7 @@ class EntityExtractor:
                 self.log(f'+ dir ex: {path}')
         else:
             base, ext = path.split('.', maxsplit=1)
-            if base not in self._p4k_files:
+            if path not in self.sc.p4k.NameToInfoLower:
                 self.log(f'could not find file in P4K: {path}', logging.WARNING)
                 return
 
@@ -250,8 +248,7 @@ class EntityExtractor:
     def _handle_soc(self, bone_name, soc):
         for chunk in soc.chunks.values():
             if isinstance(chunk, ChCrChunks.IncludedObjects):
-                for fn in chunk.filenames:
-                    self._add_file_to_extract(fn)
+                self._add_file_to_extract(chunk.filenames)
                 materials = chunk.materials
                 for obj in chunk.objects:
                     if isinstance(obj, ChCrChunks.IncludedObjectType1):
@@ -267,7 +264,10 @@ class EntityExtractor:
                 # TODO: read cryxmlb chunk, it seems to be all related to lighting/audio?
                 d = chunk.dict()
                 # Root can be Entities or SCOC_Entities
-                for entity in d.get('Entities', d.get('SCOC_Entities', {})).get('Entity'):
+                entities = d.get('Entities', d.get('SCOC_Entities', {})).get('Entity')
+                if isinstance(entities, dict):
+                    entities = [entities]  # only one entity in this cryxmlb
+                for entity in entities:
                     try:
                         if 'EntityGeometryResource' in entity.get('PropertiesDataCore', {}):
                             geom_file = Path(
@@ -307,8 +307,10 @@ class EntityExtractor:
                 p4k_path = norm_path(oc.properties["fileName"])
                 try:
                     self._add_file_to_extract(p4k_path)  # extract the socpak itself
-                    # extract all files inside the socpak
-                    archive = self.sc.p4k.NameToInfoLower[f'data/{p4k_path}'.lower()]
+                    archive = self.sc.p4k.NameToInfoLower.get(f'data/{p4k_path}'.lower())
+                    if archive is None:
+                        self.log(f'socpak not found in p4k: "{p4k_path}"', logging.WARNING)
+                        continue
                     self._add_file_to_extract([_.filename for _ in archive.filelist])
                     p4k_path = Path(p4k_path)
                     soc_path = p4k_path.parent / p4k_path.stem / f'{p4k_path.stem}.soc'
@@ -418,9 +420,7 @@ class EntityExtractor:
                         self._add_file_to_extract([_ for _ in self.sc.p4k.NameToInfoLower.keys()
                                                    if _.startswith(mtl_path) and _.endswith('.mtl')])
                     elif isinstance(chunk, ChCrChunks.IncludedObjects):
-                        for obj in chunk.objects:
-                            # TODO: output locations to some reference file
-                            self._add_file_to_extract(f'Data/{obj.filename}'.lower())
+                        self._add_file_to_extract(chunk.filenames)
             elif ext in 'xml':
                 raw = self.sc.p4k.open(p4k_info).read()
                 if raw.startswith(b'CryXmlB'):
@@ -569,11 +569,7 @@ class EntityExtractor:
                 found_textures.setdefault(str(dds_basename.absolute()),
                                           set()).update(dds_basename.parent.glob(f'{dds_basename.name}.dds*'))
 
-            unsplit_files = set()
-            for dds_file in found_textures:
-                if len(found_textures[dds_file]) == 1:
-                    continue
-
+            def _do_unsplit(dds_file):
                 outfile = Path(f'{dds_file}.dds')
                 try:
                     d = unsplit_dds({_.name: _.open('rb').read() for _ in found_textures[dds_file]})
@@ -581,11 +577,9 @@ class EntityExtractor:
 
                     with outfile.open('wb') as out:
                         out.write(d)
-                        unsplit_files.add(outfile)
                         self.log(f'un-split {outfile.relative_to(outdir)}')
                 except Exception as e:
                     self.log(f'failed to un-split {dds_file}: {repr(e)}', logging.ERROR)
-                    continue
 
                 try:
                     if auto_convert_textures and all(_ not in outfile.name for _ in TEXCONV_IGNORE):
@@ -597,6 +591,12 @@ class EntityExtractor:
                     if report_tex_conversion_errors:
                         self.log(f'failed to convert {dds_file}: {repr(e)}', logging.ERROR)
 
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                for dds_file in found_textures:
+                    if len(found_textures[dds_file]) == 1:
+                        continue
+                    executor.submit(_do_unsplit, dds_file=dds_file)
+                executor.shutdown(wait=True)
         # endregion process textures
         ################################################################################################################
 
@@ -608,18 +608,22 @@ class EntityExtractor:
                 '\n\ncould not determine location of cgf-converter. Please ensure it can be found in system '
                 'the path\n', logging.ERROR)
         elif auto_convert_models:
-            self.log('\n\nConverting Models\n' + '-' * 80)
-            obj_dir = outdir / 'Data'
-            for model_file in [_ for _ in extracted_files if
-                               '.' + _.split('.')[-1].lower() in CGF_CONVERTER_MODEL_EXTS]:
-                model_file = outdir / Path(model_file)
+            def _do_model_convert(model_file):
                 try:
                     self.log(f'converting {model_file}')
-                    subprocess.check_call(f'{cgf_converter} -group -smooth -png {model_file} -objectdir {obj_dir}',
+                    subprocess.check_call(f'"{cgf_converter}" -group -smooth -png "{model_file}" -objectdir "{obj_dir}"',
                                           shell=True, stdout=subprocess.DEVNULL)
                 except subprocess.CalledProcessError as e:
                     self.log(f'converting {model_file}: repr{e}', logging.ERROR)
 
+            self.log('\n\nConverting Models\n' + '-' * 80)
+            obj_dir = outdir / 'Data'
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                for model_file in [_ for _ in extracted_files if
+                                   '.' + _.split('.')[-1].lower() in CGF_CONVERTER_MODEL_EXTS]:
+                    model_file = outdir / Path(model_file)
+                    executor.submit(_do_model_convert, model_file=model_file)
+                executor.shutdown(wait=True)
         # endregion convert models
         ################################################################################################################
 

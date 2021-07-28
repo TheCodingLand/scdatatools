@@ -9,24 +9,31 @@ from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty, CollectionProperty
 from bpy.types import Operator, OperatorFileListElement
 
-from .utils import write_to_logfile, search_for_data_dir_in_path
+from ..utils import write_to_logfile, search_for_data_dir_in_path
 
+SCSHARDERS_BLEND = Path(__file__).parent / 'SCShaders.blend'
 REQUIRED_SHADER_NODE_GROUPS = [
-    '_Illum.pom',
-    '_Illum.decal',
-    '_Illum.emit',
-    '_Illum',
-    '_HardSurface',
-    '_Glass',
-    '_LayerBlend',
-    '_MaterialLayer',
+    '.flip normals', '_Glass', '_HardSurface', '_Illum', '_Illum.decal', '_Illum.emit', '_Illum.pom', '_LayerBlend',
+    '_LayerMix', '_MaterialLayer', '_Tint', '_Tint.001', 'BlendSeperator', 'Mix channels', 'REEDColors'
 ]
 
 
 def ensure_node_groups_loaded() -> bool:
-    if not all(_ in bpy.data.node_groups for _ in REQUIRED_SHADER_NODE_GROUPS):
-        # TODO: attempt to load them from SCShaders.blend
+    if not SCSHARDERS_BLEND.is_file():
         return False
+
+    for ng in REQUIRED_SHADER_NODE_GROUPS:
+        if ng not in bpy.data.node_groups:
+            print(f'Loading SC Shaders node group: {ng}')
+            ng_file = SCSHARDERS_BLEND / 'NodeTree' / ng
+            try:
+                bpy.ops.wm.append(
+                    filepath=ng_file.as_posix(),
+                    directory=ng_file.parent.as_posix(),
+                    filename=ng
+                )
+            except Exception as e:
+                print(f'Failed to load SC Shader "{ng}": {repr(e)}')
     return True
 
 
@@ -425,7 +432,6 @@ def create_attribute(mat, attrs, name):
 def load_textures(textures, nodes, mat, data_dir, shadergroup=None):
     imglist = []
     y = 0
-    # writetoLog(f'Count of textures: {len(textures)}')
     for tex in textures:
         write_to_logfile(f'Texture {tex.attrib} {tex.get("File")}')
         path = data_dir / tex.get("File")
@@ -438,7 +444,7 @@ def load_textures(textures, nodes, mat, data_dir, shadergroup=None):
             img = (bpy.data.images.get(tex.get("File")) or bpy.data.images.load(str(path)))
         except:
             write_to_logfile(f"Texture not found: {path}", "Error")
-            writetoList(path, "Missing Textures")
+            write_to_logfile(path, "Missing Textures")
             continue
         if 'diff' in img.name:
             img.colorspace_settings.name = 'sRGB'
@@ -592,17 +598,15 @@ def write_attribs(mat, mtl, attr):
     return
 
 
-def writetoList(log_text, log_name='Output'):
-    log_file = (bpy.data.texts.get(log_name) or bpy.data.texts.new(log_name))
-    if str(log_text) in log_file.as_string():
-        return
-    log_file.write(str(log_text))
-    log_file.write('\n')
+class LoadSCShaderNodes(Operator):
+    """ Load the SC Shader nodes if not already loaded """
+    bl_idname = "scdt.load_sc_shader_nodes"
+    bl_label = "Load SC Shader Nodes"
 
-    # a = split('\n', log_file.as_string())
-    # a.sort()
-    # log_file.clear()
-    # log_file.write(join('\n', a))
+    def execute(self, context):
+        if ensure_node_groups_loaded():
+            return {'FINISHED'}
+        return {'CANCELLED'}
 
 
 class ImportSCMTL(Operator, ImportHelper):
@@ -652,10 +656,12 @@ def menu_func_import(self, context):
 
 
 def register():
+    bpy.utils.register_class(LoadSCShaderNodes)
     bpy.utils.register_class(ImportSCMTL)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 
 def unregister():
+    bpy.utils.unregister_class(LoadSCShaderNodes)
     bpy.utils.unregister_class(ImportSCMTL)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)

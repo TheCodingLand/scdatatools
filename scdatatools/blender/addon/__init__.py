@@ -11,7 +11,7 @@ except ImportError:
     # Not inside of blender, ignore the blender modules
     modules = []
 else:
-    from . import preferences
+    from . import preferences, header_menu
     from scdatatools.blender import blueprints, prefab, materials
 
     modules = [
@@ -22,7 +22,7 @@ else:
 
 
 ADDON_TEMPLATE = """
-# SC DataTools Add-on
+# SC Data Tools Add-on
 # https://gitlab.com/scmodding/frameworks/scdatatools
 
 import sys
@@ -32,7 +32,7 @@ paths = {path}
 sys.path.extend(_ for _ in paths if _ not in sys.path)
 
 bl_info = {{
-    "name": "StarCitizen Data Tools",
+    "name": "Star Citizen Data Tools",
     "author": "ventorvar",
     "version": (0, 1, 0),
     "blender": (2, 93, 0),
@@ -65,6 +65,7 @@ def register():
         module.register()
 
     preferences.register()
+    header_menu.add_modding_menu()
 
 
 def unregister():
@@ -75,3 +76,4 @@ def unregister():
         module.unregister()
 
     preferences.unregister()
+    header_menu.remove_modding_menu()

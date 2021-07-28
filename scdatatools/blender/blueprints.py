@@ -5,44 +5,49 @@ from pathlib import Path
 import tqdm
 
 import bpy
+import mathutils
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, CollectionProperty
 from bpy.types import Operator, OperatorFileListElement
 
 from scdatatools.blender import materials
-from scdatatools.blender.utils import write_to_logfile
+from scdatatools.blender.utils import write_to_logfile, select_children
 
 
-def select_children(obj):
-    for child in obj.children:
-        child.select_set(True)
-        select_children(child)
-
-
-def remove_proxy_meshes():
+def remove_proxy_meshes() -> bool:
     """ Remove Meshes for the `proxy` Material typically found in converted Star Citizen models. """
     # remove proxy meshes
     if 'proxy' not in bpy.data.materials:
         print("Could not find proxy material")
-        return
+        return False
 
-    bpy.ops.object.select_all(action='DESELECT')
-    bpy.ops.object.select_by_type(type='MESH')
-    cur_mode = bpy.context.active_object.mode if bpy.context.active_object is not None else 'OBJECT'
-    bpy.ops.object.mode_set(mode='EDIT')
-    bpy.context.object.active_material = bpy.data.materials['proxy']
-    bpy.ops.object.material_slot_select()
-    bpy.ops.mesh.delete(type='FACE')
-    bpy.ops.object.mode_set(mode=cur_mode)
+    try:
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.ops.object.select_by_type(type='MESH')
+        cur_mode = bpy.context.active_object.mode if bpy.context.active_object is not None else 'OBJECT'
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.context.object.active_material = bpy.data.materials['proxy']
+        bpy.ops.object.material_slot_select()
+        bpy.ops.mesh.delete(type='FACE')
+        bpy.ops.object.mode_set(mode=cur_mode)
+    except Exception as e:
+        print(f'Failed to remove proxy meshes: {repr(e)}')
+        return False
+    return True
 
 
-def remove_sc_physics_proxies():
+def remove_sc_physics_proxies() -> bool:
     """ Remove `$physics_proxy*` objects typically found in converted Star Citizen models. """
     # remove physics proxies
-    bpy.ops.object.select_all(action='DESELECT')
-    bpy.ops.object.delete({
-        "selected_objects": [obj for obj in bpy.data.objects if obj.name.lower().startswith('$physics_proxy')]
-    })
+    try:
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.ops.object.delete({
+            "selected_objects": [obj for obj in bpy.data.objects if obj.name.lower().startswith('$physics_proxy')]
+        })
+        return True
+    except Exception as e:
+        print(f'Failed to remove sc physics proxies: {repr(e)}')
+        return False
 
 
 def import_assets(context, new_assetfilename, parent_map=None, option_import=True, option_fixorphans=False):
@@ -95,6 +100,28 @@ def import_assets(context, new_assetfilename, parent_map=None, option_import=Tru
         bpy.ops.object.duplicate(linked=True)
         bpy.context.selected_objects[0].parent = None
     return True
+
+
+class RemoveProxyMeshes(Operator):
+    """ Removes Meshes with the "proxy" material """
+    bl_idname = "scdt.remove_proxy_meshes"
+    bl_label = "Remove Proxy Meshes"
+
+    def execute(self, context):
+        if remove_proxy_meshes():
+            return {'FINISHED'}
+        return {'CANCELLED'}
+
+
+class RemoveSCPhysicsProxies(Operator):
+    """ Removes SC $physics_proxy objects """
+    bl_idname = "scdt.remove_sc_physics_proxies"
+    bl_label = "Remove SC Physics Proxies"
+
+    def execute(self, context):
+        if remove_sc_physics_proxies():
+            return {'FINISHED'}
+        return {'CANCELLED'}
 
 
 class ImportSCDVBlueprint(Operator, ImportHelper):
@@ -193,8 +220,14 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
                 for obj in new_parents:
                     obj.location = (i['pos']['x'], i['pos']['y'], i['pos']['z'])
                     obj.rotation_mode = "QUATERNION"
-                    obj.rotation_quaternion = (i['rotation']['w'], i['rotation']['x'],
-                                               i['rotation']['y'], i['rotation']['z'])
+                    if isinstance(i['rotation'], list):
+                        # 3x3 rotation matrix
+                        rot_matrix = mathutils.Matrix(i['rotation'])
+                        obj.rotation_quaternion = rot_matrix.to_quaternion()
+                    else:
+                        # dict of a quaternion
+                        obj.rotation_quaternion = (i['rotation']['w'], i['rotation']['x'],
+                                                   i['rotation']['y'], i['rotation']['z'])
                     obj.scale = (i['scale']['x'], i['scale']['y'], i['scale']['z'])
                     if bone_name := i['attrs'].get('bone_name', ''):
                         if bone_name in bpy.data.objects:
@@ -243,9 +276,13 @@ def menu_func_import(self, context):
 
 def register():
     bpy.utils.register_class(ImportSCDVBlueprint)
+    bpy.utils.register_class(RemoveProxyMeshes)
+    bpy.utils.register_class(RemoveSCPhysicsProxies)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 
 def unregister():
     bpy.utils.unregister_class(ImportSCDVBlueprint)
+    bpy.utils.unregister_class(RemoveProxyMeshes)
+    bpy.utils.unregister_class(RemoveSCPhysicsProxies)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)

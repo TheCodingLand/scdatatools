@@ -82,3 +82,9 @@ def search_for_data_dir_in_path(path):
         return Path(*path.parts[:tuple(_.lower() for _ in path.parts).index('data')+1])
     except ValueError:
         return ''
+
+
+def select_children(obj):
+    for child in obj.children:
+        child.select_set(True)
+        select_children(child)

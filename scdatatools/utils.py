@@ -9,6 +9,7 @@ from pathlib import Path
 from collections import defaultdict
 from xml.etree import ElementTree
 
+import numpy
 from pyquaternion import Quaternion
 
 from scdatatools.cry.model.utils import quaternion_to_dict
@@ -279,6 +280,8 @@ class SCJSONEncoder(json.JSONEncoder):
             if isinstance(r, str):
                 return json.loads(r)
             return r
+        elif isinstance(obj, numpy.ndarray):
+            return obj.tolist()
         elif isinstance(obj, Quaternion):
             return quaternion_to_dict(obj)
         elif isinstance(obj, set):

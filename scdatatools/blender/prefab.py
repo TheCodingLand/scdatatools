@@ -75,6 +75,9 @@ def preimport_prefab(
             import_obj = context.selected_objects
             for obj in import_obj:
                 obj["Filename"] = dae_filename.as_posix()
+                obj['Material'] = read_material_from_dae(dae_filename)
+                if obj.type == 'MESH':
+                    obj.data['Filename'] = dae_filename
                 try:
                     bpy.data.collections[xml_path].objects.link(obj)
                 except:
@@ -123,7 +126,7 @@ def preimport_prefab(
     return {"FINISHED"}
 
 
-def import_cleanup(context, option_deleteproxymat=True, option_offsetdecals=False):
+def import_cleanup(context, option_deleteproxymat=True, option_offsetdecals=False, option_cleanupimages=True):
     bpy.ops.material.materialutilities_merge_base_names(is_auto=True)
 
     for obj in context.scene.objects:
@@ -202,6 +205,30 @@ def import_cleanup(context, option_deleteproxymat=True, option_offsetdecals=Fals
             if bpy.data.collections.find("Interior") == -1:
                 bpy.data.collections.new("Interior")
             # bpy.data.collections['Interior'].objects.link(obj)
+
+    if option_cleanupimages:
+        for img in bpy.data.images:
+            if "." not in img.name_full:
+                continue
+            if '.dds' in img.filepath:
+                for ext in ['.tif', '.png']:
+                    imgfile = Path(img.filepath).with_suffix(ext)
+                    if imgfile.is_file():
+                        newimg = bpy.data.images.load(imgfile.as_posix(), check_existing=True)
+                        break
+                else:
+                    print(f'Could not find image: {img.filepath}')
+                    continue
+                img.user_remap(newimg)
+                img.filepath = imgfile.as_posix()
+                print(img.name_full + " -> " + newimg.name_full)
+            head, tail = img.name_full.rsplit(".", 1)
+            if bpy.data.images.get(head):
+                print(img.name_full + " -> " + head)
+                img.user_remap(bpy.data.images.get(head))
+            elif tail.isdigit():
+                print(img.name_full + " is now " + head)
+                img.name = head
 
     bpy.ops.outliner.orphans_purge(num_deleted=0)
     return {"FINISHED"}
@@ -483,6 +510,16 @@ def import_prefab(
     return {"FINISHED"}
 
 
+def read_material_from_dae(path):
+    ns = {'': 'http://www.collada.org/2005/11/COLLADASchema'}
+    try:
+        xml_root = ElementTree.parse(path).getroot()
+    except:
+        print('Unable to open DAE: ', path)
+        return None
+    return xml_root.find('./asset/extra', ns).get('name')
+
+
 def add_to_collection(context, name, objs):
     name = name[:61]  # shorten it to max Blender collection name length
 
@@ -673,7 +710,7 @@ def makeQuatTuple(input):
 class ImportSCPrefab(Operator, ImportHelper):
     """ Import an xml from the Prefabs XML from Star Citizen """
 
-    bl_idname = "scdt.build_prefab"  # important since its how bpy.ops.import_test.some_data is constructed
+    bl_idname = "scdt.import_prefab"  # important since its how bpy.ops.import_test.some_data is constructed
     bl_label = "Import SC Prefab"
 
     # ImportHelper mixin class uses this
@@ -693,7 +730,6 @@ class ImportSCPrefab(Operator, ImportHelper):
             "Data in the parant directories of the Prefab."
         )
     )
-
 
     option_brushes: BoolProperty(
         name="option_brushes",

@@ -4,7 +4,6 @@ import typing
 import logging
 import subprocess
 from pathlib import Path
-from itertools import chain
 from xml.etree import ElementTree
 
 from pyquaternion import Quaternion
@@ -17,9 +16,8 @@ from scdatatools.cry.model import chunks as ChCrChunks
 from scdatatools.forge.dco import dco_from_guid, DataCoreObject
 from scdatatools.sc.textures import unsplit_dds, convert_buffer
 from scdatatools.utils import etree_to_dict, norm_path, dict_search
-from scdatatools.cry.model.utils import Vector3D, quaternion_to_dict
+from scdatatools.cry.model.utils import Vector3D
 from scdatatools.cry.cryxml import dict_from_cryxml_file, dict_from_cryxml_string, CryXmlConversionFormat
-
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +43,7 @@ RECORD_KEYS_WITH_PATHS = [
 RECORD_KEYS_WITH_AUDIO = [
     'audioTrigger'
 ]
+DEFAULT_ROTATION = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 
 
 class Geometry(dict):
@@ -66,7 +65,7 @@ class Geometry(dict):
             self['materials'].update(materials)
         self['instances'][name] = {
             'pos': pos,
-            'rotation': quaternion_to_dict(rotation or Quaternion(x=0, y=0, z=0, w=1)),
+            'rotation': rotation if rotation is not None else DEFAULT_ROTATION,
             'scale': scale or Vector3D(1, 1, 1),
             'materials': materials or [],
             'attrs': attrs or {}
@@ -271,7 +270,9 @@ class EntityExtractor:
                 for entity in d.get('Entities', d.get('SCOC_Entities', {})).get('Entity'):
                     try:
                         if 'EntityGeometryResource' in entity.get('PropertiesDataCore', {}):
-                            geom_file = Path(entity['PropertiesDataCore']['EntityGeometryResource']['Geometry']['Geometry']['Geometry']['@path'])
+                            geom_file = Path(
+                                entity['PropertiesDataCore']['EntityGeometryResource']['Geometry']['Geometry'][
+                                    'Geometry']['@path'])
                             geom_name = geom_file.as_posix().lower()
                             if geom_name not in self._cache['found_geometry']:
                                 self._cache['found_geometry'][geom_name] = Geometry(
@@ -280,7 +281,8 @@ class EntityExtractor:
                             x, y, z, w = (float(_) for _ in entity.get('@Rotate', '0,0,0,1').split(','))
                             self._cache['found_geometry'][geom_name].add_instance(
                                 name=entity['@Name'],
-                                pos=Vector3D(*(float(_) for _ in entity['@Pos'].split(','))) if '@Pos' in entity else Vector3D(),
+                                pos=Vector3D(
+                                    *(float(_) for _ in entity['@Pos'].split(','))) if '@Pos' in entity else Vector3D(),
                                 rotation=Quaternion(x=x, y=y, z=z, w=w),
                                 materials=[entity.get("@Material", '')],
                                 attrs={

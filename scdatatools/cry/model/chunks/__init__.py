@@ -249,11 +249,7 @@ class IncludedObjectType1(IncludedObjectType):
 
     @property
     def rotation(self):
-        try:
-            return Quaternion(matrix=self.rotMatrix[:, :3])
-        except Exception as e:
-            print(f'ERROR: Could not read create Quaternion from {self.rotMatrix[:, :3]}: {repr(e)}')
-            return Quaternion()
+        return self.rotMatrix[:3, :3]
 
     def __str__(self):
         s = f"""[{self.id}] {self.filename}:\n\t\t"""

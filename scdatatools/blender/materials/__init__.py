@@ -37,20 +37,20 @@ def ensure_node_groups_loaded() -> bool:
     return True
 
 
-def create_materials_from_mtl(xml_path, data_dir=None, use_setting=False):
+def create_materials_from_mtl(xml_path, data_dir='', use_setting=False):
     if not ensure_node_groups_loaded():
         return False
 
     xml_path = Path(xml_path)
 
-    if data_dir is None:
+    if data_dir:
+        data_dir = Path(data_dir)
+    else:
         # Try to find the Base Dir as a parent of xml_path
         data_dir = search_for_data_dir_in_path(xml_path)
         if not data_dir:
             data_dir = xml_path.parent
             print(f'Could not determine the base Data directory. Defaulting to mtl directory.')
-    else:
-        data_dir = Path(data_dir)
 
     try:
         parser = ElementTree.XMLParser(encoding='utf-8')
@@ -439,6 +439,8 @@ def load_textures(textures, nodes, mat, data_dir, shadergroup=None):
             path = path.with_suffix('.png')
         elif path.with_suffix('.tif').is_file():
             path = path.with_suffix('.tif')
+        elif path.with_suffix('.tga').is_file():
+            path = path.with_suffix('.tga')
 
         try:
             img = (bpy.data.images.get(tex.get("File")) or bpy.data.images.load(str(path)))
@@ -465,9 +467,10 @@ def load_textures(textures, nodes, mat, data_dir, shadergroup=None):
             texmod = tex[0]
             write_to_logfile("Texture mod found", 'Debug')
             mapnode = nodes.new(type='ShaderNodeMapping')
-            if (texmod.get('TileU') and texmod.get('TileV')):
+            if texmod.get('TileU') and texmod.get('TileV'):
                 mapnode.inputs['Scale'].default_value = (float(texmod.get('TileU')), float(texmod.get('TileV')), 1)
-                if mapnode.inputs['Scale'].default_value == [0, 0, 1]: mapnode.inputs['Scale'].default_value = [1, 1, 1]
+                if mapnode.inputs['Scale'].default_value == [0, 0, 1]:
+                    mapnode.inputs['Scale'].default_value = [1, 1, 1]
                 try:
                     mat.node_tree.links.new(mapnode.outputs['Vector'], texnode.inputs['Vector'])
                 except:
@@ -476,7 +479,7 @@ def load_textures(textures, nodes, mat, data_dir, shadergroup=None):
             mapnode.location.x -= 300
             # mat.node_tree.links.new(mapnode.outputs['Vector'], texnode.inputs['Vector'])
 
-        if hasattr(mat, 'node_tree') == False:
+        if not hasattr(mat, 'node_tree'):
             write_to_logfile("Shader node tree doesn't exist")
             continue
 
@@ -644,6 +647,7 @@ class ImportSCMTL(Operator, ImportHelper):
         dirpath = Path(self.filepath)
         if dirpath.is_file():
             dirpath = dirpath.parent
+
         for file in self.files:
             create_materials_from_mtl(dirpath / file.name, data_dir=self.import_data_dir, use_setting=self.use_setting)
 

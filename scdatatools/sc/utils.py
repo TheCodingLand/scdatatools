@@ -127,6 +127,10 @@ class EntityExtractor:
         # we need will be uniquely named
         self._records_by_name = {_.name: _ for _ in self.sc.datacore.records}
 
+        # create a convenience quick lookup for base filenames
+        self._p4k_files = set(_.lower().split('.', maxsplit=1)[0] for _ in self.sc.p4k.namelist())
+
+
     def _add_file_to_extract(self, path: typing.Union[str, list, tuple, set]):
         if not path:
             return
@@ -144,7 +148,7 @@ class EntityExtractor:
                 self.log(f'+ dir ex: {path}')
         else:
             base, ext = path.split('.', maxsplit=1)
-            if path not in self.sc.p4k.NameToInfoLower:
+            if base not in self._p4k_files:
                 self.log(f'could not find file in P4K: {path}', logging.WARNING)
                 return
 
@@ -194,7 +198,7 @@ class EntityExtractor:
         if trigger_name in self.sc.wwise.triggers:
             self._cache['audio_to_extract'].add(trigger_name)
 
-    def _handle_ext_geom(self, rec, obj):
+    def _handle_ext_geom(self, rec, obj, tags=''):
         if obj.name == 'SGeometryDataParams':
             mtl = obj.properties['Material'].properties['path']
             self._add_file_to_extract(mtl)
@@ -212,19 +216,21 @@ class EntityExtractor:
 
             geom_name = Path(obj.properties['Geometry'].properties['path']).as_posix().lower()
             if geom_name not in self._cache['found_geometry']:
+                attrs = {'tags': tags}
+                if p is not None:
+                    attrs['palette'] = (tints_dir / f'{p.name}.json').as_posix()
                 self._cache['found_geometry'][geom_name] = Geometry(
                     name=Path(obj.properties['Geometry'].properties['path']).as_posix(),
                     geom_file=Path(obj.properties['Geometry'].properties['path']), materials=[mtl],
-                    attrs={'palette': (tints_dir / f'{p.name}.json').as_posix()} if p is not None else {},
-                    pos=Vector3D() if rec.guid == self.entity.guid else None
+                    attrs=attrs, pos=Vector3D() if rec.guid == self.entity.guid else None
                 )
-            self._cache['record_geometry'].setdefault(rec.guid, set()).add(geom_name)
+            self._cache['record_geometry'].setdefault(rec.guid, {}).setdefault(tags, set()).add(geom_name)
 
         if 'Geometry' in obj.properties:
-            self._handle_ext_geom(rec, obj.properties['Geometry'])
+            self._handle_ext_geom(rec, obj.properties['Geometry'], obj.properties.get('Tags', ''))
         if 'SubGeometry' in obj.properties:
             for sg in obj.properties.get('SubGeometry', []):
-                self._handle_ext_geom(rec, sg)
+                self._handle_ext_geom(rec, sg, obj.properties.get('Tags', ''))
         if 'Material' in obj.properties:
             self._handle_ext_geom(rec, obj.properties['Material'])
         if 'path' in obj.properties:
@@ -445,8 +451,8 @@ class EntityExtractor:
     def extract(self, outdir: typing.Union[Path, str], remove_outdir: bool = False,
                 convert_cryxml_fmt: CryXmlConversionFormat = 'xml', skip_lods: bool = True,
                 auto_unsplit_textures: bool = True, auto_convert_textures: bool = False,
-                report_tex_conversion_errors: bool = False, extract_sounds: bool = True,
-                auto_convert_models: bool = False, auto_convert_sounds: bool = False,
+                report_tex_conversion_errors: bool = False, convert_dds_fmt: str = 'png',
+                extract_sounds: bool = True, auto_convert_models: bool = False, auto_convert_sounds: bool = False,
                 ww2ogg: str = '', revorb: str = '', cgf_converter: str = '',
                 exclude: typing.List[str] = None, monitor: typing.Callable = None) -> typing.List[str]:
         """
@@ -460,6 +466,7 @@ class EntityExtractor:
         :param auto_convert_textures: If True, `.dds` files will automatically be converted to `tif` files. This will
             forcefully enable `auto_unsplit_textures`. The original DDS file will also be extracted. (Default: False)
         :param report_tex_conversion_errors: By default, texture conversion errors will be silently ignored.
+        :param convert_dds_fmt: The output format to convert DDS textures to. Default '.png'
         :param extract_sounds: If True, discover sound files are extracted and converted. The output files will contain
             the trigger name associated with the sound, and the wem_id of the sound file. There may be multiple sounds
             associated with each trigger name. (Default: True)
@@ -534,7 +541,14 @@ class EntityExtractor:
             for port, ents in self._cache['item_ports'].items():
                 for ent in ents:
                     if ent in self._cache['record_geometry']:
-                        bp['item_ports'].setdefault(port, set()).update(self._cache['record_geometry'][ent])
+                        for tag in self._cache['record_geometry'][ent]:
+                            if tag and tag in port:
+                                bp['item_ports'].setdefault(port, set()).update(
+                                    self._cache['record_geometry'][ent][tag])
+                                break
+                        else:
+                            bp['item_ports'].setdefault(port, set()).update(
+                                self._cache['record_geometry'][ent].get('', []))
                     elif ent in self._cache['found_geometry']:
                         bp['item_ports'].setdefault(port, set()).add(ent)
             json.dump(bp, bpfile, indent=2, cls=SCJSONEncoder)
@@ -571,32 +585,37 @@ class EntityExtractor:
 
             def _do_unsplit(dds_file):
                 outfile = Path(f'{dds_file}.dds')
+                msgs = []
                 try:
                     d = unsplit_dds({_.name: _.open('rb').read() for _ in found_textures[dds_file]})
                     [_.unlink(missing_ok=True) for _ in found_textures[dds_file]]
 
                     with outfile.open('wb') as out:
                         out.write(d)
-                        self.log(f'un-split {outfile.relative_to(outdir)}')
+                        msgs.append((f'un-split {outfile.relative_to(outdir)}', logging.INFO))
                 except Exception as e:
-                    self.log(f'failed to un-split {dds_file}: {repr(e)}', logging.ERROR)
+                    return [(f'failed to un-split {dds_file}: {repr(e)}', logging.ERROR)]
 
                 try:
                     if auto_convert_textures and all(_ not in outfile.name for _ in TEXCONV_IGNORE):
-                        conv_data, fmt = convert_buffer(d, 'dds')
+                        conv_data, fmt = convert_buffer(d, 'dds', out_format=convert_dds_fmt)
                         with (outfile.parent / f'{outfile.stem}.{fmt}').open('wb') as conv_out:
                             conv_out.write(conv_data)
-                            self.log(f'converted {outfile.relative_to(outdir)} to {fmt}')
+                            msgs.append((f'converted {outfile.relative_to(outdir)} to {fmt}', logging.INFO))
                 except Exception as e:
                     if report_tex_conversion_errors:
-                        self.log(f'failed to convert {dds_file}: {repr(e)}', logging.ERROR)
+                        return [(f'failed to convert {dds_file}: {repr(e)}', logging.ERROR)]
+                return msgs
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = []
                 for dds_file in found_textures:
                     if len(found_textures[dds_file]) == 1:
                         continue
-                    executor.submit(_do_unsplit, dds_file=dds_file)
-                executor.shutdown(wait=True)
+                    futures.append(executor.submit(_do_unsplit, dds_file=dds_file))
+                for future in concurrent.futures.as_completed(futures):
+                    for msg in future.result():
+                        self.log(*msg)
         # endregion process textures
         ################################################################################################################
 
@@ -610,20 +629,23 @@ class EntityExtractor:
         elif auto_convert_models:
             def _do_model_convert(model_file):
                 try:
-                    self.log(f'converting {model_file}')
-                    subprocess.check_call(f'"{cgf_converter}" -group -smooth -png "{model_file}" -objectdir "{obj_dir}"',
-                                          shell=True, stdout=subprocess.DEVNULL)
+                    subprocess.check_call(f'"{cgf_converter}" -group -smooth -{convert_dds_fmt.lower()} "{model_file}" '
+                                          f'-objectdir "{obj_dir}"', shell=True, stdout=subprocess.DEVNULL)
+                    return [(f'converted {model_file}', logging.INFO)]
                 except subprocess.CalledProcessError as e:
-                    self.log(f'converting {model_file}: repr{e}', logging.ERROR)
+                    return [(f'failed converted {model_file}: repr{e}', logging.ERROR)]
 
             self.log('\n\nConverting Models\n' + '-' * 80)
             obj_dir = outdir / 'Data'
             with concurrent.futures.ThreadPoolExecutor() as executor:
+                futures = []
                 for model_file in [_ for _ in extracted_files if
                                    '.' + _.split('.')[-1].lower() in CGF_CONVERTER_MODEL_EXTS]:
                     model_file = outdir / Path(model_file)
-                    executor.submit(_do_model_convert, model_file=model_file)
-                executor.shutdown(wait=True)
+                    futures.append(executor.submit(_do_model_convert, model_file=model_file))
+                for future in concurrent.futures.as_completed(futures):
+                    for msg in future.result():
+                        self.log(*msg)
         # endregion convert models
         ################################################################################################################
 

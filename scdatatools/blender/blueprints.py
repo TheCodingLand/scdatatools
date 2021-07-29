@@ -12,49 +12,9 @@ from bpy.types import Operator, OperatorFileListElement
 
 from scdatatools.blender import materials
 from scdatatools.utils import redirect_to_tqdm
-from scdatatools.blender.utils import write_to_logfile, select_children
-
-
-def remove_proxy_meshes() -> bool:
-    """ Remove Meshes for the `proxy` Material typically found in converted Star Citizen models. """
-    # remove proxy meshes
-    if 'proxy' not in bpy.data.materials:
-        print("Could not find proxy material")
-        return False
-
-    cur_mode = bpy.context.active_object.mode if bpy.context.active_object is not None else 'OBJECT'
-    try:
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.ops.object.select_by_type(type='MESH')
-        # bpy.ops.object.mode_set(mode='EDIT')
-        if cur_mode != 'EDIT':
-            bpy.ops.object.editmode_toggle()
-
-        bpy.context.object.active_material = bpy.data.materials['proxy']
-        bpy.ops.object.material_slot_select()
-        bpy.ops.mesh.delete(type='FACE')
-
-        if cur_mode != 'EDIT':
-            bpy.ops.object.editmode_toggle()
-        # bpy.ops.object.mode_set(mode=cur_mode)
-    except Exception as e:
-        print(f'Failed to remove proxy meshes: {repr(e)}')
-        return False
-    return True
-
-
-def remove_sc_physics_proxies() -> bool:
-    """ Remove `$physics_proxy*` objects typically found in converted Star Citizen models. """
-    # remove physics proxies
-    try:
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.ops.object.delete({
-            "selected_objects": [obj for obj in bpy.data.objects if obj.name.lower().startswith('$physics_proxy')]
-        })
-        return True
-    except Exception as e:
-        print(f'Failed to remove sc physics proxies: {repr(e)}')
-        return False
+from scdatatools.blender.utils import (
+    write_to_logfile, select_children, remove_proxy_meshes, remove_sc_physics_proxies, import_cleanup
+)
 
 
 def import_assets(context, new_assetfilename, parent_map=None, option_import=True, option_fixorphans=False):
@@ -264,11 +224,13 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
                             obj.parent = port
                             bpy.ops.object.parent_clear(type='CLEAR_INVERSE')
 
+        import_cleanup(bpy.context, option_deleteproxymat=self.auto_remove_proxy_mesh)
+
         if self.remove_physics_proxies:
             remove_sc_physics_proxies()
 
-        if self.auto_remove_proxy_mesh:
-            remove_proxy_meshes()
+        # if self.auto_remove_proxy_mesh:
+        #     remove_proxy_meshes()
 
         if self.auto_import_materials:
             try:

@@ -88,3 +88,152 @@ def select_children(obj):
     for child in obj.children:
         child.select_set(True)
         select_children(child)
+
+
+def remove_proxy_meshes() -> bool:
+    """ Remove Meshes for the `proxy` Material typically found in converted Star Citizen models. """
+    # remove proxy meshes
+    if 'proxy' not in bpy.data.materials:
+        print("Could not find proxy material")
+        return False
+
+    cur_mode = bpy.context.active_object.mode if bpy.context.active_object is not None else 'OBJECT'
+    try:
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.ops.object.select_by_type(type='MESH')
+        # bpy.ops.object.mode_set(mode='EDIT')
+        if cur_mode != 'EDIT':
+            bpy.ops.object.editmode_toggle()
+
+        bpy.context.object.active_material = bpy.data.materials['proxy']
+        bpy.ops.object.material_slot_select()
+        bpy.ops.mesh.delete(type='FACE')
+
+        if cur_mode != 'EDIT':
+            bpy.ops.object.editmode_toggle()
+        # bpy.ops.object.mode_set(mode=cur_mode)
+    except Exception as e:
+        print(f'Failed to remove proxy meshes: {repr(e)}')
+        return False
+    return True
+
+
+def remove_sc_physics_proxies() -> bool:
+    """ Remove `$physics_proxy*` objects typically found in converted Star Citizen models. """
+    # remove physics proxies
+    try:
+        bpy.ops.object.select_all(action='DESELECT')
+        bpy.ops.object.delete({
+            "selected_objects": [obj for obj in bpy.data.objects if obj.name.lower().startswith('$physics_proxy')]
+        })
+        return True
+    except Exception as e:
+        print(f'Failed to remove sc physics proxies: {repr(e)}')
+        return False
+
+
+def import_cleanup(context, option_deleteproxymat=True, option_offsetdecals=False, option_cleanupimages=True):
+    bpy.ops.material.materialutilities_merge_base_names(is_auto=True)
+
+    for obj in context.scene.objects:
+        split = obj.name.split(".")
+        obj.name = obj.name.replace("_out", "")
+        # obj.name = obj.name.split(".")[0]
+        # locators_objs = [
+        #     obj for obj in bpy.data.objects if obj.name.startswith(split[0])
+        # ]
+
+        if obj.type == "MESH":
+            obj.data.use_auto_smooth = True
+
+            for index, slot in enumerate(obj.material_slots):
+                # select the verts from faces with material index
+                if not slot.material:
+                    # empty slot
+                    continue
+                verts = [
+                    v
+                    for f in obj.data.polygons
+                    if f.material_index == index
+                    for v in f.vertices
+                ]
+                if "proxy" in slot.material.name and option_deleteproxymat:
+                    obj.select_set(True)
+                    bpy.context.view_layer.objects.active = obj
+                    bpy.context.object.active_material_index = index
+                    bpy.ops.object.mode_set(mode="EDIT")
+                    bpy.ops.object.material_slot_select()
+                    bpy.ops.mesh.delete(type="FACE")
+                    bpy.ops.object.mode_set(mode="OBJECT")
+                    bpy.ops.object.select_all(action="DESELECT")
+                if len(verts):
+                    vg = obj.vertex_groups.get(slot.material.name)
+                    if vg is None:
+                        vg = obj.vertex_groups.new(name=slot.material.name)
+                    vg.add(verts, 1.0, "ADD")
+                if (
+                        ("pom" in slot.material.name)
+                        or ("decal" in slot.material.name)
+                        and option_offsetdecals
+                ):
+                    mod_name = slot.material.name + " tweak"
+                    if not obj.modifiers.get(mod_name):
+                        obj.modifiers.new(mod_name, "DISPLACE")
+                        obj.modifiers[mod_name].vertex_group = slot.material.name
+                        obj.modifiers[mod_name].strength = 0.001
+                        obj.modifiers[mod_name].mid_level = 0
+
+            if not obj.modifiers.get("Weighted Normal"):
+                obj.modifiers.new("Weighted Normal", "WEIGHTED_NORMAL")
+                obj.modifiers["Weighted Normal"].keep_sharp = True
+
+        elif obj.type == "EMPTY":
+            obj.empty_display_size = 0.1
+            if "hardpoint" in obj.name:
+                obj.show_name = False
+                obj.empty_display_type = "SPHERE"
+                obj.scale = (1, 1, 1)
+                # obj.show_in_front = True
+            elif "light" in obj.name:
+                obj.empty_display_type = "SINGLE_ARROW"
+            elif "$" in obj.name:
+                obj.empty_display_type = "SPHERE"
+            elif "$physics" in obj.name:
+                bpy.data.objects.remove(obj, do_unlink=True)
+                continue
+
+        if "DM_" in obj.name:
+            if bpy.data.collections.find("Damaged") == -1:
+                bpy.data.collections.new("Damaged")
+            # bpy.data.collections['Damaged'].objects.link(obj)
+        elif "Interior" in obj.name:
+            if bpy.data.collections.find("Interior") == -1:
+                bpy.data.collections.new("Interior")
+            # bpy.data.collections['Interior'].objects.link(obj)
+
+    if option_cleanupimages:
+        for img in bpy.data.images:
+            if "." not in img.name_full:
+                continue
+            if '.dds' in img.filepath:
+                for ext in ['.tif', '.png']:
+                    imgfile = Path(img.filepath).with_suffix(ext)
+                    if imgfile.is_file():
+                        newimg = bpy.data.images.load(imgfile.as_posix(), check_existing=True)
+                        break
+                else:
+                    print(f'Could not find image: {img.filepath}')
+                    continue
+                img.user_remap(newimg)
+                img.filepath = imgfile.as_posix()
+                print(img.name_full + " -> " + newimg.name_full)
+            head, tail = img.name_full.rsplit(".", 1)
+            if bpy.data.images.get(head):
+                print(img.name_full + " -> " + head)
+                img.user_remap(bpy.data.images.get(head))
+            elif tail.isdigit():
+                print(img.name_full + " is now " + head)
+                img.name = head
+
+    bpy.ops.outliner.orphans_purge(num_deleted=0)
+    return {"FINISHED"}

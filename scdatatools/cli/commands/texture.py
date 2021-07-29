@@ -53,14 +53,7 @@ class Tex:
                     stem, ext = str(ddsfile.name).split('.', maxsplit=1)
                     outfile = (ddsfile.parent / f'{stem}_full.{ext}').absolute()
 
-                outfile = collect_and_unsplit(ddsfile, outfile=outfile)
-                if replace:
-                    if is_glossmap(outfile):
-                        [_.unlink(missing_ok=True) for _ in
-                         outfile.parent.glob(f'{outfile.name.split(".")[0]}.dds.[0-9]a')]
-                    else:
-                        [_.unlink(missing_ok=True) for _ in
-                         outfile.parent.glob(f'{outfile.name.split(".")[0]}.dds.[0-9]')]
+                outfile = collect_and_unsplit(ddsfile, outfile=outfile, remove=replace)
                 if not quiet:
                     print(f'{ddsfile} -> {outfile}')
             except KeyboardInterrupt:
@@ -104,20 +97,13 @@ class Tex:
             try:
                 if outdir:
                     outfile = outdir / f'{Path(ddsfile).name}'
-                elif replace:
+                elif remove:
                     outfile = ddsfile
                 else:
                     stem, ext = str(ddsfile.name).split('.', maxsplit=1)
                     outfile = (ddsfile.parent / f'{stem}_full.{ext}').absolute()
 
-                outfile = collect_and_unsplit(ddsfile, outfile=outfile)
-                if replace:
-                    if is_glossmap(outfile):
-                        [_.unlink(missing_ok=True) for _ in
-                         outfile.parent.glob(f'{outfile.name.split(".")[0]}.dds.[0-9]a')]
-                    else:
-                        [_.unlink(missing_ok=True) for _ in
-                         outfile.parent.glob(f'{outfile.name.split(".")[0]}.dds.[0-9]')]
+                outfile = collect_and_unsplit(ddsfile, outfile=outfile, remove=remove)
                 if not quiet:
                     print(f'{ddsfile} -> {outfile}')
             except KeyboardInterrupt:

@@ -67,6 +67,7 @@ def unsplit_dds(dds_files: typing.Dict[str, typing.Union[P4KInfo, Path, typing.I
             dds_file += dds_files[dds]
         else:
             dds_file += dds_files[dds].read()
+
     # finally add the remainder of the `.dds` top file, `.dds.0` if you will
     dds_file += hdr_data[dds_hdr_len:]
 
@@ -78,7 +79,8 @@ def unsplit_dds(dds_files: typing.Dict[str, typing.Union[P4KInfo, Path, typing.I
         return Path(outfile)
 
 
-def collect_and_unsplit(dds_file: typing.Union[str, Path, P4KInfo], outfile='-') -> typing.Union[bytes, Path]:
+def collect_and_unsplit(dds_file: typing.Union[str, Path, P4KInfo], outfile='-',
+                        remove: bool = False) -> typing.Union[bytes, Path]:
     """
     Automatically find associated pieces of a split DDS texture and return the recombined (un-split) texture.
 
@@ -86,6 +88,7 @@ def collect_and_unsplit(dds_file: typing.Union[str, Path, P4KInfo], outfile='-')
         `p4k` archive.
     :param outfile: The output path for the unsplit texture. Defaults to '-' which will return the bytes of the texture
         instead of writing it to a file
+    :param remove: Remove the collected pieces after unsplitting. Must specify an `outfile`, does nothing if '-'.
     :return: Bytes of the recombined texture if `outfile` is '-', otherwise the `Path` to the file that was created
     """
 
@@ -103,4 +106,14 @@ def collect_and_unsplit(dds_file: typing.Union[str, Path, P4KInfo], outfile='-')
     else:
         dds_files = {k: v for k, v in dds_files.items() if not k.endswith('a')}
 
-    return unsplit_dds(dds_files, outfile=outfile)
+    out = unsplit_dds(dds_files, outfile=outfile)
+
+    if isinstance(out, Path) and remove:
+        if is_glossmap(outfile):
+            [_.unlink(missing_ok=True) for _ in
+             outfile.parent.glob(f'{outfile.name.split(".")[0]}.dds.[0-9]a')]
+        else:
+            [_.unlink(missing_ok=True) for _ in
+             outfile.parent.glob(f'{outfile.name.split(".")[0]}.dds.[0-9]')]
+
+    return out

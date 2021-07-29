@@ -105,7 +105,7 @@ def convert_buffer(inbuf: bytes, in_format: object, out_format: str = 'default',
 
 def tex_convert(infile: typing.Union[str, Path, io.BufferedIOBase, io.RawIOBase, NamedBytesIO],
                 outfile: typing.Union[str, Path], converter: ConverterUtility = ConverterUtility.default,
-                converter_cli_args: str = "", converter_bin: str = "") -> bytes:
+                converter_cli_args: str = "", converter_bin: str = "") -> Path:
     """ Convert the texture file provided by `infile` to `outfile` using the an external converter. By default, this
     will attempt to use `texconv`. If that fails, or isn't available, then it'll attempt to use `compressonatorcli`.
     Setting `converter` explicitly will disable this behavior and only attempt the chosen `converter`.
@@ -121,7 +121,7 @@ def tex_convert(infile: typing.Union[str, Path, io.BufferedIOBase, io.RawIOBase,
         ConversionError: If the converter does not exit cleanly. Output from the converter will be supplied
         ConverterUnavailable: If the specified `converter_bin` is invalid, or if `texconv` or `compressonatorcli`
             cannot be found on the system's `PATH`
-    :return: `bytes` of the converted image in format determined by `outfile`'s extension
+    :return: :class:`Path` of the converted image if successful
     """
     if converter_cli_args and converter == ConverterUtility.default:
         raise ValueError(f'You must specify which converter to use when supplying converter_cli_args')
@@ -129,7 +129,7 @@ def tex_convert(infile: typing.Union[str, Path, io.BufferedIOBase, io.RawIOBase,
     converter, converter_bin = _check_bin(converter, converter_bin)
 
     if is_glossmap(infile):
-        raise NotImplementedError(f'Cannot yet convert glossmaps. Please check for an option issue with scdatatools'
+        raise NotImplementedError(f'Cannot yet convert glossmaps. Please check for an option issue with scdatatools '
                                   f'if you require this functionality.')
 
     if isinstance(outfile, str):
@@ -163,7 +163,7 @@ def tex_convert(infile: typing.Union[str, Path, io.BufferedIOBase, io.RawIOBase,
                 converter_cli_args = DEFAULT_TEXCONV_ARGS.format(fmt=TEXCONV_DDNA_FMT) + converter_cli_args
             else:
                 converter_cli_args = DEFAULT_TEXCONV_ARGS.format(fmt=TEXCONV_DEFAULT_FMT) + converter_cli_args
-            cmd = f'{converter_bin} -ft {ft} {converter_cli_args} {tmpin.name}'
+            cmd = f'"{converter_bin}" -ft {ft} {converter_cli_args} "{tmpin.name}"'
             try:
                 r = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True,
                                    cwd=outfile.parent)

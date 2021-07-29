@@ -8,7 +8,7 @@ from pathlib import Path
 
 from scdatatools.p4k import P4KFile
 
-from .dds import unsplit_dds, collect_and_unsplit
+from .dds import unsplit_dds, collect_and_unsplit, is_glossmap, is_normals
 from .converter import convert_buffer, tex_convert
 
 

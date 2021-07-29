@@ -1,4 +1,5 @@
 import json
+import time
 import shutil
 import typing
 import logging
@@ -15,7 +16,7 @@ from scdatatools.utils import SCJSONEncoder
 from scdatatools.forge.dftypes import Record
 from scdatatools.cry.model import chunks as ChCrChunks
 from scdatatools.forge.dco import dco_from_guid, DataCoreObject
-from scdatatools.sc.textures import unsplit_dds, convert_buffer
+from scdatatools.sc.textures import tex_convert, collect_and_unsplit, is_glossmap
 from scdatatools.utils import etree_to_dict, norm_path, dict_search
 from scdatatools.cry.model.utils import Vector3D
 from scdatatools.cry.cryxml import dict_from_cryxml_file, dict_from_cryxml_string, CryXmlConversionFormat
@@ -27,6 +28,7 @@ PROCESS_FILES = [
     'skin', 'skinm', 'cdf'
 ]
 CGF_CONVERTER_MODEL_EXTS = ['.cga', '.cgf', '.chr', '.skin']
+CGF_CONVERTER_TIMEOUT = 5 * 60   # assume cgf converter is stuck after this much time
 RECORDS_BASE_PATH = Path('libs/foundry/records/')
 SHIP_ENTITIES_PATH = RECORDS_BASE_PATH / 'entities/spaceships'
 TEXCONV_IGNORE = ['_ddna']
@@ -576,43 +578,33 @@ class EntityExtractor:
         # region process textures
         if auto_convert_textures or auto_unsplit_textures:
             self.log('\n\nUn-splitting textures\n' + '-' * 80)
-            found_textures = {}
+            found_textures = set()
             for dds_file in [_ for _ in extracted_files if '.dds.' in _.lower()]:
-                dds_file = outdir / Path(dds_file)
-                dds_basename = dds_file.parent / dds_file.name.split('.')[0]
-                found_textures.setdefault(str(dds_basename.absolute()),
-                                          set()).update(dds_basename.parent.glob(f'{dds_basename.name}.dds*'))
+                _ = Path(dds_file)
+                if is_glossmap(dds_file):
+                    found_textures.add(outdir / _.parent / f'{_.name.split(".")[0]}.dds.a')
+                else:
+                    found_textures.add(outdir / _.parent / f'{_.name.split(".")[0]}.dds')
 
             def _do_unsplit(dds_file):
-                outfile = Path(f'{dds_file}.dds')
                 msgs = []
                 try:
-                    d = unsplit_dds({_.name: _.open('rb').read() for _ in found_textures[dds_file]})
-                    [_.unlink(missing_ok=True) for _ in found_textures[dds_file]]
-
-                    with outfile.open('wb') as out:
-                        out.write(d)
-                        msgs.append((f'un-split {outfile.relative_to(outdir)}', logging.INFO))
+                    outfile = collect_and_unsplit(Path(dds_file), outfile=Path(dds_file), remove=True)
+                    msgs.append((f'un-split {outfile.relative_to(outdir)}', logging.INFO))
                 except Exception as e:
                     return [(f'failed to un-split {dds_file}: {repr(e)}', logging.ERROR)]
 
                 try:
-                    if auto_convert_textures and all(_ not in outfile.name for _ in TEXCONV_IGNORE):
-                        conv_data, fmt = convert_buffer(d, 'dds', out_format=convert_dds_fmt)
-                        with (outfile.parent / f'{outfile.stem}.{fmt}').open('wb') as conv_out:
-                            conv_out.write(conv_data)
-                            msgs.append((f'converted {outfile.relative_to(outdir)} to {fmt}', logging.INFO))
+                    if auto_convert_textures and all(_ not in outfile.name.lower() for _ in TEXCONV_IGNORE):
+                        tex_convert(infile=outfile, outfile=outfile.with_suffix(f'.{convert_dds_fmt}'))
+                        msgs.append((f'converted {outfile.relative_to(outdir)} to {convert_dds_fmt}', logging.INFO))
                 except Exception as e:
                     if report_tex_conversion_errors:
                         return [(f'failed to convert {dds_file}: {repr(e)}', logging.ERROR)]
                 return msgs
 
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                futures = []
-                for dds_file in found_textures:
-                    if len(found_textures[dds_file]) == 1:
-                        continue
-                    futures.append(executor.submit(_do_unsplit, dds_file=dds_file))
+                futures = [executor.submit(_do_unsplit, dds_file=_) for _ in found_textures]
                 for future in concurrent.futures.as_completed(futures):
                     for msg in future.result():
                         self.log(*msg)
@@ -628,12 +620,23 @@ class EntityExtractor:
                 'the path\n', logging.ERROR)
         elif auto_convert_models:
             def _do_model_convert(model_file):
-                try:
-                    subprocess.check_call(f'"{cgf_converter}" -group -smooth -{convert_dds_fmt.lower()} "{model_file}" '
-                                          f'-objectdir "{obj_dir}"', shell=True, stdout=subprocess.DEVNULL)
-                    return [(f'converted {model_file}', logging.INFO)]
-                except subprocess.CalledProcessError as e:
-                    return [(f'failed converted {model_file}: repr{e}', logging.ERROR)]
+                cgf = subprocess.Popen(f'"{cgf_converter}" -group -smooth -{convert_dds_fmt.lower()} "{model_file}" '
+                                       f'-objectdir "{obj_dir}"', shell=True, stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT)
+                start_time = time.time()
+                while (time.time() - start_time) < CGF_CONVERTER_TIMEOUT:
+                    if cgf.poll() is not None:
+                        break
+                    time.sleep(1)
+                else:
+                    # timed out, kill the process
+                    cgf.terminate()
+                if cgf.returncode != 0:
+                    errmsg = cgf.stdout.read().decode('utf-8')
+                    if 'is being used by another process' in errmsg.lower():
+                        return []  # someone else already picked up this file, ignore the error
+                    return [(f'model conversion failed for {model_file}: \n{errmsg}\n\n', logging.ERROR)]
+                return [(f'converted {model_file}', logging.INFO)]
 
             self.log('\n\nConverting Models\n' + '-' * 80)
             obj_dir = outdir / 'Data'

@@ -118,8 +118,8 @@ class EntityExtractor:
         """
         Process and extract a `ShipEntity` records (typically found in `entities/spaceships`) which contain all the
         information pertaining to a ship in game, the models, components, object containers, etc. This utility will
-        recursively parse this record, and all referenced objects within it to find and extract all data pertaining to the
-        ship.
+        recursively parse this record, and all referenced objects within it to find and extract all data pertaining to
+        the ship.
 
         :param sc: :class:`StarCitizen` instance
         :param entity: The DataCore object of the `Entity` to extract
@@ -248,17 +248,25 @@ class EntityExtractor:
         if 'path' in obj.properties:
             self._add_file_to_extract(obj.properties['path'])
 
-    def _handle_component_loadouts(self, rec, obj):
+    def _get_or_create_item_port(self, name):
+        if name not in self._cache['item_ports']:
+            self._cache['item_ports'][name] = {'geometry': set()}
+        return self._cache['item_ports'][name]
+
+    def _handle_component_loadouts(self, rec, obj, parent=None):
         try:
             for entry in obj.properties['loadout'].properties.get('entries', []):
                 try:
                     if entry.properties['entityClassName']:
                         ipe = self._records_by_name[entry.properties["entityClassName"]].id.value
-                        self._cache['item_ports'].setdefault(entry.properties['itemPortName'], set()).add(ipe)
+                        ip = self._get_or_create_item_port(entry.properties['itemPortName'])
+                        ip['geometry'].add(ipe)
+                        if parent is not None:
+                            ip['parent'] = parent
                         self._cache['bone_names'].add(entry.properties['itemPortName'])
                         self._add_record_to_extract(ipe)
                     if entry.properties['loadout']:
-                        self._handle_component_loadouts(rec, entry)
+                        self._handle_component_loadouts(rec, entry, parent=entry.properties['itemPortName'])
                 except Exception as e:
                     self.log(f'processing component SEntityComponentDefaultLoadoutParams: {repr(e)}', logging.ERROR)
         except Exception as e:
@@ -344,7 +352,8 @@ class EntityExtractor:
         for gear in r.record.properties['gears']:
             self._handle_ext_geom(r, gear.properties['geometry'])
             geom, _ = self._get_or_create_geom(gear.properties['geometry'].properties['path'])
-            self._cache['item_ports'].setdefault(gear.properties['bone'], set()).add(geom['name'])
+            ip = self._get_or_create_item_port(gear.properties['bone'])
+            ip['geometry'].add(geom['name'])
             self._cache['bone_names'].add(gear.properties['bone'])
 
     def _search_record(self, r):
@@ -570,19 +579,22 @@ class EntityExtractor:
                 'bone_names': self._cache['bone_names'],
                 'geometry': self._cache['found_geometry'],
             }
-            for port, ents in self._cache['item_ports'].items():
-                for ent in ents:
+            for port, props in self._cache['item_ports'].items():
+                bp['item_ports'][port] = {'geometry': set()}
+                for ent in props.pop('geometry'):
                     if ent in self._cache['record_geometry']:
                         for tag in self._cache['record_geometry'][ent]:
                             if tag and tag in port:
-                                bp['item_ports'].setdefault(port, set()).update(
-                                    self._cache['record_geometry'][ent][tag])
+                                bp['item_ports'][port]['geometry'].update(
+                                    self._cache['record_geometry'][ent][tag]
+                                )
                                 break
                         else:
-                            bp['item_ports'].setdefault(port, set()).update(
+                            bp['item_ports'][port]['geometry'].update(
                                 self._cache['record_geometry'][ent].get('', []))
                     elif ent in self._cache['found_geometry']:
-                        bp['item_ports'].setdefault(port, set()).add(ent)
+                        bp['item_ports'][port]['geometry'].add(ent)
+                bp['item_ports'][port].update(props)
             json.dump(bp, bpfile, indent=2, cls=SCJSONEncoder)
         # endregion generate blueprint
         ################################################################################################################

@@ -152,7 +152,7 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
 
             with log_time('Importing Geometry'):
                 geo_map = {}
-                for entity in tqdm.tqdm(bp['geometry'].values(), desc='Importing Geometry', postfix='',
+                for name, entity in tqdm.tqdm(bp['geometry'].items(), desc='Importing Geometry', postfix='',
                                         total=len(bp['geometry']), unit='g'):
 
                     geom_file = Path(entity['geom_file'])
@@ -174,10 +174,11 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
                     if self.remove_physics_proxies:
                         proxy_objs = [obj for obj in bpy.context.selected_objects
                                       if obj.name.lower().startswith('$physics_proxy')]
-                        for obj in tqdm.tqdm(proxy_objs, desc='Removing SC physics proxy objects'):
-                            bpy.data.objects.remove(obj, do_unlink=True)
+                        if proxy_objs:
+                            for obj in tqdm.tqdm(proxy_objs, desc='Removing SC physics proxy objects'):
+                                bpy.data.objects.remove(obj, do_unlink=True)
 
-                    geo_map[entity['name']] = {
+                    geo_map[name] = {
                         'dae_file': dae_file,
                         'objs': list(bpy.context.selected_objects),
                         'materials': entity['materials']
@@ -206,17 +207,25 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
                 # entity_object = bpy.data.objects.new(bp['name'], None)
                 # bpy.context.scene.collection.objects.link(entity_object)
 
-                for entity in tqdm.tqdm(bp['geometry'].values(), desc='Instancing Geometry', postfix='',
+                for name, entity in tqdm.tqdm(bp['geometry'].items(), desc='Instancing Geometry', postfix='',
                                         total=len(bp['geometry']), unit='g'):
                     geom_file = Path(entity['geom_file'])
                     dae_file = data_dir / geom_file.parent / f'{geom_file.stem}.dae'
-                    for name, i in tqdm.tqdm(entity['instances'].items(), desc='Instances'):
+                    if not dae_file.is_file():
+                        print(f'WARNING: missing converted geometry for {name}: {dae_file}')
+                        continue
+
+                    for i_name, i in entity['instances'].items():
                         new_instance = import_assets(dae_file, geometry_collection=geom_collection, instance=name)
                         if new_instance is None:
-                            # this is because of some assumptions made, it could blow up, but kinda want it to so we can
-                            # find the use case
-                            new_instance = parent_fixup.pop(entity['name'])
+                            # todo: this _shouldn't_ happen. if it does we really should figure out why
+                            try:
+                                new_instance = parent_fixup.pop(entity['name'])
+                            except KeyError:
+                                print(f'ERROR: couldnt create instance for {name}')
+                                continue
                         else:
+                            new_instance.name = f'{new_instance.name}.{i_name}'
                             entity_collection.objects.link(new_instance)
 
                         new_instance.location = (i['pos']['x'], i['pos']['y'], i['pos']['z'])
@@ -235,11 +244,24 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
                         # if new_instance.parent is None:
                         #     new_instance.parent = entity_object
 
-                for port_name, geom in tqdm.tqdm(bp['item_ports'].items(), desc='Importing Hardpoints',
+                for port_name, props in tqdm.tqdm(bp['item_ports'].items(), desc='Importing Hardpoints',
                                                  total=len(bp['item_ports']), unit='h'):
                     if port_name in bpy.data.objects:
                         port = bpy.data.objects[port_name]
-                        for geom_name in geom:
+
+                        if parent := props.get('parent', ''):
+                            parent_obj = bpy.data.objects.get(parent)
+                            if parent_obj is not None:
+                                for par_child in parent_obj.children:
+                                    for o in par_child.children:
+                                        if o.name.split('.')[0] == port_name:
+                                            port = o
+                                            break
+                                    else:
+                                        continue  # didn't find anything, keep looking in children
+                                    break
+
+                        for geom_name in props['geometry']:
                             if geom_name not in bp['geometry']:
                                 continue
 
@@ -265,10 +287,6 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
                             obj.parent = bpy.data.objects[bone_name]
 
                 import_cleanup(bpy.context, option_deleteproxymat=self.auto_remove_proxy_mesh)
-
-            if self.remove_physics_proxies:
-                with log_time('Removing physics proxies'):
-                    remove_sc_physics_proxies()
 
             if self.auto_remove_proxy_mesh:
                 with log_time('Removing proxy mesh objects'):

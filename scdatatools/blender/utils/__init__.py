@@ -233,14 +233,5 @@ def import_cleanup(context, option_deleteproxymat=False, option_offsetdecals=Fal
             elif "$" in obj.name:
                 obj.empty_display_type = "SPHERE"
 
-        if "DM_" in obj.name:
-            if bpy.data.collections.find("Damaged") == -1:
-                bpy.data.collections.new("Damaged")
-            # bpy.data.collections['Damaged'].objects.link(obj)
-        elif "Interior" in obj.name:
-            if bpy.data.collections.find("Interior") == -1:
-                bpy.data.collections.new("Interior")
-            # bpy.data.collections['Interior'].objects.link(obj)
-
     bpy.ops.outliner.orphans_purge(num_deleted=0)
     return {"FINISHED"}

@@ -5,6 +5,7 @@ from ast import literal_eval as make_tuple
 from xml.etree import cElementTree as ElementTree
 
 import bpy
+import tqdm
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty, CollectionProperty
 from bpy.types import Operator, OperatorFileListElement
@@ -106,7 +107,7 @@ def create_materials_from_mtl(xml_path, data_dir='', use_setting=False):
             continue
         if mat is not None:
             mat['Filename'] = str(xml_path)
-            print('Imported material ' + str(element.get('Name')))
+            print(f'Imported material {element.get("Name")}')
     return True
 
 
@@ -558,8 +559,8 @@ def load_textures(textures, nodes, mat, data_dir, shadergroup=None):
     return mat
 
 
-def load_materials(materials, data_dir):
-    for mat in materials:
+def load_materials(materials, data_dir, use_setting=False):
+    for mat in tqdm.tqdm(materials, desc='Loading materials'):
         if not mat:
             continue
         if not Path(mat).is_file():
@@ -568,7 +569,7 @@ def load_materials(materials, data_dir):
                 write_to_logfile(f'Could not find mtl file: {mat}', 'Error')
                 continue
         write_to_logfile(f"Path: {mat}")
-        create_materials_from_mtl(mat, data_dir=data_dir)
+        create_materials_from_mtl(mat, data_dir=data_dir, use_setting=use_setting)
 
 
 def set_viewport(mat, mtl, trans=False):
@@ -648,8 +649,8 @@ class ImportSCMTL(Operator, ImportHelper):
         if dirpath.is_file():
             dirpath = dirpath.parent
 
-        for file in self.files:
-            create_materials_from_mtl(dirpath / file.name, data_dir=self.import_data_dir, use_setting=self.use_setting)
+        load_materials([dirpath / _.name for _ in self.files],
+                       data_dir=self.import_data_dir, use_setting=self.use_setting)
 
         return {'FINISHED'}
 

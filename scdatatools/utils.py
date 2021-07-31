@@ -183,19 +183,19 @@ def norm_path(path):
     return path.replace('\\', '/')
 
 
-def dict_search(obj: dict, keys: typing.Union[str, list]):
+def dict_search(obj: dict, keys: typing.Union[str, list], ignore_case=False):
     """ returns the unique values of every key `key` within nested dict objects """
     if not isinstance(keys, list):
         keys = [keys]
     values = set()
     for k, v in obj.items():
         if isinstance(v, dict):
-            values |= dict_search(v, keys)
+            values |= dict_search(v, keys, ignore_case=ignore_case)
         elif isinstance(v, list):
             for i in v:
                 if isinstance(i, dict):
-                    values |= dict_search(i, keys)
-        elif k in keys:
+                    values |= dict_search(i, keys, ignore_case=ignore_case)
+        elif (ignore_case and k.lower() in keys) or (k in keys):
             values.add(v)
     return values
 

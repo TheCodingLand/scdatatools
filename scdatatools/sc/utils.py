@@ -1,3 +1,4 @@
+import re
 import json
 import time
 import shutil
@@ -29,19 +30,21 @@ PROCESS_FILES = [
 ]
 CGF_CONVERTER_MODEL_EXTS = ['.cga', '.cgf', '.chr', '.skin']
 CGF_CONVERTER_TIMEOUT = 5 * 60   # assume cgf converter is stuck after this much time
+CGF_CONVERTER_DEFAULT_OPTS = '-skipphysproxy -skipproxy -skipproxymat -skipshield -group -smooth -notex'
 RECORDS_BASE_PATH = Path('libs/foundry/records/')
 SHIP_ENTITIES_PATH = RECORDS_BASE_PATH / 'entities/spaceships'
 TEXCONV_IGNORE = ['_ddna']
 CGF_CONVERTER = shutil.which('cgf-converter')
 RECORD_KEYS_WITH_PATHS = [
-    '@File',  # mtl
-    '@path',  # chrparams, entxml, soc_cryxml
+    # all keys are lowercase to ignore case while matching
+    '@file',  # @File mtl
+    '@path',  # @Path/@path chrparams, entxml, soc_cryxml, mtl
     '@texture',  # soc_cryxml
-    '@cubemapTexture',  # soc_cryxml
-    '@externalLayerFilePath',  # soc_cryxml
-    'AnimationDatabase',  # Ship Entity record in 'SAnimationControllerParams'
-    'AnimationController',  # Ship Entity record in 'SAnimationControllerParams'
-    'voxelDataFile',  # Ship Entity record in 'SVehiclePhysicsGridParams'
+    '@cubemaptexture',  # @cubemapTexture soc_cryxml
+    '@externallayerfilepath',  # @externalLayerFilePath soc_cryxml
+    'animationdatabase',  # AnimationDatabase Ship Entity record in 'SAnimationControllerParams'
+    'animationcontroller',  # AnimationController Ship Entity record in 'SAnimationControllerParams'
+    'voxeldatafile',  # voxelDataFile Ship Entity record in 'SVehiclePhysicsGridParams'
 ]
 RECORD_KEYS_WITH_AUDIO = [
     'audioTrigger'
@@ -55,17 +58,23 @@ class Geometry(dict):
         self['name'] = name
         self['geom_file'] = geom_file
         self['instances'] = {}
-        self['materials'] = set() if materials is None else set(materials)
+        self['materials'] = set()
+        self.add_materials(materials or [])
         if pos:
             self.add_instance('', pos, rotation, scale)
         self['attrs'] = attrs or {}
         self.parent = parent
 
+    def add_materials(self, mats):
+        # ensure material files have the correct suffix
+        if not isinstance(mats, (list, tuple, set)):
+            mats = [mats]
+        self['materials'].update(Path(mat).with_suffix('.mtl').as_posix() for mat in mats if mat)
+
     def add_instance(self, name, pos, rotation=None, scale=None, materials=None, attrs=None):
         if not name:
             name = str(len(self['instances']))
-        if materials:
-            self['materials'].update(materials)
+        self.add_materials(materials or [])
         self['instances'][name] = {
             'pos': pos,
             'rotation': rotation if rotation is not None else DEFAULT_ROTATION,
@@ -98,6 +107,7 @@ class EntityExtractor:
             'audio_to_extract': set(),
             'records_to_process': set(),
             'item_ports': {},
+            'bone_names': set(),
             'exclude': set(),
             'geometry': {},
             'found_geometry': {},
@@ -132,14 +142,15 @@ class EntityExtractor:
         # create a convenience quick lookup for base filenames
         self._p4k_files = set(_.lower().split('.', maxsplit=1)[0] for _ in self.sc.p4k.namelist())
 
-
-    def _add_file_to_extract(self, path: typing.Union[str, list, tuple, set]):
+    def _add_file_to_extract(self, path: typing.Union[str, list, tuple, set, Path]):
         if not path:
             return
         if isinstance(path, (list, tuple, set)):
             for p in path:
                 self._add_file_to_extract(p)
             return
+        elif isinstance(path, Path):
+            path = path.as_posix()
         path = path.lower()
 
         path = norm_path(f'{"" if path.startswith("data") else "data/"}{path}')
@@ -216,17 +227,16 @@ class EntityExtractor:
             except Exception as e:
                 self.log(f'could not dump tint: {e}', logging.WARNING)
 
-            geom_name = Path(obj.properties['Geometry'].properties['path']).as_posix().lower()
-            if geom_name not in self._cache['found_geometry']:
+            geom_path = obj.properties['Geometry'].properties['path']
+            if geom_path:
                 attrs = {'tags': tags}
                 if p is not None:
                     attrs['palette'] = (tints_dir / f'{p.name}.json').as_posix()
-                self._cache['found_geometry'][geom_name] = Geometry(
-                    name=Path(obj.properties['Geometry'].properties['path']).as_posix(),
-                    geom_file=Path(obj.properties['Geometry'].properties['path']), materials=[mtl],
-                    attrs=attrs, pos=Vector3D() if rec.guid == self.entity.guid else None
-                )
-            self._cache['record_geometry'].setdefault(rec.guid, {}).setdefault(tags, set()).add(geom_name)
+                geom, created = self._get_or_create_geom(geom_path, create_params={
+                    'attrs': attrs, 'pos': Vector3D() if rec.guid == self.entity.guid else None,
+                    'materials': mtl
+                })
+                self._cache['record_geometry'].setdefault(rec.guid, {}).setdefault(tags, set()).add(geom['name'])
 
         if 'Geometry' in obj.properties:
             self._handle_ext_geom(rec, obj.properties['Geometry'], obj.properties.get('Tags', ''))
@@ -245,6 +255,7 @@ class EntityExtractor:
                     if entry.properties['entityClassName']:
                         ipe = self._records_by_name[entry.properties["entityClassName"]].id.value
                         self._cache['item_ports'].setdefault(entry.properties['itemPortName'], set()).add(ipe)
+                        self._cache['bone_names'].add(entry.properties['itemPortName'])
                         self._add_record_to_extract(ipe)
                     if entry.properties['loadout']:
                         self._handle_component_loadouts(rec, entry)
@@ -260,14 +271,11 @@ class EntityExtractor:
                 materials = chunk.materials
                 for obj in chunk.objects:
                     if isinstance(obj, ChCrChunks.IncludedObjectType1):
-                        geom_name = Path(obj.filename).as_posix().lower()
-                        if geom_name not in self._cache['found_geometry']:
-                            self._cache['found_geometry'][geom_name] = Geometry(
-                                name=Path(obj.filename).as_posix(), geom_file=Path(obj.filename)
-                            )
-                        self._cache['found_geometry'][geom_name].add_instance('', pos=obj.pos, rotation=obj.rotation,
-                                                                              scale=obj.scale, materials=materials,
-                                                                              attrs={'bone_name': bone_name})
+                        geom, _ = self._get_or_create_geom(obj.filename)
+                        self._cache['found_geometry'][geom['name']].add_instance(
+                            '', pos=obj.pos, rotation=obj.rotation, scale=obj.scale,
+                            materials=materials, attrs={'bone_name': bone_name}
+                        )
             if isinstance(chunk, ChCrChunks.CryXMLBChunk):
                 # TODO: read cryxmlb chunk, it seems to be all related to lighting/audio?
                 d = chunk.dict()
@@ -278,16 +286,12 @@ class EntityExtractor:
                 for entity in entities:
                     try:
                         if 'EntityGeometryResource' in entity.get('PropertiesDataCore', {}):
-                            geom_file = Path(
-                                entity['PropertiesDataCore']['EntityGeometryResource']['Geometry']['Geometry'][
-                                    'Geometry']['@path'])
-                            geom_name = geom_file.as_posix().lower()
-                            if geom_name not in self._cache['found_geometry']:
-                                self._cache['found_geometry'][geom_name] = Geometry(
-                                    name=Path(geom_file).as_posix(), geom_file=geom_file
-                                )
+                            geom, _ = self._get_or_create_geom(
+                                entity['PropertiesDataCore']['EntityGeometryResource']
+                                ['Geometry']['Geometry']['Geometry']['@path']
+                            )
                             w, x, y, z = (float(_) for _ in entity.get('@Rotate', '1,0,0,0').split(','))
-                            self._cache['found_geometry'][geom_name].add_instance(
+                            self._cache['found_geometry'][geom['name']].add_instance(
                                 name=entity['@Name'],
                                 pos=Vector3D(
                                     *(float(_) for _ in entity['@Pos'].split(','))) if '@Pos' in entity else Vector3D(),
@@ -325,6 +329,7 @@ class EntityExtractor:
                     soc = self.sc.p4k.NameToInfoLower.get(f'data/{soc_path.as_posix()}')
                     if soc is not None:
                         soc = ChCr(soc.open().read())
+                        self._cache['bone_names'].add(oc.properties['boneName'])
                         self._handle_soc(oc.properties['boneName'], soc)
                 except Exception as e:
                     self.log(f'failed to process object container "{p4k_path}": {repr(e)}', logging.ERROR)
@@ -338,24 +343,20 @@ class EntityExtractor:
     def _handle_landinggear(self, r):
         for gear in r.record.properties['gears']:
             self._handle_ext_geom(r, gear.properties['geometry'])
-            geom_name = Path(gear.properties['geometry'].properties['path']).as_posix().lower()
-            if geom_name not in self._cache['found_geometry']:
-                self._cache['found_geometry'][geom_name] = Geometry(
-                    name=geom_name,
-                    geom_file=gear.properties['geometry'].properties['path'],
-                )
-            self._cache['item_ports'].setdefault(gear.properties['bone'], set()).add(geom_name)
+            geom, _ = self._get_or_create_geom(gear.properties['geometry'].properties['path'])
+            self._cache['item_ports'].setdefault(gear.properties['bone'], set()).add(geom['name'])
+            self._cache['bone_names'].add(gear.properties['bone'])
 
     def _search_record(self, r):
         """ This is a brute-force method of extracting related files from a datacore record. It does no additional
         processing of the record, if there is specific data that should be extracted a different method should be
         implemented and used for that record type. """
         d = self.sc.datacore.record_to_dict(r)
-        self._add_file_to_extract(dict_search(d, RECORD_KEYS_WITH_PATHS))
+        self._add_file_to_extract(dict_search(d, RECORD_KEYS_WITH_PATHS, ignore_case=True))
 
     def _search_record_audio(self, r):
         d = self.sc.datacore.record_to_dict(r)
-        self._add_audio_to_extract(dict_search(d, RECORD_KEYS_WITH_AUDIO))
+        self._add_audio_to_extract(dict_search(d, RECORD_KEYS_WITH_AUDIO, ignore_case=True))
 
     def _process_record(self, r):
         if r.type == 'EntityClassDefinition':
@@ -392,24 +393,41 @@ class EntityExtractor:
         #   - AudioPassByComponentParams
         #   - SAnimationControllerParams
 
+    def _get_or_create_geom(self, geom_path, create_params=None) -> (Geometry, bool):
+        created = False
+        if not isinstance(geom_path, Path):
+            geom_path = Path(geom_path)
+        geom_name = geom_path.as_posix().lower()
+        if geom_path.parts[0].lower() == 'data':
+            geom_name = geom_name[5:]
+            geom_path = Path(*geom_path.parts[1:])
+        if geom_name not in self._cache['found_geometry']:
+            self._cache['found_geometry'][geom_name] = Geometry(name=geom_name, geom_file=geom_path,
+                                                                **(create_params or {}))
+            created = True
+        return self._cache['found_geometry'][geom_name], created
+
     def _process_p4k_file(self, path):
         ext = path.split('.', maxsplit=1)[1]
-        p4k_info = self.sc.p4k.NameToInfoLower[path.lower()]
+        try:
+            p4k_info = self.sc.p4k.NameToInfoLower[path.lower()]
+        except KeyError:
+            self.log(f'Kind find p4k file to process, how did we get here? {path}', logging.ERROR)
+            return
         self.log(f'process: ({ext}) {p4k_info.filename}')
         try:
             if ext in ['mtl', 'chrparams', 'entxml', 'rmp', 'animevents', 'cdf']:
                 self._add_file_to_extract(dict_search(dict_from_cryxml_file(self.sc.p4k.open(p4k_info)),
-                                                      RECORD_KEYS_WITH_PATHS))
+                                                      RECORD_KEYS_WITH_PATHS, ignore_case=True))
             elif ext in ['cga', 'cgam', 'cgf', 'cgfm', 'chr', 'soc', 'dba', 'skin', 'skinm']:
-                # ChCr, find material chunk `MtlName` and extract referenced material file
                 raw = self.sc.p4k.open(p4k_info).read()
                 c = Ivo(raw) if raw.startswith(b'#ivo') else ChCr(raw)
                 for chunk in c.chunks.values():
                     if isinstance(chunk, ChCrChunks.CryXMLBChunk):
                         x = dict_from_cryxml_string(chunk.data)
-                        self._add_file_to_extract(dict_search(x, RECORD_KEYS_WITH_PATHS))
+                        self._add_file_to_extract(dict_search(x, RECORD_KEYS_WITH_PATHS, ignore_case=True))
                         # Material keys don't have the extension
-                        self._add_file_to_extract([f'{_}.mtl' for _ in dict_search(x, '@Material')])
+                        self._add_file_to_extract([f'{_}.mtl' for _ in dict_search(x, '@material', ignore_case=True)])
 
                         # write out the extracted CryXMLB as json
                         out_path = self.outdir / f"{p4k_info.filename}.cryxml.json"
@@ -418,15 +436,23 @@ class EntityExtractor:
                             json.dump(x, o, indent=4)
                     elif isinstance(chunk, ChCrChunks.JSONChunk):
                         x = chunk.dict()
-                        self._add_file_to_extract(dict_search(x, RECORD_KEYS_WITH_PATHS))
+                        self._add_file_to_extract(dict_search(x, RECORD_KEYS_WITH_PATHS, ignore_case=True))
                         out_path = self.outdir / f"{p4k_info.filename}.json"
                         out_path.parent.mkdir(parents=True, exist_ok=True)
                         with out_path.open('w') as o:
                             json.dump(x, o, indent=4)
                     elif isinstance(chunk, (ChCrChunks.MtlName, ChCrChunks.MaterialName900)):
-                        mtl_path = f'Data/{chunk.name}'.lower()
-                        self._add_file_to_extract([_ for _ in self.sc.p4k.NameToInfoLower.keys()
-                                                   if _.startswith(mtl_path) and _.endswith('.mtl')])
+                        mtl_path = Path(f'{chunk.name}').with_suffix('.mtl')
+                        # self._add_file_to_extract([_ for _ in self.sc.p4k.NameToInfoLower.keys()
+                        #                            if _.startswith(mtl_path) and _.endswith('.mtl')])
+                        # mtl_path = f'Data/{chunk.name}'
+                        geom, _ = self._get_or_create_geom(path)
+                        geom.add_materials(mtl_path)
+                        self._add_file_to_extract(mtl_path)
+                        # for _ in self.sc.p4k.NameToInfoLower.keys():
+                        #     if _.startswith(mtl_path) and _.endswith('.mtl'):
+                        #         self._cache['found_geometry'][geom['name']].add_materials(_)
+                        #         self._add_file_to_extract(_)
                     elif isinstance(chunk, ChCrChunks.IncludedObjects):
                         self._add_file_to_extract(chunk.filenames)
             elif ext in 'xml':
@@ -435,7 +461,7 @@ class EntityExtractor:
                     x = dict_from_cryxml_string(raw)
                 else:
                     x = etree_to_dict(ElementTree.fromstring(raw))
-                self._add_file_to_extract(dict_search(x, RECORD_KEYS_WITH_PATHS))
+                self._add_file_to_extract(dict_search(x, RECORD_KEYS_WITH_PATHS, ignore_case=True))
             else:
                 self.log(f'unhandled p4k file: {path}', logging.WARNING)
         except Exception as e:
@@ -454,7 +480,8 @@ class EntityExtractor:
                 convert_cryxml_fmt: CryXmlConversionFormat = 'xml', skip_lods: bool = True,
                 auto_unsplit_textures: bool = True, auto_convert_textures: bool = False,
                 report_tex_conversion_errors: bool = False, convert_dds_fmt: str = 'png',
-                extract_sounds: bool = True, auto_convert_models: bool = False, auto_convert_sounds: bool = False,
+                extract_sounds: bool = True, auto_convert_models: bool = False,
+                cgf_converter_opts: str = CGF_CONVERTER_DEFAULT_OPTS, auto_convert_sounds: bool = False,
                 ww2ogg: str = '', revorb: str = '', cgf_converter: str = '',
                 exclude: typing.List[str] = None, monitor: typing.Callable = None) -> typing.List[str]:
         """
@@ -473,6 +500,7 @@ class EntityExtractor:
             the trigger name associated with the sound, and the wem_id of the sound file. There may be multiple sounds
             associated with each trigger name. (Default: True)
         :param auto_convert_models: If True, `cgf-converter` will be run on each extracted model file. (Default: False)
+        :param cgf_converter_opts: Override the default flags passed to cgf_converter during model conversion.
         :param auto_convert_sounds: If True, `ww2ogg` and `revorb` will be run on each extracted wem. (Default: False)
         :param ww2ogg: Override which `ww2ogg` binary used for audio conversion. Will be auto-discovered by default.
         :param revorb: Override which `revorb` binary used for audio conversion. Will be auto-discovered by default.
@@ -537,7 +565,9 @@ class EntityExtractor:
         # region generate blueprint
         with (self.outdir / f'{self.entity.name}.scbp').open('w') as bpfile:
             bp = {
+                'name': self.entity.name,
                 'item_ports': {},
+                'bone_names': self._cache['bone_names'],
                 'geometry': self._cache['found_geometry'],
             }
             for port, ents in self._cache['item_ports'].items():
@@ -620,9 +650,9 @@ class EntityExtractor:
                 'the path\n', logging.ERROR)
         elif auto_convert_models:
             def _do_model_convert(model_file):
-                cgf = subprocess.Popen(f'"{cgf_converter}" -group -smooth -{convert_dds_fmt.lower()} "{model_file}" '
-                                       f'-objectdir "{obj_dir}"', shell=True, stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT)
+                cgf_cmd = f'"{cgf_converter}" {cgf_converter_opts} "{model_file}" -objectdir "{obj_dir}"'
+                cgf = subprocess.Popen(cgf_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
                 start_time = time.time()
                 while (time.time() - start_time) < CGF_CONVERTER_TIMEOUT:
                     if cgf.poll() is not None:

@@ -5,6 +5,9 @@ import sys
 import typing
 from datetime import datetime
 from pathlib import Path
+from contextlib import contextmanager
+
+import tqdm
 
 try:
     import bpy
@@ -12,6 +15,15 @@ except ImportError:
     pass  # not in blender
 
 from . import ui_utils, validation
+
+
+@contextmanager
+def log_time(msg=''):
+    start_time = datetime.now()
+    if msg:
+        print(msg)
+    yield
+    print(f'Finished {msg}{" " if msg else ""}in {datetime.now() - start_time}')
 
 
 def available_blender_installations(include_paths: typing.List[Path] = None) -> dict:
@@ -70,8 +82,9 @@ def auto_format_sc_data_dir_path(preferences, context):
 
 
 def write_to_logfile(log_text, log_name="Output"):
-    log_file = bpy.data.texts.get(log_name) or bpy.data.texts.new(log_name)
-    log_file.write(f"[{datetime.now()}] {log_text}\n")
+    return
+    # log_file = bpy.data.texts.get(log_name) or bpy.data.texts.new(log_name)
+    # log_file.write(f"[{datetime.now()}] {log_text}\n")
     # print(f"[{datetime.now()}] {log_text}")
 
 
@@ -82,6 +95,28 @@ def search_for_data_dir_in_path(path):
         return Path(*path.parts[:tuple(_.lower() for _ in path.parts).index('data')+1])
     except ValueError:
         return ''
+
+
+def deselect_all():
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+
+
+def set_outliner_stete(state):
+    area = next(a for a in bpy.context.screen.areas if a.type == 'OUTLINER')
+    bpy.ops.outliner.show_hierarchy({'area': area}, 'INVOKE_DEFAULT')
+    for i in range(state):
+        bpy.ops.outliner.expanded_toggle({'area': area})
+    area.tag_redraw()
+
+
+def collapse_outliner():
+    set_outliner_stete(2)
+
+
+def expand_outliner():
+    set_outliner_stete(1)
 
 
 def select_children(obj):
@@ -99,19 +134,16 @@ def remove_proxy_meshes() -> bool:
 
     cur_mode = bpy.context.active_object.mode if bpy.context.active_object is not None else 'OBJECT'
     try:
-        bpy.ops.object.select_all(action='DESELECT')
+        bpy.ops.object.mode_set(mode='OBJECT')
+        deselect_all()
         bpy.ops.object.select_by_type(type='MESH')
-        # bpy.ops.object.mode_set(mode='EDIT')
-        if cur_mode != 'EDIT':
-            bpy.ops.object.editmode_toggle()
+        bpy.ops.object.mode_set(mode='EDIT')
 
         bpy.context.object.active_material = bpy.data.materials['proxy']
         bpy.ops.object.material_slot_select()
         bpy.ops.mesh.delete(type='FACE')
 
-        if cur_mode != 'EDIT':
-            bpy.ops.object.editmode_toggle()
-        # bpy.ops.object.mode_set(mode=cur_mode)
+        bpy.ops.object.mode_set(mode=cur_mode)
     except Exception as e:
         print(f'Failed to remove proxy meshes: {repr(e)}')
         return False
@@ -122,18 +154,20 @@ def remove_sc_physics_proxies() -> bool:
     """ Remove `$physics_proxy*` objects typically found in converted Star Citizen models. """
     # remove physics proxies
     try:
-        bpy.ops.object.select_all(action='DESELECT')
-        bpy.ops.object.delete({
-            "selected_objects": [obj for obj in bpy.data.objects if obj.name.lower().startswith('$physics_proxy')]
-        })
+        proxy_objs = [obj for obj in bpy.data.objects if obj.name.lower().startswith('$physics_proxy')]
+        for obj in tqdm.tqdm(proxy_objs, desc='Removing SC physics proxy objects'):
+            bpy.data.objects.remove(obj, do_unlink=True)
         return True
     except Exception as e:
         print(f'Failed to remove sc physics proxies: {repr(e)}')
         return False
 
 
-def import_cleanup(context, option_deleteproxymat=True, option_offsetdecals=False, option_cleanupimages=True):
-    bpy.ops.material.materialutilities_merge_base_names(is_auto=True)
+def import_cleanup(context, option_deleteproxymat=False, option_offsetdecals=False, option_cleanupimages=True):
+    try:
+        bpy.ops.material.materialutilities_merge_base_names(is_auto=True)
+    except AttributeError:
+        print(f'Material Utilities add-on not enabled: cannot fix up material base names')
 
     for obj in context.scene.objects:
         split = obj.name.split(".")
@@ -157,7 +191,7 @@ def import_cleanup(context, option_deleteproxymat=True, option_offsetdecals=Fals
                     if f.material_index == index
                     for v in f.vertices
                 ]
-                if "proxy" in slot.material.name and option_deleteproxymat:
+                if "proxy" in slot.material.name.lower() and option_deleteproxymat:
                     obj.select_set(True)
                     bpy.context.view_layer.objects.active = obj
                     bpy.context.object.active_material_index = index
@@ -198,9 +232,6 @@ def import_cleanup(context, option_deleteproxymat=True, option_offsetdecals=Fals
                 obj.empty_display_type = "SINGLE_ARROW"
             elif "$" in obj.name:
                 obj.empty_display_type = "SPHERE"
-            elif "$physics" in obj.name:
-                bpy.data.objects.remove(obj, do_unlink=True)
-                continue
 
         if "DM_" in obj.name:
             if bpy.data.collections.find("Damaged") == -1:
@@ -210,30 +241,6 @@ def import_cleanup(context, option_deleteproxymat=True, option_offsetdecals=Fals
             if bpy.data.collections.find("Interior") == -1:
                 bpy.data.collections.new("Interior")
             # bpy.data.collections['Interior'].objects.link(obj)
-
-    if option_cleanupimages:
-        for img in bpy.data.images:
-            if "." not in img.name_full:
-                continue
-            if '.dds' in img.filepath:
-                for ext in ['.tif', '.png']:
-                    imgfile = Path(img.filepath).with_suffix(ext)
-                    if imgfile.is_file():
-                        newimg = bpy.data.images.load(imgfile.as_posix(), check_existing=True)
-                        break
-                else:
-                    print(f'Could not find image: {img.filepath}')
-                    continue
-                img.user_remap(newimg)
-                img.filepath = imgfile.as_posix()
-                print(img.name_full + " -> " + newimg.name_full)
-            head, tail = img.name_full.rsplit(".", 1)
-            if bpy.data.images.get(head):
-                print(img.name_full + " -> " + head)
-                img.user_remap(bpy.data.images.get(head))
-            elif tail.isdigit():
-                print(img.name_full + " is now " + head)
-                img.name = head
 
     bpy.ops.outliner.orphans_purge(num_deleted=0)
     return {"FINISHED"}

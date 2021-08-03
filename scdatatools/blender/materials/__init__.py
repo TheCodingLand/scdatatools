@@ -87,6 +87,11 @@ def create_materials_from_mtl(xml_path, data_dir='', use_setting=False):
                 continue
 
         mtlvalues = dict(mtlvalues)
+        mtlvalues['Name'] = f'{xml_path.name.lower().replace(".", "_")}_{mtlvalues["Name"]}'
+
+        if mtlvalues['Name'] in bpy.data.materials and 'filename' in bpy.data.materials[mtlvalues['Name']]:
+            return  # already loaded this mat
+
         if element.get('Name') in ("proxy", "Proxy"):
             mat = create_no_surface(mtlvalues)
         elif element.get('Shader') in ("Ilum", "Illum", "MeshDecal"):
@@ -106,7 +111,7 @@ def create_materials_from_mtl(xml_path, data_dir='', use_setting=False):
             # mat = createUnknownSurface(**mtlvalues)
             continue
         if mat is not None:
-            mat['Filename'] = str(xml_path)
+            mat['filename'] = str(xml_path)
             print(f'Imported material {element.get("Name")}')
     return True
 
@@ -156,7 +161,8 @@ def create_ilum_surface(mtl, data_dir):
         return mat
 
     for submat in mtl["MatLayers"]:
-        if "WearLayer" in submat.get("Name"): continue
+        if "WearLayer" in submat.get("Name"):
+            continue
         path = data_dir / submat.get("Path")
         write_to_logfile(path.stem)
         newbasegroup = nodes.new("ShaderNodeGroup")
@@ -569,7 +575,10 @@ def load_materials(materials, data_dir, use_setting=False):
                 write_to_logfile(f'Could not find mtl file: {mat}', 'Error')
                 continue
         write_to_logfile(f"Path: {mat}")
-        create_materials_from_mtl(mat, data_dir=data_dir, use_setting=use_setting)
+        try:
+            create_materials_from_mtl(mat, data_dir=data_dir, use_setting=use_setting)
+        except Exception as e:
+            print(f'ERROR: importing material {mat}: {repr(e)}')
 
 
 def set_viewport(mat, mtl, trans=False):

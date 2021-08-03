@@ -170,12 +170,7 @@ def import_cleanup(context, option_deleteproxymat=False, option_offsetdecals=Fal
         print(f'Material Utilities add-on not enabled: cannot fix up material base names')
 
     for obj in context.scene.objects:
-        split = obj.name.split(".")
         obj.name = obj.name.replace("_out", "")
-        # obj.name = obj.name.split(".")[0]
-        # locators_objs = [
-        #     obj for obj in bpy.data.objects if obj.name.startswith(split[0])
-        # ]
 
         if obj.type == "MESH":
             obj.data.use_auto_smooth = True
@@ -235,3 +230,16 @@ def import_cleanup(context, option_deleteproxymat=False, option_offsetdecals=Fal
 
     bpy.ops.outliner.orphans_purge(num_deleted=0)
     return {"FINISHED"}
+
+
+# from the space_view3d_copy_attributes blender plugin
+def copy_rotation(from_obj, to_obj):
+    """Copy rotation to item from matrix mat depending on item.rotation_mode"""
+    if to_obj.rotation_mode == 'QUATERNION':
+        to_obj.rotation_quaternion = from_obj.matrix_basis.to_3x3().to_quaternion()
+    elif to_obj.rotation_mode == 'AXIS_ANGLE':
+        rot = from_obj.matrix_basis.to_3x3().to_quaternion().to_axis_angle()    # returns (Vector((x, y, z)), w)
+        axis_angle = rot[1], rot[0][0], rot[0][1], rot[0][2]  # convert to w, x, y, z
+        to_obj.rotation_axis_angle = axis_angle
+    else:
+        to_obj.rotation_euler = from_obj.matrix_basis.to_3x3().to_euler(to_obj.rotation_mode)

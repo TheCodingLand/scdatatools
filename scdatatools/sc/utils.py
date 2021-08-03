@@ -4,17 +4,19 @@ import time
 import shutil
 import typing
 import logging
+import traceback
 import subprocess
 from pathlib import Path
 import concurrent.futures
 from xml.etree import ElementTree
+from contextlib import contextmanager
 
 from pyquaternion import Quaternion
 
 from scdatatools.cry.model.ivo import Ivo
 from scdatatools.cry.model.chcr import ChCr
 from scdatatools.utils import SCJSONEncoder
-from scdatatools.forge.dftypes import Record
+from scdatatools.forge.dftypes import Record, GUID
 from scdatatools.cry.model import chunks as ChCrChunks
 from scdatatools.forge.dco import dco_from_guid, DataCoreObject
 from scdatatools.sc.textures import tex_convert, collect_and_unsplit, is_glossmap
@@ -29,8 +31,8 @@ PROCESS_FILES = [
     'skin', 'skinm', 'cdf'
 ]
 CGF_CONVERTER_MODEL_EXTS = ['.cga', '.cgf', '.chr', '.skin']
-CGF_CONVERTER_TIMEOUT = 5 * 60   # assume cgf converter is stuck after this much time
-CGF_CONVERTER_DEFAULT_OPTS = '-skipphysproxy -skipproxy -skipproxymat -skipshield -group -smooth -notex'
+CGF_CONVERTER_TIMEOUT = 5 * 60  # assume cgf converter is stuck after this much time
+CGF_CONVERTER_DEFAULT_OPTS = '-en "$physics_proxy" -em proxy -prefixmatnames -group -smooth -notex'
 RECORDS_BASE_PATH = Path('libs/foundry/records/')
 SHIP_ENTITIES_PATH = RECORDS_BASE_PATH / 'entities/spaceships'
 TEXCONV_IGNORE = ['_ddna']
@@ -59,6 +61,7 @@ class Geometry(dict):
         self['geom_file'] = geom_file
         self['instances'] = {}
         self['materials'] = set()
+        self['sub_geometry'] = {}
         self.add_materials(materials or [])
         if pos:
             self.add_instance('', pos, rotation, scale)
@@ -69,7 +72,7 @@ class Geometry(dict):
         # ensure material files have the correct suffix
         if not isinstance(mats, (list, tuple, set)):
             mats = [mats]
-        self['materials'].update(Path(mat).with_suffix('.mtl').as_posix() for mat in mats if mat)
+        self['materials'].update(Path(mat).with_suffix('.mtl').as_posix().lower() for mat in mats if mat)
 
     def add_instance(self, name, pos, rotation=None, scale=None, materials=None, attrs=None):
         if not name:
@@ -100,6 +103,7 @@ class Geometry(dict):
 
 class EntityExtractor:
     def _reset(self):
+        self._current_container = ''
         self._cache = {
             'files_to_extract': set(),
             'files_to_process': set(),
@@ -112,7 +116,18 @@ class EntityExtractor:
             'geometry': {},
             'found_geometry': {},
             'record_geometry': {},
+            'containers': {},
         }
+
+    @contextmanager
+    def container(self, container):
+        previous_container = self._current_container
+        self._current_container = previous_container.setdefault(container, {
+            'item_ports': {},
+            'geometry': {},
+        })
+        yield
+        self._current_container = previous_container
 
     def __init__(self, sc, entity: typing.Union[DataCoreObject, Record]):
         """
@@ -133,6 +148,7 @@ class EntityExtractor:
 
         # Track every p4k file we need to extract
         self._cache = {}
+        self._current_container = ''
         self._reset()
 
         # build up records by name as a quick way to look up records later. we're ok with collisions here as the records
@@ -162,8 +178,15 @@ class EntityExtractor:
         else:
             base, ext = path.split('.', maxsplit=1)
             if base not in self._p4k_files:
-                self.log(f'could not find file in P4K: {path}', logging.WARNING)
-                return
+                if base.endswith('disp'):
+                    # a lot of textures miss the 'l' at the end of the file... may as well catch them
+                    base += 'l'
+                    if base not in self._p4k_files:
+                        self.log(f'could not find file in P4K: {path}', logging.WARNING)
+                        return
+                else:
+                    self.log(f'could not find file in P4K: {path}', logging.WARNING)
+                    return
 
             if self.skip_lods and base[-5:-1] == '_lod':  # skip things ending with `_lod[0-9]`
                 self._cache['exclude'].add(path)
@@ -182,7 +205,7 @@ class EntityExtractor:
                     # TODO: add support for gfx files:
                     #      'data/ui/environmentalscreens/ships/idris/fluff/swf/9x16-small_securitycode.gfx'
 
-    def _add_record_to_extract(self, guid: typing.Union[str, list, tuple, set]):
+    def _add_record_to_extract(self, guid: typing.Union[str, list, tuple, set, GUID]):
         if not guid:
             return
         if isinstance(guid, (list, tuple, set)):
@@ -190,22 +213,23 @@ class EntityExtractor:
                 self._add_record_to_extract(g)
             return
 
-        try:
-            record = dco_from_guid(self.sc.datacore, guid)
-        except KeyError:
+        guid = str(guid)
+
+        if guid not in self.sc.datacore.records_by_guid:
             return self.log(f'record {guid} does not exist', logging.WARNING)
 
-        if record.guid not in self._cache['found_records']:
+        record = self.sc.datacore.records_by_guid[guid]
+        if guid not in self._cache['found_records']:
             self.log(f'+ record: {Path(record.filename).relative_to(RECORDS_BASE_PATH).as_posix()}')
-            self._cache['found_records'].add(record.guid)
-            self._cache['records_to_process'].add(record)
-            outrec = self.outdir / 'Data' / record.filename.replace('.xml', f'.{self.convert_cryxml_fmt}')
+            self._cache['found_records'].add(guid)
+            self._cache['records_to_process'].add(guid)
+            outrec = (self.outdir / 'Data' / record.filename).with_suffix(f'.{self.convert_cryxml_fmt}')
             outrec.parent.mkdir(exist_ok=True, parents=True)
             with outrec.open('w') as out:
                 if self.convert_cryxml_fmt == 'xml':
-                    out.write(record.to_xml())
+                    out.write(record.dcb.dump_record_xml(record))
                 else:
-                    out.write(record.to_json())
+                    out.write(record.dcb.dump_record_json(record))
 
     def _add_audio_to_extract(self, trigger_name):
         if trigger_name in self.sc.wwise.triggers:
@@ -214,24 +238,30 @@ class EntityExtractor:
     def _handle_ext_geom(self, rec, obj, tags=''):
         if obj.name == 'SGeometryDataParams':
             mtl = obj.properties['Material'].properties['path']
-            self._add_file_to_extract(mtl)
-            p = None
-            tints_dir = self.outdir / 'tint_palettes' / self.entity.name
-            try:
-                tint_id = str(obj.properties['Palette'].properties['RootRecord'])
-                if tint_id != '00000000-0000-0000-0000-000000000000':
-                    p = self.sc.datacore.records_by_guid[tint_id]
-                    with (tints_dir / f'{p.name}.json').open('w') as f:
-                        f.write(self.sc.datacore.dump_record_json(p))
-                    self._add_file_to_extract(p.properties['root'].properties['decalTexture'])
-            except Exception as e:
-                self.log(f'could not dump tint: {e}', logging.WARNING)
-
             geom_path = obj.properties['Geometry'].properties['path']
+            self._add_file_to_extract(mtl)
+
             if geom_path:
+                p = None
+                tints_dir = self.outdir / 'tint_palettes' / self.entity.name
+                try:
+                    tint_id = str(obj.properties['Palette'].properties['RootRecord'])
+                    if tint_id != '00000000-0000-0000-0000-000000000000':
+                        palette = self.sc.datacore.records_by_guid[tint_id]
+                        p = tints_dir / f'{Path(geom_path).stem}_{palette.name}.json'
+                        if p.is_file():
+                            self.log(f'tint palette already exists: {p}', logging.ERROR)
+                        else:
+                            with p.open('w') as f:
+                                f.write(self.sc.datacore.dump_record_json(palette))
+                        self._add_file_to_extract(palette.properties['root'].properties['decalTexture'])
+                except Exception as e:
+                    traceback.print_exc()
+                    self.log(f'could not dump tint: {e}', logging.WARNING)
+
                 attrs = {'tags': tags}
                 if p is not None:
-                    attrs['palette'] = (tints_dir / f'{p.name}.json').as_posix()
+                    attrs['palette'] = p.as_posix()
                 geom, created = self._get_or_create_geom(geom_path, create_params={
                     'attrs': attrs, 'pos': Vector3D() if rec.guid == self.entity.guid else None,
                     'materials': mtl
@@ -248,28 +278,82 @@ class EntityExtractor:
         if 'path' in obj.properties:
             self._add_file_to_extract(obj.properties['path'])
 
-    def _get_or_create_item_port(self, name):
-        if name not in self._cache['item_ports']:
-            self._cache['item_ports'][name] = {'geometry': set()}
-        return self._cache['item_ports'][name]
+    def geometry_for_record(self, record):
+        if isinstance(record, DataCoreObject):
+            guid = record.guid
+        elif isinstance(record, Record):
+            guid = record.id.value
+        else:
+            guid = record
+        if guid in self._cache['records_to_process']:
+            self._cache['records_to_process'].remove(guid)
+            self._cache['found_records'].add(guid)
+            self._process_record(guid)
+        return self._cache['record_geometry'].get(guid, {})
+
+    def _get_or_create_item_port(self, name, parent=None) -> dict:
+        parent = parent if parent is not None else self._cache['item_ports']
+        if name not in parent:
+            parent[name] = {'geometry': set()}
+        return parent[name]
 
     def _handle_component_loadouts(self, rec, obj, parent=None):
         try:
+            helpers = {}
+            if 'SItemPortContainerComponentParams' in rec.components:
+                helper_ports = rec.components['SItemPortContainerComponentParams'].properties['Ports']
+                for port in helper_ports:
+                    try:
+                        helper = port.properties['AttachmentImplementation'].properties['Helper'].properties['Helper']
+                    except KeyError:
+                        continue
+                    offset = helper.properties['Offset']
+                    helpers[port.properties['Name']] = {
+                        'pos': Vector3D(**offset.properties['Position'].properties),
+                        'rotation': Quaternion(w=1, **offset.properties['Rotation'].properties),
+                        'name': helper.properties['Name']
+                    }
+
             for entry in obj.properties['loadout'].properties.get('entries', []):
                 try:
-                    if entry.properties['entityClassName']:
-                        ipe = self._records_by_name[entry.properties["entityClassName"]].id.value
-                        ip = self._get_or_create_item_port(entry.properties['itemPortName'])
-                        ip['geometry'].add(ipe)
-                        if parent is not None:
-                            ip['parent'] = parent
-                        self._cache['bone_names'].add(entry.properties['itemPortName'])
-                        self._add_record_to_extract(ipe)
-                    if entry.properties['loadout']:
-                        self._handle_component_loadouts(rec, entry, parent=entry.properties['itemPortName'])
+                    if not entry.properties['entityClassName']:
+                        continue
+
+                    ipe = self._records_by_name[entry.properties["entityClassName"]]
+                    self._add_record_to_extract(ipe.id)
+                    port_name = entry.properties['itemPortName']
+
+                    def _geom_for_port(port):
+                        ipe_geom = self.geometry_for_record(ipe)
+                        for tag in ipe_geom:
+                            if tag and tag in port:
+                                return ipe_geom[tag]
+                        return ipe_geom.get('', [])
+
+                    if port_name in helpers:
+                        # this is sub_geometry for another records geometry
+                        helper = helpers[port_name]
+                        parent_geoms = self.geometry_for_record(rec)['']
+                        assert (len(parent_geoms) == 1)
+                        parent_geom, _ = self._get_or_create_geom(next(iter(parent_geoms)))
+                        for geom_path in _geom_for_port(helper['name']):
+                            self._get_or_create_geom(geom_path, parent=parent_geom, create_params={
+                                'pos': helper['pos'], 'rotation': helper['rotation'],
+                                'attrs': {'bone_name': helper['name']}
+                            })
+                        self._cache['bone_names'].add(helper['name'])
+                    else:
+                        # assign record to be instanced at the set itemPortName
+                        ip = self._get_or_create_item_port(port_name, parent=parent)
+                        ip['geometry'].update(_geom_for_port(port_name))
+                        self._cache['bone_names'].add(port_name)
+                        if entry.properties['loadout']:
+                            self._handle_component_loadouts(rec, entry, parent=ip.setdefault('loadout', {}))
                 except Exception as e:
+                    traceback.print_exc()
                     self.log(f'processing component SEntityComponentDefaultLoadoutParams: {repr(e)}', logging.ERROR)
         except Exception as e:
+            traceback.print_exc()
             self.log(f'processing component SEntityComponentDefaultLoadoutParams: {obj} {repr(e)}', logging.ERROR)
 
     def _handle_soc(self, bone_name, soc):
@@ -311,6 +395,7 @@ class EntityExtractor:
                                 }
                             )
                     except Exception as e:
+                        traceback.print_exc()
                         self.log(f'Failed to parse soc cryxmlb entity "{entity["@Name"]}": {repr(e)}')
 
     def _handle_vehicle_components(self, rec, vc):
@@ -340,6 +425,7 @@ class EntityExtractor:
                         self._cache['bone_names'].add(oc.properties['boneName'])
                         self._handle_soc(oc.properties['boneName'], soc)
                 except Exception as e:
+                    traceback.print_exc()
                     self.log(f'failed to process object container "{p4k_path}": {repr(e)}', logging.ERROR)
                     raise
 
@@ -368,6 +454,7 @@ class EntityExtractor:
         self._add_audio_to_extract(dict_search(d, RECORD_KEYS_WITH_AUDIO, ignore_case=True))
 
     def _process_record(self, r):
+        r = dco_from_guid(self.sc.datacore, r)
         if r.type == 'EntityClassDefinition':
             if 'SGeometryResourceParams' in r.components:
                 self._handle_ext_geom(r, r.components['SGeometryResourceParams'])
@@ -402,19 +489,66 @@ class EntityExtractor:
         #   - AudioPassByComponentParams
         #   - SAnimationControllerParams
 
-    def _get_or_create_geom(self, geom_path, create_params=None) -> (Geometry, bool):
+    def _get_or_create_geom(self, geom_path, parent=None, create_params=None, sub_geometry=None) -> (Geometry, bool):
         created = False
+        sub_geometry = sub_geometry or {}
         if not isinstance(geom_path, Path):
             geom_path = Path(geom_path)
+
+        if geom_path.suffix.lower() == '.cdf':
+            # parse the cdf and create it's sub_geometry as well
+            try:
+                p4k_path = (Path('data') / geom_path) if geom_path.parts[0].lower() != 'data' else geom_path
+                p4k_info = self.sc.p4k.NameToInfoLower[p4k_path.as_posix().lower()]
+                cdf = dict_from_cryxml_file(self.sc.p4k.open(p4k_info))['CharacterDefinition']
+                geom_path = Path(cdf['Model']['@File'])
+                sub_geometry.update({
+                    _['@Binding']: {'attrs': {'bone_name': _['@AName']}}
+                    for _ in cdf['AttachmentList'].values()
+                })
+            except KeyError:
+                self.log(f'failed to parse cdf: {geom_path}', logging.ERROR)
+                return None, False
+
+        if geom_path.suffix.lower() == '.cgf':
+            # check to see if there is a cga equivalent, and use that instead
+            test_path = (Path('data') / geom_path) if geom_path.parts[0].lower() != 'data' else geom_path
+            if test_path.with_suffix('.cga').as_posix().lower() in self.sc.p4k.NameToInfoLower:
+                geom_path = geom_path.with_suffix('.cga')
+
         geom_name = geom_path.as_posix().lower()
         if geom_path.parts[0].lower() == 'data':
             geom_name = geom_name[5:]
             geom_path = Path(*geom_path.parts[1:])
+
+        if parent is not None:
+            child_geom, _ = self._get_or_create_geom(geom_path, create_params=create_params)
+            parent['sub_geometry'].setdefault(child_geom['name'], []).append(create_params)
+            return parent, True
+
         if geom_name not in self._cache['found_geometry']:
             self._cache['found_geometry'][geom_name] = Geometry(name=geom_name, geom_file=geom_path,
                                                                 **(create_params or {}))
+            for sub_geo, sub_params in sub_geometry.items():
+                self._get_or_create_geom(sub_geo, self._cache['found_geometry'][geom_name], sub_params)
             created = True
+
         return self._cache['found_geometry'][geom_name], created
+
+    def _add_material(self, path, model_path=''):
+        mat = Path(path)
+        if mat.parent.parent == mat.parent and model_path:
+            # material is a path local to the model
+            mat = Path(model_path).parent / mat
+            if mat.with_suffix('').as_posix().lower() not in self._p4k_files:
+                # material is a path in the `textures` directory next to the model?
+                mat = (Path(model_path).parent / 'textures' / mat)
+                if mat.with_suffix('').as_posix().lower() not in self._p4k_files:
+                    self.log(f'Could not find path for material "{path}')
+                    return ''
+        mat = mat.with_suffix('.mtl')
+        self._add_file_to_extract(mat)
+        return mat
 
     def _process_p4k_file(self, path):
         ext = path.split('.', maxsplit=1)[1]
@@ -436,7 +570,8 @@ class EntityExtractor:
                         x = dict_from_cryxml_string(chunk.data)
                         self._add_file_to_extract(dict_search(x, RECORD_KEYS_WITH_PATHS, ignore_case=True))
                         # Material keys don't have the extension
-                        self._add_file_to_extract([f'{_}.mtl' for _ in dict_search(x, '@material', ignore_case=True)])
+                        for mat in dict_search(x, '@material', ignore_case=True):
+                            self._add_material(mat)
 
                         # write out the extracted CryXMLB as json
                         out_path = self.outdir / f"{p4k_info.filename}.cryxml.json"
@@ -452,16 +587,8 @@ class EntityExtractor:
                             json.dump(x, o, indent=4)
                     elif isinstance(chunk, (ChCrChunks.MtlName, ChCrChunks.MaterialName900)):
                         mtl_path = Path(f'{chunk.name}').with_suffix('.mtl')
-                        # self._add_file_to_extract([_ for _ in self.sc.p4k.NameToInfoLower.keys()
-                        #                            if _.startswith(mtl_path) and _.endswith('.mtl')])
-                        # mtl_path = f'Data/{chunk.name}'
                         geom, _ = self._get_or_create_geom(path)
-                        geom.add_materials(mtl_path)
-                        self._add_file_to_extract(mtl_path)
-                        # for _ in self.sc.p4k.NameToInfoLower.keys():
-                        #     if _.startswith(mtl_path) and _.endswith('.mtl'):
-                        #         self._cache['found_geometry'][geom['name']].add_materials(_)
-                        #         self._add_file_to_extract(_)
+                        geom.add_materials(self._add_material(mtl_path, path))
                     elif isinstance(chunk, ChCrChunks.IncludedObjects):
                         self._add_file_to_extract(chunk.filenames)
             elif ext in 'xml':
@@ -474,6 +601,7 @@ class EntityExtractor:
             else:
                 self.log(f'unhandled p4k file: {path}', logging.WARNING)
         except Exception as e:
+            traceback.print_exc()
             self.log(f'processing {path}: {e}', logging.ERROR)
             raise
 
@@ -575,27 +703,12 @@ class EntityExtractor:
         with (self.outdir / f'{self.entity.name}.scbp').open('w') as bpfile:
             bp = {
                 'name': self.entity.name,
-                'item_ports': {},
+                'item_ports': self._cache['item_ports'],
                 'bone_names': self._cache['bone_names'],
                 'geometry': self._cache['found_geometry'],
             }
-            for port, props in self._cache['item_ports'].items():
-                bp['item_ports'][port] = {'geometry': set()}
-                for ent in props.pop('geometry'):
-                    if ent in self._cache['record_geometry']:
-                        for tag in self._cache['record_geometry'][ent]:
-                            if tag and tag in port:
-                                bp['item_ports'][port]['geometry'].update(
-                                    self._cache['record_geometry'][ent][tag]
-                                )
-                                break
-                        else:
-                            bp['item_ports'][port]['geometry'].update(
-                                self._cache['record_geometry'][ent].get('', []))
-                    elif ent in self._cache['found_geometry']:
-                        bp['item_ports'][port]['geometry'].add(ent)
-                bp['item_ports'][port].update(props)
             json.dump(bp, bpfile, indent=2, cls=SCJSONEncoder)
+            print(f'created blueprint {bpfile.name}')
         # endregion generate blueprint
         ################################################################################################################
 
@@ -607,10 +720,11 @@ class EntityExtractor:
                 self._cache['exclude'].update(exclude)
             self._cache['files_to_extract'] = self.sc.p4k.search(self._cache['files_to_extract'], ignore_case=True,
                                                                  mode='in_strip', exclude=self._cache['exclude'])
-            self.sc.p4k.extractall(outdir, self._cache['files_to_extract'], convert_cryxml=True,
+            self.sc.p4k.extractall(self.outdir, self._cache['files_to_extract'], convert_cryxml=True,
                                    convert_cryxml_fmt=convert_cryxml_fmt, monitor=self.log)
             extracted_files = [_.filename for _ in self._cache['files_to_extract']]
         except Exception as e:
+            traceback.print_exc()
             self.log(f'error extracting files {e}', logging.ERROR)
             return []
         # endregion write all files to disk
@@ -624,23 +738,26 @@ class EntityExtractor:
             for dds_file in [_ for _ in extracted_files if '.dds.' in _.lower()]:
                 _ = Path(dds_file)
                 if is_glossmap(dds_file):
-                    found_textures.add(outdir / _.parent / f'{_.name.split(".")[0]}.dds.a')
+                    found_textures.add(self.outdir / _.parent / f'{_.name.split(".")[0]}.dds.a')
                 else:
-                    found_textures.add(outdir / _.parent / f'{_.name.split(".")[0]}.dds')
+                    found_textures.add(self.outdir / _.parent / f'{_.name.split(".")[0]}.dds')
 
             def _do_unsplit(dds_file):
                 msgs = []
                 try:
                     outfile = collect_and_unsplit(Path(dds_file), outfile=Path(dds_file), remove=True)
-                    msgs.append((f'un-split {outfile.relative_to(outdir)}', logging.INFO))
+                    msgs.append((f'un-split {outfile.relative_to(self.outdir)}', logging.INFO))
                 except Exception as e:
+                    traceback.print_exc()
                     return [(f'failed to un-split {dds_file}: {repr(e)}', logging.ERROR)]
 
                 try:
                     if auto_convert_textures and all(_ not in outfile.name.lower() for _ in TEXCONV_IGNORE):
                         tex_convert(infile=outfile, outfile=outfile.with_suffix(f'.{convert_dds_fmt}'))
-                        msgs.append((f'converted {outfile.relative_to(outdir)} to {convert_dds_fmt}', logging.INFO))
+                        msgs.append(
+                            (f'converted {outfile.relative_to(self.outdir)} to {convert_dds_fmt}', logging.INFO))
                 except Exception as e:
+                    traceback.print_exc()
                     if report_tex_conversion_errors:
                         return [(f'failed to convert {dds_file}: {repr(e)}', logging.ERROR)]
                 return msgs
@@ -681,12 +798,14 @@ class EntityExtractor:
                 return [(f'converted {model_file}', logging.INFO)]
 
             self.log('\n\nConverting Models\n' + '-' * 80)
-            obj_dir = outdir / 'Data'
+            obj_dir = self.outdir / 'Data'
             with concurrent.futures.ThreadPoolExecutor() as executor:
                 futures = []
                 for model_file in [_ for _ in extracted_files if
                                    '.' + _.split('.')[-1].lower() in CGF_CONVERTER_MODEL_EXTS]:
-                    model_file = outdir / Path(model_file)
+                    model_file = self.outdir / Path(model_file)
+                    if model_file.suffix == '.cgf' and model_file.with_suffix('.cga').is_file():
+                        continue  # skip converting cgf files if the cga equivalent is available
                     futures.append(executor.submit(_do_model_convert, model_file=model_file))
                 for future in concurrent.futures.as_completed(futures):
                     for msg in future.result():
@@ -721,7 +840,7 @@ def extract_ship(sc_or_scdir, ship_guid_or_path: typing.Union[str, Path], outdir
 
     monitor(f'Opening {sc.version_label}...')
     sc.load_all()
-    sc.wwise.load_all_game_files()
+    # sc.wwise.load_all_game_files()
 
     if str(ship_guid_or_path) in sc.datacore.records_by_guid:
         ship = dco_from_guid(sc.datacore, ship_guid_or_path)

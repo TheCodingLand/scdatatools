@@ -14,8 +14,8 @@ from ..utils import write_to_logfile, search_for_data_dir_in_path
 
 SCSHARDERS_BLEND = Path(__file__).parent / 'SCShaders.blend'
 REQUIRED_SHADER_NODE_GROUPS = [
-    '.flip normals', '_Glass', '_HardSurface', '_Illum', '_Illum.decal', '_Illum.emit', '_Illum.pom', '_LayerBlend',
-    '_LayerMix', '_MaterialLayer', '_Tint', '_Tint.001', 'BlendSeperator', 'Mix channels', 'REEDColors'
+    '_Glass', '_HardSurface', '_Illum', '_Illum.decal', '_Illum.emit', '_Illum.pom', '_LayerBlend', '_LayerMix',
+    '_MaterialLayer', '_Tint', 'Blend Seperator', 'Detail Seperator', 'Flip Normals', 'Mix channels'
 ]
 
 
@@ -81,16 +81,16 @@ def create_materials_from_mtl(xml_path, data_dir='', use_setting=False):
             # for texture in subelement.getchildren():
             # print("  Texture: ")
             # print(texture.attrib)
-        if bpy.data.materials.get('Name') and not use_setting:
-            if bpy.data.materials['Name']['Filename']:
-                write_to_logfile("Skipping")
-                continue
+        # if bpy.data.materials.get('Name') and not use_setting:
+        #     if bpy.data.materials['Name']['Filename']:
+        #         write_to_logfile("Skipping")
+        #         continue
 
         mtlvalues = dict(mtlvalues)
         mtlvalues['Name'] = f'{xml_path.name.lower().replace(".", "_")}_{mtlvalues["Name"]}'
 
-        if mtlvalues['Name'] in bpy.data.materials and 'filename' in bpy.data.materials[mtlvalues['Name']]:
-            return  # already loaded this mat
+        # if mtlvalues['Name'] in bpy.data.materials and 'filename' in bpy.data.materials[mtlvalues['Name']]:
+        #     return  # already loaded this mat
 
         if element.get('Name') in ("proxy", "Proxy"):
             mat = create_no_surface(mtlvalues)
@@ -384,11 +384,12 @@ def create_layer_blend_surface(mtl, data_dir):
 
 
 def create_layer_node(mtl, data_dir):
-    write_to_logfile(f'Layer node: {mtl["Name"]}')
-    if bpy.data.node_groups.get(mtl["Name"]):
-        return bpy.data.node_groups.get(mtl["Name"])
-    mat = (bpy.data.node_groups.get(mtl["Name"]) or bpy.data.node_groups['_MaterialLayer'].copy())
-    mat.name = mtl["Name"]
+    layer_node_name = mtl["Name"].split('_mtl_')[-1]
+    write_to_logfile(f'Layer node: {layer_node_name}')
+    if bpy.data.node_groups.get(layer_node_name):
+        return bpy.data.node_groups[layer_node_name]
+    mat = (bpy.data.node_groups.get(layer_node_name) or bpy.data.node_groups['_MaterialLayer'].copy())
+    mat.name = layer_node_name
     nodes = mat.nodes
     load_textures(mtl["Textures"], nodes, mat, data_dir, nodes['Material Output'])
     # manually connect everything for now

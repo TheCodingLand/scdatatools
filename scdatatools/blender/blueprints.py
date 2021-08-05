@@ -16,14 +16,14 @@ from scdatatools.blender import materials
 from scdatatools.utils import redirect_to_tqdm
 from scdatatools.blender.utils import (
     write_to_logfile, remove_proxy_meshes, remove_sc_physics_proxies, import_cleanup, log_time,
-    deselect_all, collapse_outliner, copy_rotation
+    deselect_all, collapse_outliner, copy_rotation, normalize_material_name, select_children
 )
 
 
 def hashed_path_key(geom_file):
     # hex digest is # chars/2
-    h = hashlib.shake_128(geom_file.parent.as_posix().encode("utf-8")).hexdigest(3)
-    key = f'{h}_{Path(geom_file).stem}'
+    h = hashlib.shake_128(geom_file.parent.as_posix().lower().encode("utf-8")).hexdigest(3)
+    key = f'{h}_{Path(geom_file).stem.lower()}'
     if len(key) >= 64:
         key = f'{h}__{Path(geom_file).stem[len(key)-62:]}'
     assert(len(key) < 64)
@@ -79,12 +79,6 @@ def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path
         old_mats = set(bpy.data.materials.keys())
         bpy.ops.wm.collada_import(filepath=dae_file.as_posix())
         new_mats = set(bpy.data.materials.keys()) - old_mats
-        for mat in new_mats:
-            if '_mtl_' in mat:
-                mtl_file, mtl = mat.split('_mtl_')
-                bpy.data.materials[mat].name = f'{mtl_file.lower()}_mtl_{mtl}'
-        # update new mats now that we changed all the keys
-        new_mats = set(bpy.data.materials.keys()) - old_mats
     except Exception as e:
         print(f'ERROR: Error during collada import: {repr(e)}')
         return None
@@ -100,6 +94,8 @@ def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path
     root_objs = []
 
     # move the imported objects into the new collection and namespace their names, also
+    mats_to_del = set()
+
     for obj in gc['objs']:
         move_obj_to_collection(obj, gc)
         obj['orig_name'] = obj.name.rsplit('.', maxsplit=1)[0]
@@ -108,18 +104,33 @@ def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path
         obj.name = hashed_path_key(Path(geom_key) / obj.name)
         if obj.parent is None:
             root_objs.append(obj)
+        for slot in obj.material_slots:
+            if not slot.material:
+                continue
 
-    #     # fix up material slots
-    #     for slot in obj.material_slots:
-    #         if slot.material and '.' in slot.material.name:
-    #             base_mat, _ = slot.material.name.split('.', maxsplit=1)
-    #             slot.material = bpy.data.materials[base_mat]
-    #
-    # # remove duplicate mats no longer in use:
-    # for mat in new_mats:
-    #     if mat.split('.', maxsplit=1)[-1].isdigit() and mat in bpy.data.materials:
-    #         bpy.data.materials.remove(bpy.data.materials[mat])
+            norm_mat_name = normalize_material_name(slot.material.name)
+            if norm_mat_name != slot.material.name:
+                if slot.material.name in new_mats:
+                    new_mats.remove(slot.material.name)
+                if norm_mat_name in bpy.data.materials:
+                    # we're using a duplicate name, reassign this slot and mark the 'new' duplicate mat for deletion
+                    mats_to_del.add(slot.material.name)
+                    slot.material = bpy.data.materials[norm_mat_name]
+                else:
+                    # norm name hasnt been setup yet, just rename this material to the right name
+                    slot.material.name = norm_mat_name
 
+    for mat in new_mats:
+        if mat := bpy.data.materials.get(mat):
+            norm_mat_name = normalize_material_name(mat.name)
+            if norm_mat_name != mat.name:
+                if norm_mat_name in bpy.data.materials:
+                    mats_to_del.add(mat.name)
+                else:
+                    bpy.data.materials[mat.name].name = norm_mat_name
+
+    for mat in mats_to_del:
+        bpy.data.materials.remove(bpy.data.materials[mat])
     gc['root_objs'] = root_objs
     return gc
 
@@ -137,6 +148,13 @@ def create_geom_instance(geom_file: Path, entity_collection, geometry_collection
     new_instance = bpy.data.objects.new(inst_name, None)
     new_instance.instance_type = 'COLLECTION'
     new_instance.instance_collection = gc
+
+    # make the extra data readily available to users in the properties window for the instanced object
+    new_instance['filename'] = gc['filename']
+    new_instance['materials'] = gc['materials']
+    new_instance['tint_palettes'] = gc['tint_palettes']
+    new_instance['tags'] = gc['tags']
+    new_instance['item_ports'] = gc['item_ports']
     entity_collection.objects.link(new_instance)
 
     # Duplicate the hierarchy of all the hardpoints from the collection as empty objects so we have clean
@@ -187,7 +205,9 @@ def create_geom_instance(geom_file: Path, entity_collection, geometry_collection
                                             location=props.get('pos'), rotation=props.get('rotation'),
                                             scale=props.get('scale'), bone_name=bone_name, instance_name='',
                                             data_dir=data_dir, bone_names=bone_names, parent=new_instance)
-            if sub_geom.parent is None:
+            if sub_geom is None:
+                print(f'ERROR: failed to create sub-geometry "{geom_file}" under {new_instance}')
+            elif sub_geom is not None and sub_geom.parent is None:
                 if bone_name:
                     print(f"WARNING: could not parent sub_geometry {geom_file} to "
                           f"instance {new_instance.name}:{bone_name}")
@@ -216,6 +236,30 @@ class RemoveSCPhysicsProxies(Operator):
         if remove_sc_physics_proxies():
             return {'FINISHED'}
         return {'CANCELLED'}
+
+
+class MakeReal(Operator):
+    """ Makes an imported instance "real" """
+    bl_idname = "scdt.make_real"
+    bl_label = "Make Instance Real"
+
+    def execute(self, context):
+        print(f'Collecting instances to make real...')
+        root = [_ for _ in context.selected_objects if _.parent is None][0]
+        deselect_all()
+        select_children(root)
+        instances = [root]
+        for obj in bpy.context.selected_objects:
+            if obj.instance_type == 'COLLECTION':
+                instances.append(obj)
+
+        for inst in tqdm.tqdm(instances, desc='Making instances real'):
+            deselect_all()
+            inst.select_set(True)
+            bpy.ops.object.duplicates_make_real(use_base_parent=True, use_hierarchy=True)
+
+        bpy.ops.outliner.orphans_purge(num_deleted=0)
+        return {'FINISHED'}
 
 
 class ImportSCDVBlueprint(Operator, ImportHelper):
@@ -326,7 +370,7 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
 
                     gc['tags'] = entity['attrs'].get('tags', '')
                     if palette := entity['attrs'].get('palette', ''):
-                        gc['tint_palettes'][Path(palette).stem] = palette
+                        gc['tint_palettes'][hashed_path_key(Path(palette))] = palette
 
                 for name, entity in tqdm.tqdm(bp['geometry'].items(), desc='Instancing Geometry', postfix='',
                                               total=len(bp['geometry']), unit='g'):
@@ -342,8 +386,10 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
                             print(f'ERROR: could not create instance for {name}')
                             continue
 
-                        if Path(new_instance.instance_collection['filename']).stem == bp['name']:
+                        if Path(new_instance.instance_collection['filename']).stem == bp['name'] or \
+                                entity_instance is None:
                             entity_instance = new_instance
+                            entity_instance.name = bp['name']
 
                         if new_instance.parent is None:
                             if bone_name := i['attrs'].get('bone_name', ''):
@@ -403,6 +449,7 @@ def register():
     bpy.utils.register_class(ImportSCDVBlueprint)
     bpy.utils.register_class(RemoveProxyMeshes)
     bpy.utils.register_class(RemoveSCPhysicsProxies)
+    bpy.utils.register_class(MakeReal)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 
@@ -410,4 +457,5 @@ def unregister():
     bpy.utils.unregister_class(ImportSCDVBlueprint)
     bpy.utils.unregister_class(RemoveProxyMeshes)
     bpy.utils.unregister_class(RemoveSCPhysicsProxies)
+    bpy.utils.unregister_class(MakeReal)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)

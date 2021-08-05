@@ -26,6 +26,7 @@ class TOPBAR_MT_SCUtilities(bpy.types.Menu):
         self.layout.operator('scdt.remove_sc_physics_proxies')
         self.layout.operator('scdt.remove_proxy_meshes')
         self.layout.operator('scdt.load_sc_shader_nodes')
+        self.layout.operator('scdt.make_real')
 
 
 class TOPBAR_MT_SCModding(bpy.types.Menu):

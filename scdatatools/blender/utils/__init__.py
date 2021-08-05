@@ -82,10 +82,10 @@ def auto_format_sc_data_dir_path(preferences, context):
 
 
 def write_to_logfile(log_text, log_name="Output"):
-    return
     # log_file = bpy.data.texts.get(log_name) or bpy.data.texts.new(log_name)
     # log_file.write(f"[{datetime.now()}] {log_text}\n")
     # print(f"[{datetime.now()}] {log_text}")
+    return
 
 
 def search_for_data_dir_in_path(path):
@@ -103,7 +103,7 @@ def deselect_all():
         obj.select_set(False)
 
 
-def set_outliner_stete(state):
+def set_outliner_state(state):
     area = next(a for a in bpy.context.screen.areas if a.type == 'OUTLINER')
     bpy.ops.outliner.show_hierarchy({'area': area}, 'INVOKE_DEFAULT')
     for i in range(state):
@@ -112,11 +112,11 @@ def set_outliner_stete(state):
 
 
 def collapse_outliner():
-    set_outliner_stete(2)
+    set_outliner_state(2)
 
 
 def expand_outliner():
-    set_outliner_stete(1)
+    set_outliner_state(1)
 
 
 def select_children(obj):
@@ -163,12 +163,23 @@ def remove_sc_physics_proxies() -> bool:
         return False
 
 
-def import_cleanup(context, option_deleteproxymat=False, option_offsetdecals=False, option_cleanupimages=True):
-    try:
-        bpy.ops.material.materialutilities_merge_base_names(is_auto=True)
-    except AttributeError:
-        print(f'Material Utilities add-on not enabled: cannot fix up material base names')
+def normalize_material_name(mat_name):
+    if '_mtl_' in mat_name:
+        # normalize mtl library name
+        mtl_file, mtl = mat_name.split('_mtl_')
+        norm_mat_name = f'{mtl_file.lower()}_mtl_{mtl}'
+    else:
+        norm_mat_name = mat_name
 
+    if '.' in norm_mat_name:
+        # remove .NNN
+        base_mat_name, _ = norm_mat_name.rsplit('.', maxsplit=1)
+        norm_mat_name = base_mat_name if _.isdigit() else norm_mat_name
+
+    return norm_mat_name
+
+
+def import_cleanup(context, option_deleteproxymat=False, option_offsetdecals=False, option_cleanupimages=True):
     for obj in context.scene.objects:
         obj.name = obj.name.replace("_out", "")
 

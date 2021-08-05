@@ -52,6 +52,38 @@ RECORD_KEYS_WITH_AUDIO = [
     'audioTrigger'
 ]
 DEFAULT_ROTATION = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+SOC_ENTITY_CLASSES_TO_SKIP = [
+    # TODO: all TBDs in here are entityclasses in soc cryxmlbs that havent been researched yet
+    "AreaShape",  # TODO: TBD
+    "AudioAreaAmbience",  # TODO: TBD
+    "AudioEnvironmentFeedbackPoint",  # TODO: TBD
+    "AudioTriggerSpot",  # TODO: TBD
+    "CameraSource",  # TODO: TBD
+    "EditorCamera",  # TODO: TBD
+    "EnvironmentLight",  # TODO: TBD
+    "FogVolume",  # TODO: TBD
+    "GravityBox",  # TODO: TBD
+    "Hazard",  # TODO: TBD
+    "LandingArea",  # TODO: TBD
+    "LedgeObject",  # TODO: TBD
+    "Light",  # TODO: TBD
+    "LightBox",  # TODO: TBD
+    "LightGroup",  # TODO: TBD
+    "NavigationArea",  # TODO: TBD
+    "ParticleField",  # TODO: TBD
+    "ParticleEffect",  # TODO: TBD
+    "Room",  # Audio # TODO: TBD
+    "RoomConnector",  # TODO: TBD
+    "RotationSimple",  # TODO: TBD
+    'SequenceObjectItem',  # TODO: TBD
+    "SurfaceRaindropsTarget",  # TODO: TBD
+    "TagPoint",  # TODO: TBD
+    'TransitDestination',  # TODO: TBD
+    'TransitGateway',  # TODO: TBD
+    'TransitManager',  # TODO: TBD
+    'TransitNavSpline',  # TODO: TBD
+    "VibrationAudioPoint",  # TODO: TBD
+]
 
 
 class Geometry(dict):
@@ -218,8 +250,8 @@ class EntityExtractor:
         if guid not in self.sc.datacore.records_by_guid:
             return self.log(f'record {guid} does not exist', logging.WARNING)
 
-        record = self.sc.datacore.records_by_guid[guid]
         if guid not in self._cache['found_records']:
+            record = self.sc.datacore.records_by_guid[guid]
             self.log(f'+ record: {Path(record.filename).relative_to(RECORDS_BASE_PATH).as_posix()}')
             self._cache['found_records'].add(guid)
             self._cache['records_to_process'].add(guid)
@@ -279,12 +311,15 @@ class EntityExtractor:
             self._add_file_to_extract(obj.properties['path'])
 
     def geometry_for_record(self, record):
+        if record is None:
+            return None
         if isinstance(record, DataCoreObject):
             guid = record.guid
         elif isinstance(record, Record):
             guid = record.id.value
         else:
             guid = record
+        self._add_record_to_extract(guid)  # make sure the record has been tracked at least at some point
         if guid in self._cache['records_to_process']:
             self._cache['records_to_process'].remove(guid)
             self._cache['found_records'].add(guid)
@@ -369,7 +404,6 @@ class EntityExtractor:
                             materials=materials, attrs={'bone_name': bone_name}
                         )
             if isinstance(chunk, ChCrChunks.CryXMLBChunk):
-                # TODO: read cryxmlb chunk, it seems to be all related to lighting/audio?
                 d = chunk.dict()
                 # Root can be Entities or SCOC_Entities
                 entities = d.get('Entities', d.get('SCOC_Entities', {})).get('Entity')
@@ -377,11 +411,20 @@ class EntityExtractor:
                     entities = [entities]  # only one entity in this cryxmlb
                 for entity in entities:
                     try:
+                        geom = None
                         if 'EntityGeometryResource' in entity.get('PropertiesDataCore', {}):
                             geom, _ = self._get_or_create_geom(
                                 entity['PropertiesDataCore']['EntityGeometryResource']
                                 ['Geometry']['Geometry']['Geometry']['@path']
                             )
+                        elif entity.get('@EntityClass') in SOC_ENTITY_CLASSES_TO_SKIP:
+                            continue  # TODO: handle these
+                        elif ecguid := entity.get('@EntityClassGUID'):
+                            geom = self.geometry_for_record(self.sc.datacore.records_by_guid.get(ecguid)).get('')
+                            # this will return a dict of `tag`: set(`geom`). in this case it should always be '': set(1)
+                            if geom is not None:
+                                geom, _ = self._get_or_create_geom(next(iter(geom)))
+                        if geom is not None:
                             w, x, y, z = (float(_) for _ in entity.get('@Rotate', '1,0,0,0').split(','))
                             self._cache['found_geometry'][geom['name']].add_instance(
                                 name=entity['@Name'],
@@ -394,6 +437,9 @@ class EntityExtractor:
                                     'layer': entity['@Layer']
                                 }
                             )
+                        else:
+                            self.log(f'WARNING: non-skipped soc entityclass doesnt have geometry: '
+                                     f'{entity.get("@EntityClass")}', logging.WARNING)
                     except Exception as e:
                         traceback.print_exc()
                         self.log(f'Failed to parse soc cryxmlb entity "{entity["@Name"]}": {repr(e)}')
@@ -490,10 +536,15 @@ class EntityExtractor:
         #   - SAnimationControllerParams
 
     def _get_or_create_geom(self, geom_path, parent=None, create_params=None, sub_geometry=None) -> (Geometry, bool):
+        if not geom_path:
+            return None, False
+
         created = False
         sub_geometry = sub_geometry or {}
         if not isinstance(geom_path, Path):
             geom_path = Path(geom_path)
+
+        self._add_file_to_extract(geom_path)
 
         if geom_path.suffix.lower() == '.cdf':
             # parse the cdf and create it's sub_geometry as well

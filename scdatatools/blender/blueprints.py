@@ -103,6 +103,7 @@ def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path
     for obj in gc['objs']:
         move_obj_to_collection(obj, gc)
         obj['orig_name'] = obj.name.rsplit('.', maxsplit=1)[0]
+        obj['source_file'] = geom_file.as_posix()
         if obj['orig_name'] in bone_names:
             gc['item_ports'][obj['orig_name']] = obj
         obj.name = hashed_path_key(Path(geom_key) / obj.name)

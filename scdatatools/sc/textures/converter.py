@@ -19,11 +19,11 @@ class ConverterUtility(enum.Enum):
 
 
 # normal maps and glossmaps need to force texconv to use specific formats
-TEXCONV_DEFAULT_FMT = 'rgba'
-TEXCONV_DDNA_FMT = 'B8G8R8A8_UNORM'
-TEXCONV_GLOSSMAP_FMT = 'R8G8B8A8_UNORM'
+TEXCONV_DEFAULT_ARGS = ' -f rgba'
+TEXCONV_DDNA_ARGS = ' -f B8G8R8A8_UNORM -nmap rgb -nmapamp 10.0'
+TEXCONV_GLOSSMAP_ARGS = ' -f BC4_UNORM'
 
-DEFAULT_TEXCONV_ARGS = '-f {fmt} -nologo'
+DEFAULT_TEXCONV_ARGS = '-nologo'
 DEFAULT_COMPRESSONATOR_ARGS = '-noprogress'
 
 DDS_CONV_FALLBACK = 'png'
@@ -111,7 +111,8 @@ def tex_convert(infile: typing.Union[str, Path, io.BufferedIOBase, io.RawIOBase,
     Setting `converter` explicitly will disable this behavior and only attempt the chosen `converter`.
 
     :param infile:  A `str`, `Path`, file-like object or bytes of the input texture
-    :param outfile:  The output file path. Default of '-' will return the buffer
+    :param outfile:  The output file path. Default of '-' will return the buffer. Glossmaps will alter the output
+        filename. Be sure to check the returned path if necessary.
     :param converter:  Which converter to use. By default `texconv` will be used if available, if not then
         `compressonatorcli`. Set to `converter.COMPRESSONATOR` force using `compressonatorcli`.
     :param converter_cli_args:  Override the additional CLI arguments passed to the converter. You must specify which
@@ -128,26 +129,21 @@ def tex_convert(infile: typing.Union[str, Path, io.BufferedIOBase, io.RawIOBase,
     try_compressonator = converter == ConverterUtility.default
     converter, converter_bin = _check_bin(converter, converter_bin)
 
-    if is_glossmap(infile):
-        raise NotImplementedError(f'Cannot yet convert glossmaps. Please check for an option issue with scdatatools '
-                                  f'if you require this functionality.')
-
     if isinstance(outfile, str):
         outfile = Path(outfile)
     if outfile.exists():
         raise ValueError(f'outfile "{outfile}" already exists')
 
-    _delete = True
-    if isinstance(infile, (str, Path)):
-        tmpin = open(infile, 'rb')
-        _delete = False
-    else:
-        infile.seek(0)
-        tmpin = tempfile.NamedTemporaryFile(suffix=Path(infile.name).suffix, delete=False)
-        tmpin.write(infile.read())
-
-    r = None
+    tmpin = tempfile.NamedTemporaryFile(suffix='.dds' if is_glossmap(infile) else Path(infile.name).suffix,
+                                        delete=False)
     try:
+        if isinstance(infile, (str, Path)):
+            with open(infile, 'rb') as f:
+                tmpin.write(f.read())
+        else:
+            infile.seek(0)
+            tmpin.write(infile.read())
+
         # TODO: logging...
 
         # Make sure we're not preventing access to the in file
@@ -158,11 +154,11 @@ def tex_convert(infile: typing.Union[str, Path, io.BufferedIOBase, io.RawIOBase,
         err_msg = ''
         if converter in [ConverterUtility.default, ConverterUtility.texconv]:
             if is_glossmap(infile.name):
-                converter_cli_args = DEFAULT_TEXCONV_ARGS.format(fmt=TEXCONV_GLOSSMAP_FMT) + converter_cli_args
+                converter_cli_args = DEFAULT_TEXCONV_ARGS + TEXCONV_GLOSSMAP_ARGS + converter_cli_args
             elif is_normals(infile.name):
-                converter_cli_args = DEFAULT_TEXCONV_ARGS.format(fmt=TEXCONV_DDNA_FMT) + converter_cli_args
+                converter_cli_args = DEFAULT_TEXCONV_ARGS + TEXCONV_DDNA_ARGS + converter_cli_args
             else:
-                converter_cli_args = DEFAULT_TEXCONV_ARGS.format(fmt=TEXCONV_DEFAULT_FMT) + converter_cli_args
+                converter_cli_args = DEFAULT_TEXCONV_ARGS + TEXCONV_DEFAULT_ARGS + converter_cli_args
             cmd = f'"{converter_bin}" -ft {ft} {converter_cli_args} "{tmpin.name}"'
             try:
                 r = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True,
@@ -170,7 +166,7 @@ def tex_convert(infile: typing.Union[str, Path, io.BufferedIOBase, io.RawIOBase,
                 # texconv outputs to the same location as the input file, so move it to the requested output path
                 # if successful
                 shutil.move(outfile.parent / f'{Path(tmpin.name).stem}.{ft}', outfile.absolute())
-                return
+                return outfile
             except subprocess.CalledProcessError as e:
                 err_msg = f'Error converting with texconv: {e.output.decode("utf-8", errors="ignore")}'
                 if not try_compressonator:
@@ -189,11 +185,11 @@ def tex_convert(infile: typing.Union[str, Path, io.BufferedIOBase, io.RawIOBase,
             cmd = f'{converter_bin} {converter_cli_args} {tmpin.name} {outfile.absolute()}'
             try:
                 r = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+                return outfile
             except subprocess.CalledProcessError as e:
                 err = f'Error converting with compressonator: {e.output.decode("utf-8", errors="ignore")}'
                 if err_msg:
                     raise ConversionError(f'Failed to convert with texconv and compressonatorcli:\n\n{err_msg}\n{err}')
                 raise ConversionError(err)
     finally:
-        if _delete:
-            Path(tmpin.name).unlink(missing_ok=True)
+        os.unlink(tmpin.name)

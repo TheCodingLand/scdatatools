@@ -19,7 +19,7 @@ from scdatatools.utils import SCJSONEncoder
 from scdatatools.forge.dftypes import Record, GUID
 from scdatatools.cry.model import chunks as ChCrChunks
 from scdatatools.forge.dco import dco_from_guid, DataCoreObject
-from scdatatools.sc.textures import tex_convert, collect_and_unsplit, is_glossmap
+from scdatatools.sc.textures import tex_convert, collect_and_unsplit, is_glossmap, ConverterUtility
 from scdatatools.utils import etree_to_dict, norm_path, dict_search
 from scdatatools.cry.model.utils import Vector3D
 from scdatatools.cry.cryxml import dict_from_cryxml_file, dict_from_cryxml_string, CryXmlConversionFormat
@@ -32,10 +32,9 @@ PROCESS_FILES = [
 ]
 CGF_CONVERTER_MODEL_EXTS = ['.cga', '.cgf', '.chr', '.skin']
 CGF_CONVERTER_TIMEOUT = 5 * 60  # assume cgf converter is stuck after this much time
-CGF_CONVERTER_DEFAULT_OPTS = '-en "$physics_proxy" -em proxy -prefixmatnames -group -smooth -notex'
+CGF_CONVERTER_DEFAULT_OPTS = '-en "$physics_proxy" -em proxy -em nocollision_faces -prefixmatnames -group -smooth -notex'
 RECORDS_BASE_PATH = Path('libs/foundry/records/')
 SHIP_ENTITIES_PATH = RECORDS_BASE_PATH / 'entities/spaceships'
-TEXCONV_IGNORE = ['_ddna']
 CGF_CONVERTER = shutil.which('cgf-converter')
 RECORD_KEYS_WITH_PATHS = [
     # all keys are lowercase to ignore case while matching
@@ -54,6 +53,7 @@ RECORD_KEYS_WITH_AUDIO = [
 DEFAULT_ROTATION = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 SOC_ENTITY_CLASSES_TO_SKIP = [
     # TODO: all TBDs in here are entityclasses in soc cryxmlbs that havent been researched yet
+    "AreaBox",  # TODO: TBD
     "AreaShape",  # TODO: TBD
     "AudioAreaAmbience",  # TODO: TBD
     "AudioEnvironmentFeedbackPoint",  # TODO: TBD
@@ -69,6 +69,7 @@ SOC_ENTITY_CLASSES_TO_SKIP = [
     "Light",  # TODO: TBD
     "LightBox",  # TODO: TBD
     "LightGroup",  # TODO: TBD
+    "LightGroupPoweredItem",  # TODO: TBD
     "NavigationArea",  # TODO: TBD
     "ParticleField",  # TODO: TBD
     "ParticleEffect",  # TODO: TBD
@@ -83,17 +84,21 @@ SOC_ENTITY_CLASSES_TO_SKIP = [
     'TransitManager',  # TODO: TBD
     'TransitNavSpline',  # TODO: TBD
     "VibrationAudioPoint",  # TODO: TBD
+    "VehicleAudioPoint",  # TODO: TBD
 ]
 
 
 class Geometry(dict):
-    def __init__(self, name, geom_file, pos=None, rotation=None, scale=None, materials=None, attrs=None, parent=None):
+    def __init__(self, name, geom_file, pos=None, rotation=None, scale=None, materials=None, attrs=None,
+                 helpers=None, parent=None):
         super().__init__()
         self['name'] = name
         self['geom_file'] = geom_file
         self['instances'] = {}
+        self['loadout'] = {}
         self['materials'] = set()
         self['sub_geometry'] = {}
+        self['helpers'] = helpers or {}
         self.add_materials(materials or [])
         if pos:
             self.add_instance('', pos, rotation, scale)
@@ -118,8 +123,19 @@ class Geometry(dict):
             'attrs': attrs or {}
         }
 
-    def add_sub_geometry(self, name, *args, **kwargs):
-        self['sub_geometry'][name] = Geometry(name, parent=self, *args, **kwargs)
+    def add_sub_geometry(self, child_geom, pos=None, rotation=None, attrs=None):
+        create_params = {
+            "pos": pos or {"x": 0.0, "y": 0.0, "z": 0.0},
+            "rotation": rotation or {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
+            "attrs": attrs or {}
+        }
+        if bone_name := create_params['attrs'].get('bone_name', ''):
+            helper = self['helpers'].get(bone_name.lower(), {})
+            if helper:
+                create_params['pos'] = helper['pos']
+                create_params['rotation'] = helper['rotation']
+                create_params['attrs']['bone_name'] = helper['name']
+        self['sub_geometry'].setdefault(child_geom['name'], []).append(create_params)
 
     def __hash__(self):
         return hash(tuple(self))
@@ -142,7 +158,6 @@ class EntityExtractor:
             'found_records': set(),
             'audio_to_extract': set(),
             'records_to_process': set(),
-            'item_ports': {},
             'bone_names': set(),
             'exclude': set(),
             'geometry': {},
@@ -155,7 +170,6 @@ class EntityExtractor:
     def container(self, container):
         previous_container = self._current_container
         self._current_container = previous_container.setdefault(container, {
-            'item_ports': {},
             'geometry': {},
         })
         yield
@@ -267,7 +281,8 @@ class EntityExtractor:
         if trigger_name in self.sc.wwise.triggers:
             self._cache['audio_to_extract'].add(trigger_name)
 
-    def _handle_ext_geom(self, rec, obj, tags=''):
+    def _handle_ext_geom(self, rec, obj, tags='', helpers=None):
+        helpers = helpers or {}
         if obj.name == 'SGeometryDataParams':
             mtl = obj.properties['Material'].properties['path']
             geom_path = obj.properties['Geometry'].properties['path']
@@ -296,21 +311,21 @@ class EntityExtractor:
                     attrs['palette'] = p.as_posix()
                 geom, created = self._get_or_create_geom(geom_path, create_params={
                     'attrs': attrs, 'pos': Vector3D() if rec.guid == self.entity.guid else None,
-                    'materials': mtl
+                    'materials': mtl, 'helpers': helpers,
                 })
                 self._cache['record_geometry'].setdefault(rec.guid, {}).setdefault(tags, set()).add(geom['name'])
 
         if 'Geometry' in obj.properties:
-            self._handle_ext_geom(rec, obj.properties['Geometry'], obj.properties.get('Tags', ''))
+            self._handle_ext_geom(rec, obj.properties['Geometry'], obj.properties.get('Tags', ''), helpers)
         if 'SubGeometry' in obj.properties:
             for sg in obj.properties.get('SubGeometry', []):
-                self._handle_ext_geom(rec, sg, obj.properties.get('Tags', ''))
+                self._handle_ext_geom(rec, sg, obj.properties.get('Tags', ''), helpers)
         if 'Material' in obj.properties:
-            self._handle_ext_geom(rec, obj.properties['Material'])
+            self._handle_ext_geom(rec, obj.properties['Material'], helpers)
         if 'path' in obj.properties:
             self._add_file_to_extract(obj.properties['path'])
 
-    def geometry_for_record(self, record):
+    def geometry_for_record(self, record, base=False):
         if record is None:
             return None
         if isinstance(record, DataCoreObject):
@@ -324,34 +339,26 @@ class EntityExtractor:
             self._cache['records_to_process'].remove(guid)
             self._cache['found_records'].add(guid)
             self._process_record(guid)
-        return self._cache['record_geometry'].get(guid, {})
+        geom = self._cache['record_geometry'].get(guid, {})
+        if base and geom:
+            return next(iter(geom['']))
+        return geom
 
-    def _get_or_create_item_port(self, name, parent=None) -> dict:
-        parent = parent if parent is not None else self._cache['item_ports']
+    def _get_or_create_item_port(self, name, parent) -> dict:
         if name not in parent:
             parent[name] = {'geometry': set()}
         return parent[name]
 
-    def _handle_component_loadouts(self, rec, obj, parent=None):
+    def _handle_component_loadouts(self, rec, obj, parent=None, helpers=None):
+        helpers = helpers or {}
         try:
-            helpers = {}
-            if 'SItemPortContainerComponentParams' in rec.components:
-                helper_ports = rec.components['SItemPortContainerComponentParams'].properties['Ports']
-                for port in helper_ports:
-                    try:
-                        helper = port.properties['AttachmentImplementation'].properties['Helper'].properties['Helper']
-                    except KeyError:
-                        continue
-                    offset = helper.properties['Offset']
-                    helpers[port.properties['Name']] = {
-                        'pos': Vector3D(**offset.properties['Position'].properties),
-                        'rotation': Quaternion(w=1, **offset.properties['Rotation'].properties),
-                        'name': helper.properties['Name']
-                    }
-
             for entry in obj.properties['loadout'].properties.get('entries', []):
                 try:
                     if not entry.properties['entityClassName']:
+                        continue
+
+                    if entry.properties['entityClassName'] not in self._records_by_name:
+                        self.log(f'Could not find record "{entry.properties["entityClassName"]}', logging.WARNING)
                         continue
 
                     ipe = self._records_by_name[entry.properties["entityClassName"]]
@@ -366,24 +373,25 @@ class EntityExtractor:
                         return ipe_geom.get('', [])
 
                     if port_name in helpers:
-                        # this is sub_geometry for another records geometry
                         helper = helpers[port_name]
-                        parent_geoms = self.geometry_for_record(rec)['']
-                        assert (len(parent_geoms) == 1)
-                        parent_geom, _ = self._get_or_create_geom(next(iter(parent_geoms)))
+                        parent_geom = self.geometry_for_record(rec, base=True)
+                        parent_geom, _ = self._get_or_create_geom(parent_geom)
                         for geom_path in _geom_for_port(helper['name']):
                             self._get_or_create_geom(geom_path, parent=parent_geom, create_params={
                                 'pos': helper['pos'], 'rotation': helper['rotation'],
-                                'attrs': {'bone_name': helper['name']}
+                                'attrs': {'bone_name': helper['name'].lower()}
                             })
-                        self._cache['bone_names'].add(helper['name'])
+                        self._cache['bone_names'].add(helper['name'].lower())
                     else:
                         # assign record to be instanced at the set itemPortName
+                        port_name = port_name.lower()
                         ip = self._get_or_create_item_port(port_name, parent=parent)
                         ip['geometry'].update(_geom_for_port(port_name))
                         self._cache['bone_names'].add(port_name)
                         if entry.properties['loadout']:
-                            self._handle_component_loadouts(rec, entry, parent=ip.setdefault('loadout', {}))
+                            self._handle_component_loadouts(rec, entry,
+                                                            parent=ip.setdefault('loadout', {}),
+                                                            helpers=helpers)
                 except Exception as e:
                     traceback.print_exc()
                     self.log(f'processing component SEntityComponentDefaultLoadoutParams: {repr(e)}', logging.ERROR)
@@ -420,10 +428,8 @@ class EntityExtractor:
                         elif entity.get('@EntityClass') in SOC_ENTITY_CLASSES_TO_SKIP:
                             continue  # TODO: handle these
                         elif ecguid := entity.get('@EntityClassGUID'):
-                            geom = self.geometry_for_record(self.sc.datacore.records_by_guid.get(ecguid)).get('')
-                            # this will return a dict of `tag`: set(`geom`). in this case it should always be '': set(1)
-                            if geom is not None:
-                                geom, _ = self._get_or_create_geom(next(iter(geom)))
+                            geom = self.geometry_for_record(self.sc.datacore.records_by_guid.get(ecguid), base=True)
+                            geom, _ = self._get_or_create_geom(geom)
                         if geom is not None:
                             w, x, y, z = (float(_) for _ in entity.get('@Rotate', '1,0,0,0').split(','))
                             self._cache['found_geometry'][geom['name']].add_instance(
@@ -444,7 +450,68 @@ class EntityExtractor:
                         traceback.print_exc()
                         self.log(f'Failed to parse soc cryxmlb entity "{entity["@Name"]}": {repr(e)}')
 
-    def _handle_vehicle_components(self, rec, vc):
+    def _handle_vehicle_definition(self, rec, def_p4k_path):
+        def_p4k_path = norm_path(f'{"" if def_p4k_path.startswith("data") else "data/"}{def_p4k_path}').lower()
+        self._add_file_to_extract(def_p4k_path)
+        if def_p4k_path in self._cache['files_to_process']:
+            self._cache['files_to_process'].remove(def_p4k_path)
+
+        vdef_info = self.sc.p4k.NameToInfoLower[def_p4k_path]
+        vdef = dict_from_cryxml_file(self.sc.p4k.open(vdef_info))
+
+        def _walk_parts(part):
+            if isinstance(part.get('Part'), dict):
+                yield from _walk_parts(part['Part'])
+            elif 'Part' in part:
+                for p in part['Part']:
+                    yield from _walk_parts(p)
+            elif 'Parts' in part:
+                yield from _walk_parts(part['Parts'])
+            else:
+                yield part
+            yield part
+
+        parent_geom = self.geometry_for_record(rec, base=True)
+        parent_geom, _ = self._get_or_create_geom(parent_geom)
+        parts = {}
+        parent_parts = {}
+        for part in _walk_parts(vdef['Vehicle']['Parts']):
+            if part.get('@class', '') == 'Tread':
+                parent_parts[part['@name'].lower()] = {
+                    'filename': part['Tread']['@filename'],
+                    'children': [
+                        _['@partName'] for _ in part['Tread']['Wheels']['Wheel']
+                    ]
+                }
+                self._cache['bone_names'].add(part['Tread']['Sprocket']['@name'].lower())
+                self._add_material(part['Tread'].get('@materialName', ''))
+            if 'SubPart' in part and part.get('@class', '') == 'SubPartWheel':
+                parts[part['@name'].lower()] = part['SubPart']['@filename']
+
+        for parent_part_name, params in parent_parts.items():
+            parent_part_geom, _ = self._get_or_create_geom(params['filename'])
+            ip = self._get_or_create_item_port(parent_part_name, parent=parent_geom['loadout'])
+            ip['geometry'].add(parent_part_geom['name'])
+            self._cache['bone_names'].add(parent_part_name)
+            for child_part_name in params['children']:
+                if child_part_name not in parts:
+                    self.log(f'did not find child part {child_part_name} for {parent_part_name} in '
+                             f'{parent_geom["name"]}')
+                    continue
+                child_part = parts.pop(child_part_name)
+                child_geom, _ = self._get_or_create_geom(child_part)
+                ip = self._get_or_create_item_port(child_part_name, parent=parent_part_geom['loadout'])
+                ip['geometry'].add(child_geom['name'])
+                self._cache['bone_names'].add(child_part_name)
+
+        for part, part_file in parts.items():
+            geom, _ = self._get_or_create_geom(part_file)
+            ip = self._get_or_create_item_port(part, parent=parent_geom['loadout'])
+            ip['geometry'].add(geom['name'])
+            self._cache['bone_names'].add(part)
+
+    def _handle_vehicle_components(self, rec, vc, helpers=None):
+        helpers = helpers or {}
         for prop in ['landingSystem']:
             if vc.properties.get(prop):
                 self._add_record_to_extract(vc.properties[prop])
@@ -452,7 +519,7 @@ class EntityExtractor:
             if prop in vc.properties:
                 self._search_record(vc.properties[prop])
         if vc.properties.get('vehicleDefinition'):
-            self._add_file_to_extract(vc.properties['vehicleDefinition'])
+            self._handle_vehicle_definition(rec, vc.properties['vehicleDefinition'])
         if vc.properties.get('objectContainers'):
             for oc in vc.properties['objectContainers']:
                 p4k_path = norm_path(oc.properties["fileName"])
@@ -465,28 +532,32 @@ class EntityExtractor:
                     self._add_file_to_extract([_.filename for _ in archive.filelist])
                     p4k_path = Path(p4k_path)
                     soc_path = p4k_path.parent / p4k_path.stem / f'{p4k_path.stem}.soc'
-                    soc = self.sc.p4k.NameToInfoLower.get(f'data/{soc_path.as_posix()}')
+                    soc = self.sc.p4k.NameToInfoLower.get(f'data/{soc_path.as_posix()}'.lower())
                     if soc is not None:
                         soc = ChCr(soc.open().read())
-                        self._cache['bone_names'].add(oc.properties['boneName'])
+                        self._cache['bone_names'].add(oc.properties['boneName'].lower())
                         self._handle_soc(oc.properties['boneName'], soc)
                 except Exception as e:
                     traceback.print_exc()
                     self.log(f'failed to process object container "{p4k_path}": {repr(e)}', logging.ERROR)
                     raise
 
-    def _handle_audio_component(self, rec, ac):
+    def _handle_audio_component(self, rec, ac, helpers=None):
+        helpers = helpers or {}
         print("TODO: 'ShipAudioComponentParams'")
         print("TODO: 'AudioPassByComponentParams'")
         # TODO: dict search component for audioTrigger?
 
-    def _handle_landinggear(self, r):
+    def _handle_landinggear(self, r, helpers=None):
+        helpers = helpers or {}
+        parent_geom = self.geometry_for_record(self.entity, base=True)
+        parent_geom, _ = self._get_or_create_geom(parent_geom)
         for gear in r.record.properties['gears']:
             self._handle_ext_geom(r, gear.properties['geometry'])
             geom, _ = self._get_or_create_geom(gear.properties['geometry'].properties['path'])
-            ip = self._get_or_create_item_port(gear.properties['bone'])
+            ip = self._get_or_create_item_port(gear.properties['bone'], parent=parent_geom['loadout'])
             ip['geometry'].add(geom['name'])
-            self._cache['bone_names'].add(gear.properties['bone'])
+            self._cache['bone_names'].add(gear.properties['bone'].lower())
 
     def _search_record(self, r):
         """ This is a brute-force method of extracting related files from a datacore record. It does no additional
@@ -495,23 +566,42 @@ class EntityExtractor:
         d = self.sc.datacore.record_to_dict(r)
         self._add_file_to_extract(dict_search(d, RECORD_KEYS_WITH_PATHS, ignore_case=True))
 
-    def _search_record_audio(self, r):
+    def _search_record_audio(self, r, component):
         d = self.sc.datacore.record_to_dict(r)
         self._add_audio_to_extract(dict_search(d, RECORD_KEYS_WITH_AUDIO, ignore_case=True))
 
     def _process_record(self, r):
         r = dco_from_guid(self.sc.datacore, r)
         if r.type == 'EntityClassDefinition':
+            helpers = {}
+            if 'SItemPortContainerComponentParams' in r.components:
+                helper_ports = r.components['SItemPortContainerComponentParams'].properties['Ports']
+                for port in helper_ports:
+                    try:
+                        helper = port.properties['AttachmentImplementation'].properties['Helper'].properties['Helper']
+                    except KeyError:
+                        continue
+                    offset = helper.properties['Offset']
+                    helpers[port.properties['Name'].lower()] = {
+                        'pos': Vector3D(**offset.properties['Position'].properties),
+                        'rotation': Quaternion(w=1, **offset.properties['Rotation'].properties),
+                        'name': helper.properties['Name'].lower()
+                    }
+                    self._cache['bone_names'].add(helper.properties['Name'].lower())
+
             if 'SGeometryResourceParams' in r.components:
-                self._handle_ext_geom(r, r.components['SGeometryResourceParams'])
+                self._handle_ext_geom(r, r.components['SGeometryResourceParams'], helpers=helpers)
             if 'SEntityComponentDefaultLoadoutParams' in r.components:
-                self._handle_component_loadouts(r, r.components['SEntityComponentDefaultLoadoutParams'])
+                geom_path = self.geometry_for_record(r, base=True)
+                geom, _ = self._get_or_create_geom(geom_path)
+                self._handle_component_loadouts(r, r.components['SEntityComponentDefaultLoadoutParams'],
+                                                helpers=helpers, parent=geom['loadout'])
             if 'VehicleComponentParams' in r.components:
-                self._handle_vehicle_components(r, r.components['VehicleComponentParams'])
+                self._handle_vehicle_components(r, r.components['VehicleComponentParams'], helpers=helpers)
             if 'ShipAudioComponentParams' in r.components:
-                self._handle_audio_component(r, r.components['ShipAudioComponentParams'])
+                self._handle_audio_component(r, r.components['ShipAudioComponentParams'], helpers=helpers)
             if 'AudioPassByComponentParams' in r.components:
-                self._handle_audio_component(r, r.components['AudioPassByComponentParams'])
+                self._handle_audio_component(r, r.components['AudioPassByComponentParams'], helpers=helpers)
 
             audio_comps = [
                 'EntityPhysicalAudioParams'
@@ -574,7 +664,7 @@ class EntityExtractor:
 
         if parent is not None:
             child_geom, _ = self._get_or_create_geom(geom_path, create_params=create_params)
-            parent['sub_geometry'].setdefault(child_geom['name'], []).append(create_params)
+            parent.add_sub_geometry(child_geom, **create_params)
             return parent, True
 
         if geom_name not in self._cache['found_geometry']:
@@ -587,6 +677,8 @@ class EntityExtractor:
         return self._cache['found_geometry'][geom_name], created
 
     def _add_material(self, path, model_path=''):
+        if not path:
+            return ''
         mat = Path(path)
         if mat.parent.parent == mat.parent and model_path:
             # material is a path local to the model
@@ -670,7 +762,7 @@ class EntityExtractor:
                 report_tex_conversion_errors: bool = False, convert_dds_fmt: str = 'png',
                 extract_sounds: bool = True, auto_convert_models: bool = False,
                 cgf_converter_opts: str = CGF_CONVERTER_DEFAULT_OPTS, auto_convert_sounds: bool = False,
-                ww2ogg: str = '', revorb: str = '', cgf_converter: str = '',
+                ww2ogg: str = '', revorb: str = '', cgf_converter: str = '', tex_converter: str = '',
                 exclude: typing.List[str] = None, monitor: typing.Callable = None) -> typing.List[str]:
         """
         :param outdir: Output directory to extract data into
@@ -754,8 +846,7 @@ class EntityExtractor:
         with (self.outdir / f'{self.entity.name}.scbp').open('w') as bpfile:
             bp = {
                 'name': self.entity.name,
-                'item_ports': self._cache['item_ports'],
-                'bone_names': self._cache['bone_names'],
+                'bone_names': sorted(self._cache['bone_names']),
                 'geometry': self._cache['found_geometry'],
             }
             json.dump(bp, bpfile, indent=2, cls=SCJSONEncoder)
@@ -793,20 +884,28 @@ class EntityExtractor:
                 else:
                     found_textures.add(self.outdir / _.parent / f'{_.name.split(".")[0]}.dds')
 
+            converter = ConverterUtility(
+                'texconv' if 'texconv' in Path(tex_converter).name.lower() else 'compressonatorcli'
+            )
+
             def _do_unsplit(dds_file):
                 msgs = []
                 try:
-                    outfile = collect_and_unsplit(Path(dds_file), outfile=Path(dds_file), remove=True)
-                    msgs.append((f'un-split {outfile.relative_to(self.outdir)}', logging.INFO))
+                    unsplit = collect_and_unsplit(Path(dds_file), outfile=Path(dds_file), remove=True)
+                    msgs.append((f'un-split {unsplit.relative_to(self.outdir)}', logging.INFO))
                 except Exception as e:
                     traceback.print_exc()
                     return [(f'failed to un-split {dds_file}: {repr(e)}', logging.ERROR)]
 
                 try:
-                    if auto_convert_textures and all(_ not in outfile.name.lower() for _ in TEXCONV_IGNORE):
-                        tex_convert(infile=outfile, outfile=outfile.with_suffix(f'.{convert_dds_fmt}'))
+                    if auto_convert_textures:
+                        if is_glossmap(unsplit):
+                            outfile = unsplit.with_name(f'{unsplit.name.split(".")[0]}.glossmap.{convert_dds_fmt}')
+                        else:
+                            outfile = unsplit.with_suffix(f'.{convert_dds_fmt}')
+                        tex_convert(infile=unsplit, outfile=outfile, converter=converter, converter_bin=tex_converter)
                         msgs.append(
-                            (f'converted {outfile.relative_to(self.outdir)} to {convert_dds_fmt}', logging.INFO))
+                            (f'converted {unsplit.relative_to(self.outdir)} to {convert_dds_fmt}', logging.INFO))
                 except Exception as e:
                     traceback.print_exc()
                     if report_tex_conversion_errors:
@@ -868,18 +967,18 @@ class EntityExtractor:
         return extracted_files
 
 
-def extract_ship(sc_or_scdir, ship_guid_or_path: typing.Union[str, Path], outdir: typing.Union[str, Path],
-                 remove_outdir: bool = False, monitor: typing.Callable = print, **kwargs) -> typing.List[str]:
+def extract_entity(sc_or_scdir, entity_guid_or_path: typing.Union[str, Path], outdir: typing.Union[str, Path],
+                   remove_outdir: bool = False, monitor: typing.Callable = print, **kwargs) -> typing.List[str]:
     """
-    Process and extract a `ShipEntity` records (typically found in `entities/spaceships`) which contain all the
-    information pertaining to a ship in game, the models, components, object containers, etc. This utility will
-    recursively parse this record, and all referenced objects within it to find and extract all data pertaining to the
-    ship.
+    Process and extract `Entity` records (typically found in `entities/`) which contain all the
+    information pertaining to a ship/vehicle/etc. in game, the models, components, object containers, etc. This utility 
+    will recursively parse this record, and all referenced objects within it to find and extract all data pertaining to 
+    the entity.
 
     See :class:EntityExtractor.extract for all parameters
 
     :param sc_or_scdir: :class:`StarCitizen` or Star Citizen installation directory (containing Data.p4k)
-    :param ship_guid_or_path: The GUID or DataCore path of the `ShipEntity` to extract
+    :param entity_guid_or_path: The GUID or DataCore path of the `ShipEntity` to extract
     :param outdir: Output directory to extract data into
     :return: List of extracted files.
     """
@@ -893,14 +992,14 @@ def extract_ship(sc_or_scdir, ship_guid_or_path: typing.Union[str, Path], outdir
     sc.load_all()
     # sc.wwise.load_all_game_files()
 
-    if str(ship_guid_or_path) in sc.datacore.records_by_guid:
-        ship = dco_from_guid(sc.datacore, ship_guid_or_path)
+    if str(entity_guid_or_path) in sc.datacore.records_by_guid:
+        ship = dco_from_guid(sc.datacore, entity_guid_or_path)
     else:
-        ships = sc.datacore.search_filename(f'{ship_guid_or_path}.xml', mode='endswith')
+        ships = sc.datacore.search_filename(f'{entity_guid_or_path}.xml', mode='endswith')
         if not ships:
-            ships = sc.datacore.search_filename(ship_guid_or_path)
+            ships = sc.datacore.search_filename(entity_guid_or_path)
         if not ships or len(ships) > 1:
-            raise ValueError(f'Could not determine which ship entity to extract from "{ship_guid_or_path}"')
+            raise ValueError(f'Could not determine which ship entity to extract from "{entity_guid_or_path}"')
         ship = dco_from_guid(sc.datacore, ships[0].id)
 
     extractor = EntityExtractor(sc, ship)

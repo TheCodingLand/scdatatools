@@ -1,6 +1,5 @@
-import os
+import copy
 import json
-import typing
 import hashlib
 from pathlib import Path
 
@@ -25,8 +24,8 @@ def hashed_path_key(geom_file):
     h = hashlib.shake_128(geom_file.parent.as_posix().lower().encode("utf-8")).hexdigest(3)
     key = f'{h}_{Path(geom_file).stem.lower()}'
     if len(key) >= 64:
-        key = f'{h}__{Path(geom_file).stem[len(key)-62:]}'
-    assert(len(key) < 64)
+        key = f'{h}__{Path(geom_file).stem[len(key) - 62:]}'
+    assert (len(key) < 64)
     return key
 
 
@@ -36,7 +35,8 @@ def move_obj_to_collection(obj, collection):
     collection.objects.link(obj)
 
 
-def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path = None, bone_names: list = None):
+def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path = None,
+                            bone_names: list = None, helpers: dict = None):
     """
     Returns the `Collection` for the givin `geom_file`. Imports the given geometry into `geometry_collection` if it has
     not already been imported.
@@ -90,6 +90,7 @@ def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path
     gc['tint_palettes'] = {}
     gc['tags'] = ""
     gc['item_ports'] = {}
+    gc['helpers'] = helpers or {}
     gc['objs'] = list(bpy.context.selected_objects)
     root_objs = []
 
@@ -100,8 +101,8 @@ def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path
         move_obj_to_collection(obj, gc)
         obj['orig_name'] = obj.name.rsplit('.', maxsplit=1)[0]
         obj['source_file'] = geom_file.as_posix()
-        if obj['orig_name'] in bone_names:
-            gc['item_ports'][obj['orig_name']] = obj
+        if obj['orig_name'].lower() in bone_names:
+            gc['item_ports'][obj['orig_name'].lower()] = obj
         obj.name = hashed_path_key(Path(geom_key) / obj.name)
         if obj.parent is None:
             root_objs.append(obj)
@@ -136,9 +137,9 @@ def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path
     return gc
 
 
-def create_geom_instance(geom_file: Path, entity_collection, geometry_collection, location=None, rotation=None,
-                         scale=None, bone_name='', instance_name='', sub_geometry=None, parent=None,
-                         bone_names=None, data_dir=None):
+def create_geom_instance(geom_file: Path, entity_collection, geometry_collection,
+                         location=None, rotation=None, scale=None, bone_name='', instance_name='',
+                         parent=None, bone_names=None, data_dir=None):
     # get the geometry collection for the geom_file
     gc = get_geometry_collection(geom_file, geometry_collection, data_dir=data_dir, bone_names=bone_names)
     if gc is None:
@@ -155,7 +156,7 @@ def create_geom_instance(geom_file: Path, entity_collection, geometry_collection
     new_instance['materials'] = gc['materials']
     new_instance['tint_palettes'] = gc['tint_palettes']
     new_instance['tags'] = gc['tags']
-    new_instance['item_ports'] = gc['item_ports']
+    new_instance['helpers'] = gc['helpers']
     entity_collection.objects.link(new_instance)
 
     # Duplicate the hierarchy of all the hardpoints from the collection as empty objects so we have clean
@@ -194,25 +195,12 @@ def create_geom_instance(geom_file: Path, entity_collection, geometry_collection
     new_instance.rotation_mode = "QUATERNION"
     new_instance.scale = (1, 1, 1) if scale is None else (scale['x'], scale['y'], scale['z'])
     new_instance.rotation_quaternion = rotation
-    if bone_name:
-        if parent is not None and bone_name in parent['item_ports']:
-            new_instance.parent = parent['item_ports'][bone_name]
 
-    for geom_file, instances in (sub_geometry or {}).items():
-        for props in instances:
-            # create instances of all sub-geometry underneath/scoped to the instance we just created
-            bone_name = props['attrs'].get('bone_name', '')
-            sub_geom = create_geom_instance(geom_file, entity_collection, geometry_collection,
-                                            location=props.get('pos'), rotation=props.get('rotation'),
-                                            scale=props.get('scale'), bone_name=bone_name, instance_name='',
-                                            data_dir=data_dir, bone_names=bone_names, parent=new_instance)
-            if sub_geom is None:
-                print(f'ERROR: failed to create sub-geometry "{geom_file}" under {new_instance}')
-            elif sub_geom is not None and sub_geom.parent is None:
-                if bone_name:
-                    print(f"WARNING: could not parent sub_geometry {geom_file} to "
-                          f"instance {new_instance.name}:{bone_name}")
-                sub_geom.parent = new_instance
+    if bone_name and parent is not None:
+        if helper := parent['helpers'].get(bone_name.lower(), {}):
+            bone_name = helper['name']
+        if parent is not None and bone_name.lower() in parent['item_ports']:
+            new_instance.parent = parent['item_ports'][bone_name.lower()]
 
     return new_instance
 
@@ -237,6 +225,28 @@ class RemoveSCPhysicsProxies(Operator):
         if remove_sc_physics_proxies():
             return {'FINISHED'}
         return {'CANCELLED'}
+
+
+class RemoveSCBBoxes(Operator):
+    """ Removes SC _bbox objects """
+    bl_idname = "scdt.remove_sc_bboxes"
+    bl_label = "Remove SC _bbox "
+
+    def execute(self, context):
+        for obj in [_ for _ in bpy.data.objects.keys() if '_bbox' in _.lower()]:
+            bpy.data.objects.remove(bpy.data.objects[obj])
+        return {'FINISHED'}
+
+
+class RemoveSCVisArea(Operator):
+    """ Removes SC _bbox objects """
+    bl_idname = "scdt.remove_sc_visarea"
+    bl_label = "Remove SC VisArea objects "
+
+    def execute(self, context):
+        for obj in [_ for _ in bpy.data.objects.keys() if 'visarea_' in _.lower()]:
+            bpy.data.objects.remove(bpy.data.objects[obj])
+        return {'FINISHED'}
 
 
 class MakeReal(Operator):
@@ -340,8 +350,56 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
         entity_collection.children.link(geom_collection)
         entity_instance = None
 
+        def _instance_geom(parent, entity, inst_name, inst_attrs):
+            nonlocal entity_instance
+            geom_file = Path(entity['geom_file'])
+            bone_name = inst_attrs.get('attrs', {}).get('bone_name', '')
+            new_instance = create_geom_instance(geom_file, entity_collection, geom_collection,
+                                                location=inst_attrs.get('pos'), rotation=inst_attrs.get('rotation'),
+                                                scale=inst_attrs.get('scale'), bone_name=bone_name,
+                                                instance_name=inst_name, data_dir=data_dir,
+                                                bone_names=bp['bone_names'], parent=parent)
+            if new_instance is None:
+                # todo: this _shouldn't_ happen. if it does we really should figure out why
+                print(f'ERROR: could not create instance for '
+                      f'{parent.get("name", "") if parent is not None else ""}:{geom_file}')
+                return
+
+            if entity_instance is None and Path(new_instance['filename']).stem.lower() == bp['name'].lower():
+                entity_instance = new_instance
+                new_instance.name = bp['name']
+
+            if new_instance.parent is None:
+                if bone_name and entity_instance is not None:
+                    # could not find bone_name in parent, so double check if it's in the entity geom
+                    if helper := entity_instance['helpers'].get(bone_name.lower(), {}):
+                        bone_name = helper['name']
+                    if bone_name.lower() in entity_instance['item_ports']:
+                        new_instance.parent = entity_instance['item_ports'][bone_name.lower()]
+                if new_instance.parent is None:
+                    # if it's still none, fall back to setting the parent to the new-instance parent
+                    new_instance.parent = parent
+
+            for subg_file, subg_instances in entity.get('sub_geometry', {}).items():
+                if (sub_entity := bp['geometry'].get(subg_file)) is not None:
+                    for subg_attrs in subg_instances:
+                        _instance_geom(new_instance, sub_entity, '', subg_attrs)
+
+            def _build_loadouts(parent, loadout):
+                for port_name, props in loadout.items():
+                    for geom_name in props['geometry']:
+                        if geom_name not in bp['geometry']:
+                            continue
+
+                        inst = _instance_geom(parent, bp['geometry'][geom_name], '', {
+                            'attrs': {'bone_name': port_name}
+                        })
+                        _build_loadouts(inst, props.get('loadout', {}))
+
+            _build_loadouts(new_instance, entity.get('loadout', {}))
+            return new_instance
+
         with log_time(f'Importing Blueprint {bp["name"]}'):
-            parent_map = {}
             mats_to_load = set()
 
             with log_time('Importing Geometry'):
@@ -351,7 +409,8 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
                                               total=len(bp['geometry']), unit='g'):
 
                     geom_file = Path(entity['geom_file'])
-                    gc = get_geometry_collection(geom_file, geom_collection, data_dir, bp['bone_names'])
+                    gc = get_geometry_collection(geom_file, geom_collection, data_dir, bp['bone_names'],
+                                                 entity['helpers'])
                     if gc is None:
                         continue
 
@@ -376,51 +435,9 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
                 for name, entity in tqdm.tqdm(bp['geometry'].items(), desc='Instancing Geometry', postfix='',
                                               total=len(bp['geometry']), unit='g'):
                     for i_name, i in entity['instances'].items():
-                        geom_file = Path(entity['geom_file'])
-                        new_instance = create_geom_instance(geom_file, entity_collection, geom_collection,
-                                                            location=i['pos'], rotation=i['rotation'], scale=i['scale'],
-                                                            bone_name=i['attrs'].get('bone_name', ''),
-                                                            instance_name=i_name, data_dir=data_dir,
-                                                            bone_names=bp['bone_names'], parent=entity_instance)
-                        if new_instance is None:
-                            # todo: this _shouldn't_ happen. if it does we really should figure out why
-                            print(f'ERROR: could not create instance for {name}')
-                            continue
-
-                        if Path(new_instance.instance_collection['filename']).stem == bp['name'] or \
-                                entity_instance is None:
-                            entity_instance = new_instance
-                            entity_instance.name = bp['name']
-
-                        if new_instance.parent is None:
-                            if bone_name := i['attrs'].get('bone_name', ''):
-                                parent_map.setdefault(bone_name, []).append(new_instance)
-
-                for port_name, props in tqdm.tqdm(bp['item_ports'].items(), desc='Importing Hardpoints',
-                                                  total=len(bp['item_ports']), unit='h'):
-                    if entity_instance and port_name in entity_instance['item_ports']:
-                        for geom_name in props['geometry']:
-                            if geom_name not in bp['geometry']:
-                                continue
-
-                            sub_geometry = bp['geometry'][geom_name].get('sub_geometry', {})
-                            for item_port, loadout in props.get('loadout', {}).items():
-                                for geom in loadout.get('geometry', []):
-                                    sub_geometry.setdefault(geom, []).append({'attrs': {'bone_name': item_port}})
-
-                            new_instance = create_geom_instance(geom_name, entity_collection=entity_collection,
-                                                                geometry_collection=geom_collection,
-                                                                bone_name=port_name, sub_geometry=sub_geometry,
-                                                                data_dir=data_dir, bone_names=bp['bone_names'],
-                                                                parent=entity_instance)
+                        _instance_geom(entity_instance, entity, i_name, i)
 
             with log_time('Post-import cleanup'):
-                # parent items now that everything is loaded
-                for bone_name, objs in parent_map.items():
-                    if bone_name in entity_instance['item_ports']:
-                        for obj in objs:
-                            obj.parent = entity_instance['item_ports'][bone_name]
-
                 import_cleanup(bpy.context, option_deleteproxymat=self.auto_remove_proxy_mesh)
 
             if self.auto_remove_proxy_mesh:
@@ -450,6 +467,8 @@ def register():
     bpy.utils.register_class(ImportSCDVBlueprint)
     bpy.utils.register_class(RemoveProxyMeshes)
     bpy.utils.register_class(RemoveSCPhysicsProxies)
+    bpy.utils.register_class(RemoveSCBBoxes)
+    bpy.utils.register_class(RemoveSCVisArea)
     bpy.utils.register_class(MakeReal)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
@@ -458,5 +477,7 @@ def unregister():
     bpy.utils.unregister_class(ImportSCDVBlueprint)
     bpy.utils.unregister_class(RemoveProxyMeshes)
     bpy.utils.unregister_class(RemoveSCPhysicsProxies)
+    bpy.utils.unregister_class(RemoveSCBBoxes)
+    bpy.utils.unregister_class(RemoveSCVisArea)
     bpy.utils.unregister_class(MakeReal)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)

@@ -1,7 +1,7 @@
 import sys
 from datetime import datetime
 
-from scdatatools.sc.utils import extract_ship
+from scdatatools.sc.utils import extract_entity
 
 
 if __name__ == '__main__':
@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     start = datetime.now()
     try:
-        extract_ship(args.sc_dir, args.ship, args.output_dir, remove_outdir=args.remove_outdir)
+        extract_entity(args.sc_dir, args.ship, args.output_dir, remove_outdir=args.remove_outdir)
         print(f'Finished in {datetime.now() - start}')
     except Exception as e:
         sys.stderr.write(str(e) + '\n')

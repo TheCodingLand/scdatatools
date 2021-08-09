@@ -14,7 +14,7 @@ from scdatatools.wwise import WwiseManager
 
 from .config import Profile
 from .localization import SCLocalization
-from .utils import extract_ship
+from .utils import extract_entity
 
 # Files that we will NOT skip the hash for when generating inventory with skip_data_hash
 P4K_ALWAYS_HASH_DATA_FILES = ['.cfg', '.crt', '.dpl', '.eco', '.id', '.ini', '.xml', '.pak', '.socpak', '.entxml']
@@ -132,8 +132,8 @@ class StarCitizen:
 
     def extract_ship(self, ship_guid_or_path, outdir, remove_outdir=False, monitor=print):
         """ Extracts a Ship defined in the Datacore. """
-        return extract_ship(self, ship_guid_or_path=ship_guid_or_path, outdir=outdir,
-                            remove_outdir=remove_outdir, monitor=monitor)
+        return extract_entity(self, entity_guid_or_path=ship_guid_or_path, outdir=outdir,
+                              remove_outdir=remove_outdir, monitor=monitor)
 
     @property
     def localization(self):

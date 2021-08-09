@@ -25,6 +25,8 @@ class TOPBAR_MT_SCUtilities(bpy.types.Menu):
     def draw(self, context):
         self.layout.operator('scdt.remove_sc_physics_proxies')
         self.layout.operator('scdt.remove_proxy_meshes')
+        self.layout.operator('scdt.remove_sc_bboxes')
+        self.layout.operator('scdt.remove_sc_visarea')
         self.layout.operator('scdt.load_sc_shader_nodes')
         self.layout.operator('scdt.make_real')
 

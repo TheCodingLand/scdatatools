@@ -426,7 +426,7 @@ class EntityExtractor:
                                 ['Geometry']['Geometry']['Geometry']['@path']
                             )
                         elif entity.get('@EntityClass') in SOC_ENTITY_CLASSES_TO_SKIP:
-                            continue  # TODO: handle these
+                            continue  # TODO: handle these, see SOC_ENTITY_CLASSES_TO_SKIP
                         elif ecguid := entity.get('@EntityClassGUID'):
                             geom = self.geometry_for_record(self.sc.datacore.records_by_guid.get(ecguid), base=True)
                             geom, _ = self._get_or_create_geom(geom)
@@ -444,7 +444,7 @@ class EntityExtractor:
                                 }
                             )
                         else:
-                            self.log(f'WARNING: non-skipped soc entityclass doesnt have geometry: '
+                            self.log(f'WARNING: non-skipped soc EntityClass doesnt have geometry: '
                                      f'{entity.get("@EntityClass")}', logging.WARNING)
                     except Exception as e:
                         traceback.print_exc()
@@ -536,6 +536,7 @@ class EntityExtractor:
                     if soc is not None:
                         soc = ChCr(soc.open().read())
                         self._cache['bone_names'].add(oc.properties['boneName'].lower())
+                        # TODO: pass/handle the offset pos/rotation that is along side the bone_name
                         self._handle_soc(oc.properties['boneName'], soc)
                 except Exception as e:
                     traceback.print_exc()

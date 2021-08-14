@@ -15,7 +15,7 @@ from ..utils import write_to_logfile, search_for_data_dir_in_path
 SCSHARDERS_BLEND = Path(__file__).parent / 'SCShaders.blend'
 REQUIRED_SHADER_NODE_GROUPS = [
     '_Glass', '_HardSurface', '_Illum', '_Illum.decal', '_Illum.emit', '_Illum.pom', '_LayerBlend', '_LayerMix',
-    '_MaterialLayer', '_Tint', 'Blend Seperator', 'Detail Seperator', 'Flip Normals', 'Mix channels'
+    '_MaterialLayer', '_Tint', 'Blend Seperator', 'Detail Seperator', 'Flip Normals', 'Mix channels', '_Parallax (UV)'
 ]
 
 
@@ -220,7 +220,7 @@ def create_hard_surface(mtl, data_dir):
     shadergroup.inputs['Base Color'].default_value = mat.diffuse_color
     shadergroup.inputs['Primary ddna Alpha'].default_value = mat.roughness
     shadergroup.inputs['Metallic'].default_value = 0
-    shadergroup.inputs['Anisotropic'].default_value = .5
+    shadergroup.inputs['Anisotropic'].default_value = 0
     shadergroup.inputs['Emission'].default_value = make_tuple(mtl["Emissive"] + ",1")
 
     shaderout.location.x += 200

@@ -651,10 +651,10 @@ class EntityExtractor:
                 p4k_info = self.sc.p4k.NameToInfoLower[p4k_path.as_posix().lower()]
                 cdf = dict_from_cryxml_file(self.sc.p4k.open(p4k_info))['CharacterDefinition']
                 geom_path = Path(cdf['Model']['@File'])
-                sub_geometry.update({
-                    _['@Binding']: {'attrs': {'bone_name': _['@AName']}}
-                    for _ in cdf['AttachmentList'].values()
-                })
+                attachments = cdf['AttachmentList']['Attachment']
+                if isinstance(attachments, dict):
+                    attachments = [attachments]  # happens if there is only one attachment
+                sub_geometry.update({_['@Binding']: {'attrs': {'bone_name': _['@AName']}} for _ in attachments})
             except KeyError:
                 self.log(f'failed to parse cdf: {geom_path}', logging.ERROR)
                 return None, False

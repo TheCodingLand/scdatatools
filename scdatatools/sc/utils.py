@@ -88,6 +88,10 @@ SOC_ENTITY_CLASSES_TO_SKIP = [
 ]
 
 
+def vector_from_csv(values):
+    return Vector3D(*(float(_.strip()) for _ in values.split(',')))
+
+
 class Geometry(dict):
     def __init__(self, name, geom_file, pos=None, rotation=None, scale=None, materials=None, attrs=None,
                  helpers=None, parent=None):
@@ -310,6 +314,7 @@ class EntityExtractor:
                 if p is not None:
                     attrs['palette'] = p.as_posix()
                 geom, created = self._get_or_create_geom(geom_path, create_params={
+                    # Setting pos to a non None for the primary guid will create the base instance
                     'attrs': attrs, 'pos': Vector3D() if rec.guid == self.entity.guid else None,
                     'materials': mtl, 'helpers': helpers,
                 })
@@ -434,9 +439,9 @@ class EntityExtractor:
                             w, x, y, z = (float(_) for _ in entity.get('@Rotate', '1,0,0,0').split(','))
                             self._cache['found_geometry'][geom['name']].add_instance(
                                 name=entity['@Name'],
-                                pos=Vector3D(
-                                    *(float(_) for _ in entity['@Pos'].split(','))) if '@Pos' in entity else Vector3D(),
+                                pos=vector_from_csv(entity.get('@Pos', '1,1,1')),
                                 rotation=Quaternion(x=x, y=y, z=z, w=w),
+                                scale=vector_from_csv(entity.get('@Scale', '1,1,1')),
                                 materials=[entity.get("@Material", '')],
                                 attrs={
                                     'bone_name': bone_name,

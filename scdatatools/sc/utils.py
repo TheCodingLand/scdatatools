@@ -556,6 +556,8 @@ class EntityExtractor:
         for gear in r.record.properties['gears']:
             self._handle_ext_geom(r, gear.properties['geometry'])
             geom, _ = self._get_or_create_geom(gear.properties['geometry'].properties['path'])
+            if geom is None:
+                continue
             ip = self._get_or_create_item_port(gear.properties['bone'], parent=parent_geom['loadout'])
             ip['geometry'].add(geom['name'])
             self._cache['bone_names'].add(gear.properties['bone'].lower())
@@ -886,7 +888,7 @@ class EntityExtractor:
                     found_textures.add(self.outdir / _.parent / f'{_.name.split(".")[0]}.dds')
 
             converter = ConverterUtility(
-                'texconv' if 'texconv' in Path(tex_converter).name.lower() else 'compressonatorcli'
+                'texconv' if 'texconv' in Path(tex_converter).name.lower() else 'default'
             )
 
             def _do_unsplit(dds_file):

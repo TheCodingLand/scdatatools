@@ -15,7 +15,7 @@ from ..utils import write_to_logfile, search_for_data_dir_in_path
 SCSHARDERS_BLEND = Path(__file__).parent / 'SCShaders.blend'
 REQUIRED_SHADER_NODE_GROUPS = [
     '_Glass', '_HardSurface', '_Illum', '_Illum.decal', '_Illum.emit', '_Illum.pom', '_LayerBlend', '_LayerMix',
-    '_MaterialLayer', '_Tint', 'Blend Seperator', 'Detail Seperator', 'Flip Normals', 'Mix channels', '_Parallax (UV)'
+    '_MaterialLayer', '_Tint', 'BlendSeperator', 'Detail Seperator', '.flip normals', 'Mix channels', '_Parallax (UV)'
 ]
 
 

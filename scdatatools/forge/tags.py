@@ -38,6 +38,9 @@ class TagDatabase:
     def all(self):
         return self.tags_by_guid.values()
 
+    def tag_names(self):
+        return sorted(str(_) for _ in self.all())
+
     def tag(self, name):
         parts = name.split('.')
         tag = None

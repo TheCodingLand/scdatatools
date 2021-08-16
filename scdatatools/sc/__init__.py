@@ -24,11 +24,12 @@ TRY_VERSION_FILES = ['f_win_game_client_release.id', 'c_hiload_crash_handler.id'
 
 
 class StarCitizen:
-    def __init__(self, game_folder, p4k_file='Data.p4k'):
+    def __init__(self, game_folder, p4k_file='Data.p4k', p4k_load_monitor=None):
         self.branch = self.build_time_stamp = self.config = self.version = None
         self.version_label = self.shelved_change = self.tag = None
         self._fetch_label_success = False
-        self._is_loaded = False
+        self._is_loaded = {}
+        self._p4k_load_monitor = p4k_load_monitor
 
         self.game_folder = Path(game_folder).absolute()
         if not self.game_folder.is_dir():
@@ -67,9 +68,10 @@ class StarCitizen:
                 f"Warning: Unable to determine version of StarCitizen\n"
             )
 
-    @property
-    def is_loaded(self):
-        return self._is_loaded
+    def is_loaded(self, module=None):
+        if module is None:
+            return self._is_loaded and all(self._is_loaded.values())
+        return self._is_loaded.get(module, False)
 
     def load_all(self):
         """ Ensure the p4k, datacore, localization and wwise manager are loaded """
@@ -141,6 +143,7 @@ class StarCitizen:
     def localization(self):
         if self._localization is None:
             self._localization = SCLocalization(self.p4k)
+            self._is_loaded['localization'] = True
         return self._localization
 
     @property
@@ -152,8 +155,8 @@ class StarCitizen:
     @property
     def p4k(self):
         if self._p4k is None:
-            self._p4k = P4KFile(self.p4k_file)
-            self._is_loaded = True
+            self._p4k = P4KFile(self.p4k_file, load_monitor=self._p4k_load_monitor)
+            self._is_loaded['p4k'] = True
         return self._p4k
 
     @property
@@ -164,6 +167,7 @@ class StarCitizen:
                 raise ValueError('Could not determine the location of the datacore')
             with self.p4k.open(dcb[0]) as f:
                 self._datacore = DataCoreBinary(f.read())
+                self._is_loaded['datacore'] = True
         return self._datacore
 
     @property
@@ -172,12 +176,14 @@ class StarCitizen:
             if self.datacore is None:
                 raise ValueError('Could not read the datacore')
             self._tag_database = TagDatabase(dcb=self.datacore)
+            self._is_loaded['tag_database'] = True
         return self._tag_database
 
     @property
     def wwise(self):
         if self._wwise_manager is None:
             self._wwise_manager = WwiseManager(self)
+            self._is_loaded['wwise'] = True
         return self._wwise_manager
 
     def gettext(self, key, language=None):

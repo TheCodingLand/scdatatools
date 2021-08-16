@@ -127,7 +127,11 @@ class DataCoreBinary:
                 offset += struct_size
         assert offset == len(self.raw_data)
 
-        self.records_by_guid = {r.id.value: r for r in self.records}
+        self.records_by_guid = {}
+        self.record_types = set()
+        for r in self.records:
+            self.records_by_guid[r.id.value] = r
+            self.record_types.add(r.type)
         # self._records_by_path = benedict(keypath_separator='/')
 
     def get_structure_instance(self, structure_index, instance):

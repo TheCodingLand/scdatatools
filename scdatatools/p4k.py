@@ -154,12 +154,16 @@ class P4KFile(zipfile.ZipFile):
     filelist: typing.List[P4KInfo]
     NameToInfo: typing.Dict[typing.Text, P4KInfo]
 
-    def __init__(self, file, mode="r", key=DEFAULT_P4K_KEY):
+    def __init__(self, file, mode="r", key=DEFAULT_P4K_KEY, load_monitor=None):
         # Using ZIP_STORED to bypass the get_compressor/get_decompressor logic in zipfile. Our P4KExtFile will always
         # use zstd
         self.key = key
         self.NameToInfoLower = {}
         self.subarchives = {}
+        if load_monitor is None:
+            self._load_monitor = lambda *a, **kw: True
+        else:
+            self._load_monitor = load_monitor
 
         super().__init__(file, mode, compression=zipfile.ZIP_STORED)
 
@@ -246,6 +250,9 @@ class P4KFile(zipfile.ZipFile):
             else:
                 # Historical ZIP filename encoding
                 filename = filename.decode("cp437")
+
+            if self._load_monitor is not None:
+                self._load_monitor(msg=filename, progress=data.tell(), total=size_cd)
 
             # Create ZipInfo instance to store file information
             x = P4KInfo(filename, p4k=self, archive=self)
@@ -653,12 +660,3 @@ SUB_ARCHIVES = {
     'pak': Pak,
     'socpak': SOCPak
 }
-
-if __name__ == "__main__":
-    PTU_DIR = "D:/Games/RSI/StarCitizen/PTU/"
-    p4k = P4KFile(os.path.join(PTU_DIR, "Data.p4k"))
-    # print(p4k.filelist)
-    # p4k.extractall(PTU_DIR)
-    p4k.extract_filter("*.xml", PTU_DIR)
-    # p4k.extract('Data/Scripts/Loadouts/Vehicles/Default_Loadout_AEGS_Retaliator.xml', PTU_DIR)
-    # p4k.extract('Data/Objects/buildingsets/hangar/asteroid/textures/uee_asteroid_hangar_plasticsheet_01_diff.dds.6', PTU_DIR)

@@ -19,6 +19,9 @@ from scdatatools.blender.utils import (
 )
 
 
+ISOLATED_COLLECTION_NAME = 'SC Isolated Source'
+
+
 def hashed_path_key(geom_file):
     # hex digest is # chars/2
     h = hashlib.shake_128(geom_file.parent.as_posix().lower().encode("utf-8")).hexdigest(3)
@@ -63,8 +66,8 @@ def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path
             print(f'geom_key: {geom_key}')
             print(f'collection_entry: {gc.name}')
             print(f'collection_entry_filename: {gc["filename"]}')
-            return gc
-            # raise ValueError(f'geom_key collision! {geom_key}')
+            # return gc
+            raise ValueError(f'geom_key collision! {geom_key}')
         return gc
 
     dae_file = (data_dir / geom_file).with_suffix('.dae')
@@ -92,6 +95,7 @@ def get_geometry_collection(geom_file: Path, geometry_collection, data_dir: Path
     gc['item_ports'] = {}
     gc['helpers'] = helpers or {}
     gc['objs'] = list(bpy.context.selected_objects)
+    gc['geom_collection'] = geometry_collection
     root_objs = []
 
     # move the imported objects into the new collection and namespace their names, also
@@ -157,6 +161,7 @@ def create_geom_instance(geom_file: Path, entity_collection, geometry_collection
     new_instance['tint_palettes'] = gc['tint_palettes']
     new_instance['tags'] = gc['tags']
     new_instance['helpers'] = gc['helpers']
+    new_instance['entity_collection'] = entity_collection
     entity_collection.objects.link(new_instance)
 
     # Duplicate the hierarchy of all the hardpoints from the collection as empty objects so we have clean
@@ -249,27 +254,84 @@ class RemoveSCVisArea(Operator):
         return {'FINISHED'}
 
 
-class MakeReal(Operator):
+class IsolateSourceCollection(Operator):
+    bl_idname = "scdt.isolate_source_collection"
+    bl_label = "Isolate the source collection"
+
+    def execute(self, context):
+        try:
+            inst = next(_ for _ in context.selected_objects if _.instance_collection is not None)
+            entity_collection = inst.get('entity_collection')
+            if entity_collection is None:
+                return {'CANCELLED'}  # not what we were expecting
+            deselect_all()
+
+            geom_col = inst.instance_collection
+            if geom_col.get('geom_collection') is None:
+                return {'CANCELLED'}  # not what we were expecting
+
+            if ISOLATED_COLLECTION_NAME in bpy.data.collections:
+                isolated_collection = bpy.data.collections[ISOLATED_COLLECTION_NAME]
+            else:
+                isolated_collection = bpy.data.collections.new(ISOLATED_COLLECTION_NAME)
+                bpy.context.scene.collection.children.link(isolated_collection)
+
+            geom_col['geom_collection'].children.unlink(geom_col)
+            isolated_collection.children.link(geom_col)
+
+            geom_col['isolated'] = True
+
+            ecl = bpy.context.window.view_layer.layer_collection.children[entity_collection.name]
+            ecl.hide_viewport = True
+
+            collapse_outliner()
+            ctx = context.copy()
+            ctx['area'] = next(a for a in bpy.context.screen.areas if a.type == 'OUTLINER')
+            ctx['selected_objects'] = geom_col.objects[0]
+            bpy.ops.outliner.show_active(ctx)
+            ctx['area'].tag_redraw()
+        except StopIteration:
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+class MakeInstanceReal(Operator):
     """ Makes an imported instance "real" """
     bl_idname = "scdt.make_real"
     bl_label = "Make Instance Real"
 
     def execute(self, context):
-        print(f'Collecting instances to make real...')
-        root = [_ for _ in context.selected_objects if _.parent is None][0]
-        deselect_all()
-        select_children(root)
-        instances = [root]
-        for obj in bpy.context.selected_objects:
-            if obj.instance_type == 'COLLECTION':
-                instances.append(obj)
+        for obj in tqdm.tqdm(list(context.selected_objects), total=len(context.selected_objects),
+                             desc='Making instances real'):
+            if obj.instance_type == 'COLLECTION' and obj.instance_collection is not None:
+                deselect_all()
+                obj.select_set(True)
+                bpy.ops.object.duplicates_make_real(use_base_parent=True, use_hierarchy=True)
+        return {'FINISHED'}
 
-        for inst in tqdm.tqdm(instances, desc='Making instances real'):
+
+class MakeInstanceHierarchyReal(Operator):
+    """ Makes an imported instance "real" along with all of it's children """
+    bl_idname = "scdt.make_hierarchy_real"
+    bl_label = "Make Instance Hierarchy Real"
+
+    def execute(self, context):
+        roots = [_ for _ in context.selected_objects if _.instance_collection is not None]
+        instances = set()
+        for root in roots:
+            if root.instance_collection is None:
+                continue  # we may have already made it real from another root
+            deselect_all()
+            select_children(root)
+            instances.add(root)
+            for obj in bpy.context.selected_objects:
+                if obj.instance_type == 'COLLECTION':
+                    instances.add(obj)
+
+        for inst in tqdm.tqdm(instances, desc='Making instances real', total=len(instances)):
             deselect_all()
             inst.select_set(True)
             bpy.ops.object.duplicates_make_real(use_base_parent=True, use_hierarchy=True)
-
-        bpy.ops.outliner.orphans_purge(num_deleted=0)
         return {'FINISHED'}
 
 
@@ -360,7 +422,7 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
                                                 instance_name=inst_name, data_dir=data_dir,
                                                 bone_names=bp['bone_names'], parent=parent)
             if new_instance is None:
-                # todo: this _shouldn't_ happen. if it does we really should figure out why
+                # TODO: this _shouldn't_ happen. if it does we really should figure out why
                 print(f'ERROR: could not create instance for '
                       f'{parent.get("name", "") if parent is not None else ""}:{geom_file}')
                 return
@@ -452,6 +514,7 @@ class ImportSCDVBlueprint(Operator, ImportHelper):
             # objects
             ecl = bpy.context.window.view_layer.layer_collection.children[entity_collection.name]
             ecl.children[geom_collection.name].hide_viewport = True
+            geom_collection.hide_render = True
 
             # TODO: this doesnt seem to work here? It'll work if you run it manually afterwards
             collapse_outliner()
@@ -463,13 +526,31 @@ def menu_func_import(self, context):
     self.layout.operator(ImportSCDVBlueprint.bl_idname, text=ImportSCDVBlueprint.bl_label)
 
 
+def menu_scdt_blueprint_outliner(self, context):
+    if any(obj.instance_collection is not None for obj in context.selected_ids):
+        self.layout.separator()
+        self.layout.operator("scdt.make_real", text="Make Instance Real")
+        self.layout.operator("scdt.make_hierarchy_real", text="Make Instance Hierarchy Real")
+        self.layout.operator("scdt.isolate_source_collection", text="Isolate Source Collection")
+
+
+def menu_scdt_blueprint_outliner_collection(self, context):
+    if any(obj.get('instanced') for obj in context.selected_ids):
+        self.layout.separator()
+        self.layout.operator("scdt.return_isolated_source_collections", text="Return Isolated Sources")
+
+
 def register():
     bpy.utils.register_class(ImportSCDVBlueprint)
     bpy.utils.register_class(RemoveProxyMeshes)
     bpy.utils.register_class(RemoveSCPhysicsProxies)
     bpy.utils.register_class(RemoveSCBBoxes)
     bpy.utils.register_class(RemoveSCVisArea)
-    bpy.utils.register_class(MakeReal)
+    bpy.utils.register_class(MakeInstanceReal)
+    bpy.utils.register_class(MakeInstanceHierarchyReal)
+    bpy.utils.register_class(IsolateSourceCollection)
+    bpy.types.OUTLINER_MT_object.append(menu_scdt_blueprint_outliner)
+    bpy.types.OUTLINER_MT_collection.append(menu_scdt_blueprint_outliner_collection)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 
@@ -479,5 +560,9 @@ def unregister():
     bpy.utils.unregister_class(RemoveSCPhysicsProxies)
     bpy.utils.unregister_class(RemoveSCBBoxes)
     bpy.utils.unregister_class(RemoveSCVisArea)
-    bpy.utils.unregister_class(MakeReal)
+    bpy.utils.unregister_class(MakeInstanceReal)
+    bpy.utils.unregister_class(MakeInstanceHierarchyReal)
+    bpy.utils.unregister_class(IsolateSourceCollection)
+    bpy.types.OUTLINER_MT_object.remove(menu_scdt_blueprint_outliner)
+    bpy.types.OUTLINER_MT_collection.remove(menu_scdt_blueprint_outliner_collection)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)

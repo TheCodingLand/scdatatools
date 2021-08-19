@@ -104,11 +104,12 @@ def deselect_all():
 
 
 def set_outliner_state(state):
-    area = next(a for a in bpy.context.screen.areas if a.type == 'OUTLINER')
-    bpy.ops.outliner.show_hierarchy({'area': area}, 'INVOKE_DEFAULT')
+    ctx = bpy.context.copy()
+    ctx['area'] = next(a for a in bpy.context.screen.areas if a.type == 'OUTLINER')
+    bpy.ops.outliner.show_hierarchy(ctx, 'INVOKE_DEFAULT')
     for i in range(state):
-        bpy.ops.outliner.expanded_toggle({'area': area})
-    area.tag_redraw()
+        bpy.ops.outliner.expanded_toggle(ctx)
+    ctx['area'].tag_redraw()
 
 
 def collapse_outliner():

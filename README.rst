@@ -62,14 +62,7 @@ Use the `StarCitizen` class:
     sc.datacore.records[0]
 
 
-Special Thanks
-""""""""""""""
-
-A huge thanks goes out to `dolkensp <https://github.com/dolkensp/unp4k>`_ (aka alluran) for doing the initial hard
-work figuring out the P4K and DataForge file formats! This would've taken a lot longer with his efforts.
-
-
-.. image:: https://gitlab.com/scmodding/frameworks/scdatatools/-/raw/devel/docs/MadeByTheCommunity_Black.png
+.. image:: https://gitlab.com/scmodding/frameworks/scdatatools/-/raw/devel/docs/assets/MadeByTheCommunity_Black.png
   :width: 128
   :alt: Made By the Star Citizen Community
 

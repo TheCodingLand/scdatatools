@@ -28,9 +28,9 @@ class SCDTUIProperties:
     incorrect_sc_data_dir_folder_path: bpy.props.BoolProperty(default=False)
 
     # allow_scdv_override = bpy.props.BoolProperty(
-    #     name='Allow SCDV to override the SC data directory when connected.',
+    #     name='Allow StarFab to override the SC data directory when connected.',
     #     default=True,
-    #     description="Allows SCDV Blender Link to override the SC data directory when blender link is connected. If "
+    #     description="Allows StarFab Blender Link to override the SC data directory when blender link is connected. If "
     #                 "unselected the configured SC data directory will always be used."
     # )
 

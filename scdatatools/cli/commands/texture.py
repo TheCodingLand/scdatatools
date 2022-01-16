@@ -1,11 +1,14 @@
+import os
 import sys
+import shutil
 import typing
 from pathlib import Path
 
 from nubia import command, argument
 
-from scdatatools.sc.textures import collect_and_unsplit
-from scdatatools.sc.textures.dds import is_glossmap
+from scdatatools.utils import NamedBytesIO
+from scdatatools.engine.textures.dds import is_glossmap
+from scdatatools.engine.textures import collect_and_unsplit, tex_convert, ConverterUtility
 
 
 @command
@@ -71,9 +74,25 @@ class Tex:
         description="Output directory to place converted textures. By default, the output texture will be placed next "
                     "to the input texture with the output extension.",
     )
+    @argument("output_format", aliases=['png'], description='The output format to convert to (Defaults to png)')
+    @argument("converter", aliases=['-c'], description='Path to the converter (texconv or compressonatorcli) to use')
     @argument("quiet", aliases=["-q"], description="Only print errors")
-    @argument("remove", aliases=["-r"], description="Remove the original DDS texture file")
-    def convert(self, dds_files: typing.List[str], outdir: str = '', quiet=False, remove: bool = False):
+    def convert(self, dds_files: typing.List[str], output_format: str = 'png', outdir: str = '',
+                converter: str = 'texconv', quiet=False):
+        converter_bin = converter
+        if not os.path.isfile(converter_bin):
+            converter_bin = shutil.which(converter_bin)
+        if not os.path.isfile(converter_bin):
+            sys.stderr.write(f'Could not determine which image converter to use. texconv or compressonatorcli is '
+                             f'required')
+            sys.exit(1)
+
+        if 'texconv' in str(converter_bin).lower():
+            converter = ConverterUtility.texconv
+        else:
+            converter = ConverterUtility.compressonator
+
+        output_format = '.' + output_format.lstrip('.').lower()
         files_to_process = set()
         for ddsfile in dds_files:
             ddsfile = Path(ddsfile).absolute()
@@ -96,14 +115,12 @@ class Tex:
         for ddsfile in files_to_process:
             try:
                 if outdir:
-                    outfile = outdir / f'{Path(ddsfile).name}'
-                elif remove:
-                    outfile = ddsfile
+                    outfile = outdir / f'{Path(ddsfile).stem}{output_format}'
                 else:
-                    stem, ext = str(ddsfile.name).split('.', maxsplit=1)
-                    outfile = (ddsfile.parent / f'{stem}_full.{ext}').absolute()
+                    outfile = Path(ddsfile).with_suffix(output_format).absolute()
 
-                outfile = collect_and_unsplit(ddsfile, outfile=outfile, remove=remove)
+                tex_convert(NamedBytesIO(collect_and_unsplit(ddsfile), str(ddsfile)), outfile,
+                            converter=converter, converter_bin=converter_bin)
                 if not quiet:
                     print(f'{ddsfile} -> {outfile}')
             except KeyboardInterrupt:

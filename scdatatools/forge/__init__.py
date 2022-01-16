@@ -8,7 +8,6 @@ import ctypes
 import fnmatch
 import typing
 from pathlib import Path
-from collections import defaultdict
 
 # from benedict import benedict
 
@@ -16,7 +15,9 @@ from scdatatools.forge import dftypes
 from scdatatools.forge.utils import read_and_seek
 from scdatatools.forge.dftypes.enums import DataTypes
 from scdatatools.utils import dict_to_etree
-from scdatatools.cry.cryxml.utils import pprint_xml_tree
+from scdatatools.engine.cryxml.utils import pprint_xml_tree
+
+from .dftypes import Record
 
 
 class DataCoreBinaryMMap(mmap.mmap):
@@ -129,7 +130,10 @@ class DataCoreBinary:
 
         self.records_by_guid = {}
         self.record_types = set()
+        self.entities = {}
         for r in self.records:
+            if r.type == 'EntityClassDefinition':
+                self.entities[r.name] = r
             self.records_by_guid[r.id.value] = r
             self.record_types.add(r.type)
         # self._records_by_path = benedict(keypath_separator='/')

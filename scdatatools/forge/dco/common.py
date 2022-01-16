@@ -24,7 +24,7 @@ def register_record_handler(dco_type, filename_match='.*'):
     return _record_handler_wrapper
 
 
-def dco_from_guid(datacore, guid: typing.Union[str, GUID]):
+def dco_from_guid(datacore, guid: typing.Union[str, GUID]) -> 'DataCoreObject':
     """
     Takes a :str:`guid` and returns a :class:`DataCoreObject` created from the proper DCO subclass for the record type
     """

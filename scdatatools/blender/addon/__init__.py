@@ -1,8 +1,10 @@
 import os
+import logging
 from pathlib import Path
 
 
 from .utils import install_blender_addon, reload_scdt_blender_modules
+from .. import logging as blender_logging
 
 
 try:
@@ -11,14 +13,18 @@ except ImportError:
     # Not inside of blender, ignore the blender modules
     modules = []
 else:
+    from scdatatools.plugins import plugin_manager
+    from scdatatools.blender import blueprints, materials
+
     from . import preferences, header_menu
-    from scdatatools.blender import blueprints, prefab, materials
 
     modules = [
         blueprints,
-        prefab,
         materials
     ]
+
+
+logger = logging.getLogger(__name__)
 
 
 ADDON_TEMPLATE = """
@@ -54,15 +60,27 @@ def register():
     if not modules:
         return
 
-    if (pycharm_debug_port := int(os.environ.get('SCDV_PYCHARM_DEBUG', 0))) > 0:
+    reload_scdt_blender_modules()
+
+    if (pycharm_debug_port := int(os.environ.get('SCDT_PYCHARM_DEBUG', 0))) > 0:
         try:
             import pydevd_pycharm
             print(f'Connecting to pycharm debug on {pycharm_debug_port}')
             pydevd_pycharm.settrace('localhost', port=pycharm_debug_port, stdoutToServer=True, stderrToServer=True)
         except Exception as e:
             print(f'Could not connect to pycharm debugger: {repr(e)}')
+    if (vscode_debug_port := int(os.environ.get('SCDT_VSCODE_DEBUG', 0))) > 0:
+        try:
+            import debugpy
+            print(f'Connecting to vscode debug on {vscode_debug_port}')
+            debugpy.listen(("localhost", vscode_debug_port))
+            print('Waiting for client to attach')
+            debugpy.wait_for_client()
+        except Exception as e:
+            print(f'Could not connect to vscode debugger: {repr(e)}')
 
-    reload_scdt_blender_modules()
+    blender_logging.setup_addon_logging()
+    plugin_manager.setup()
 
     for module in modules:
         module.register()
@@ -80,3 +98,5 @@ def unregister():
 
     preferences.unregister()
     header_menu.remove_modding_menu()
+
+    blender_logging.remove_addon_logging()

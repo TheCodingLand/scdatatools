@@ -101,7 +101,8 @@ class HIRCRandom(HIRCObject):
         r = type(cls).from_buffer(cls, source, offset)
         sound_offset = offset + ctypes.sizeof(r)
         if sound_offset + (r.num_sounds * 4) > sound_offset + r.length:
-            logger.debug(f'Failed to read HIRCRandom object "{r.id}", setting sounds to []')
+            # TODO: re-enable when diving back into HIRC stuff
+            # logger.debug(f'Failed to read HIRCRandom object "{r.id}", setting sounds to []')
             r.sounds = []
         else:
             r.sounds = list(struct.unpack(f'<{r.num_sounds}I',

@@ -1,3 +1,3 @@
 __version__ = '0.1.9'
 
-from .sc import StarCitizen
+from scdatatools.sc import StarCitizen

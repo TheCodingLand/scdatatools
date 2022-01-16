@@ -5,8 +5,8 @@ from pathlib import Path
 
 from nubia import command, argument
 
-from scdatatools.cry.cryxml import etree_from_cryxml_file, dict_from_cryxml_file, is_cryxmlb_file
-from scdatatools.cry.cryxml.utils import pprint_xml_tree
+from scdatatools.engine.cryxml import etree_from_cryxml_file, dict_from_cryxml_file, is_cryxmlb_file
+from scdatatools.engine.cryxml.utils import pprint_xml_tree
 
 
 def _do_conversions(cryxml_file, replace, output, fmt):

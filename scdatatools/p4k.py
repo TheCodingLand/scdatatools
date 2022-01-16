@@ -1,27 +1,46 @@
 import io
 import re
 import os
+import sys
 import json
 import shutil
 import struct
 import typing
 import zipfile
 import fnmatch
+import logging
 from pathlib import Path
 
 import zstandard as zstd
 from Crypto.Cipher import AES
 
-from scdatatools.cry.cryxml import etree_from_cryxml_file, pprint_xml_tree, dict_from_cryxml_file, is_cryxmlb_file
+from scdatatools import plugins
+from scdatatools.utils import norm_path
 
+
+logger = logging.getLogger(__name__)
 ZIP_ZSTD = 100
 p4kFileHeader = b"PK\x03\x14"
 DEFAULT_P4K_KEY = b"\x5E\x7A\x20\x02\x30\x2E\xEB\x1A\x3B\xB6\x17\xC3\x0F\xDE\x1E\x47"
-CRYXMLB_FORMATS = ['xml', 'mtl', 'chrparams', 'entxml', 'rmp', 'animevents', 'adb']
 DEFAULT_CRYXML_CONVERT_FMT = 'xml'
 
 compressor_names = zipfile.compressor_names
 compressor_names[100] = "zstd"
+
+
+def monitor_msg_from_info(info):
+    return f'{compressor_names[info.compress_type]} | {"Crypt" if info.is_encrypted else "Plain"} | {info.filename}'
+
+
+def _p4k_extract_monitor(msg='', progress=None, total=None, level=logging.INFO, exc_info=None):
+    """ Default monitor for P4KFiles extract methods """
+    print(msg)
+
+
+class _SharedFile(zipfile._SharedFile):
+    def tell(self):
+        # fix multi-threaded reading of zipfiles: https://bugs.python.org/issue42369
+        return self._pos
 
 
 def _P4KDecrypter(key):
@@ -52,6 +71,7 @@ class P4KExtFile(zipfile.ZipExtFile):
     MIN_READ_SIZE = 65536
 
     def __init__(self, fileobj, mode, p4kinfo, decrypter=None, close_fileobj=False):
+        self.p4kinfo = p4kinfo
         self._is_encrypted = p4kinfo.is_encrypted
         self._decompressor = ZStdDecompressor()
 
@@ -94,11 +114,36 @@ class P4KExtFile(zipfile.ZipExtFile):
 
 
 class P4KInfo(zipfile.ZipInfo):
-    def __init__(self, *args, p4k=None, subinfo=None, archive=None, **kwargs):
+    def __init__(self, filename, date_time=(1980, 1, 1, 0, 0, 0), p4k=None, subinfo=None, archive=None):
         # ensure posix file paths as specified by the Zip format
-        super().__init__(*args, **kwargs)
+        # super().__init__(*args, **kwargs)
+        self.orig_filename = filename  # Original file name in archive
+        self.filename = norm_path(filename)
+        self.date_time = date_time  # year, month, day, hour, min, sec
+
+        # Standard values:
+        self.compress_type = zipfile.ZIP_STORED  # Type of compression for the file
+        self._compresslevel = None  # Level for the compressor
+        self.comment = b""  # Comment for each file
+        self.extra = b""  # ZIP extra data
+        if sys.platform == 'win32':
+            self.create_system = 0  # System which created ZIP archive
+        else:
+            # Assume everything else is unix-y
+            self.create_system = 3  # System which created ZIP archive
+        self.create_version = zipfile.DEFAULT_VERSION  # Version which created ZIP archive
+        self.extract_version = zipfile.DEFAULT_VERSION  # Version needed to extract archive
+        self.reserved = 0  # Must be zero
+        self.flag_bits = 0  # ZIP flag bits
+        self.volume = 0  # Volume number of file header
+        self.internal_attr = 0  # Internal attributes
+        self.external_attr = 0  # External file attributes
+        self.compress_size = 0  # Size of the compressed file
+        self.file_size = 0  # Size of the uncompressed file
+        # Other attributes are set by class ZipFile:
+        # header_offset         Byte offset to the file header
+        # CRC                   CRC-32 of the uncompressed file
         self.p4k = p4k
-        self.filename = self.filename.replace("\\", "/")
         self.archive = archive
         self.subinfo = subinfo
         self.filelist = []
@@ -118,15 +163,15 @@ class P4KInfo(zipfile.ZipInfo):
 
         offset = 0
         total = len(self.extra)
-        while (offset+4) < total:
-            tp, ln = struct.unpack("<HH", self.extra[offset:offset+4])
+        while (offset + 4) < total:
+            tp, ln = struct.unpack("<HH", self.extra[offset:offset + 4])
             if tp == 0x0001:
                 if ln >= 24:
-                    counts = struct.unpack("<QQQ", self.extra[offset+4:offset+28])
+                    counts = struct.unpack("<QQQ", self.extra[offset + 4:offset + 28])
                 elif ln == 16:
-                    counts = struct.unpack("<QQ", self.extra[offset+4:offset+20])
+                    counts = struct.unpack("<QQ", self.extra[offset + 4:offset + 20])
                 elif ln == 8:
-                    counts = struct.unpack("<Q", self.extra[offset+4:offset+12])
+                    counts = struct.unpack("<Q", self.extra[offset + 4:offset + 12])
                 elif ln == 0:
                     counts = ()
                 else:
@@ -159,6 +204,7 @@ class P4KFile(zipfile.ZipFile):
         # use zstd
         self.key = key
         self.NameToInfoLower = {}
+        self.BaseNameToInfo = {}
         self.subarchives = {}
         if load_monitor is None:
             self._load_monitor = lambda *a, **kw: True
@@ -210,6 +256,7 @@ class P4KFile(zipfile.ZipFile):
                 self.filelist.append(x)
                 self.NameToInfo[x.filename] = x
                 self.NameToInfoLower[x.filename.lower()] = x
+                self.BaseNameToInfo.setdefault(x.filename.split('.', maxsplit=1)[0].lower(), []).append(x)
 
     def _RealGetContents(self):
         """Read in the table of contents for the ZIP file."""
@@ -293,6 +340,7 @@ class P4KFile(zipfile.ZipFile):
             self.filelist.append(x)
             self.NameToInfo[x.filename] = x
             self.NameToInfoLower[x.filename.lower()] = x
+            self.BaseNameToInfo.setdefault(x.filename.split('.', maxsplit=1)[0].lower(), []).append(x)
 
             # Add sub-archives to be opened later (.pak/.sockpak,etc)
             file_ext = x.filename.split('.', maxsplit=1)[-1]
@@ -354,7 +402,7 @@ class P4KFile(zipfile.ZipFile):
 
         # Open for reading:
         self._fileRefCnt += 1
-        zef_file = zipfile._SharedFile(
+        zef_file = _SharedFile(
             self.fp,
             zinfo.header_offset,
             self._fpclose,
@@ -406,45 +454,17 @@ class P4KFile(zipfile.ZipFile):
             zef_file.close()
             raise
 
-    def extract_filter(self, file_filter, path=None, ignore_case=False, convert_cryxml=False,
-                       convert_cryxml_fmt=DEFAULT_CRYXML_CONVERT_FMT, quiet=False, search_mode='re', monitor=print):
-        self.extractall(path=path, members=self.search(file_filter, ignore_case=ignore_case, mode=search_mode),
-                        convert_cryxml=convert_cryxml, convert_cryxml_fmt=convert_cryxml_fmt,
-                        quiet=quiet, monitor=monitor)
-
-    def extract(self, member, path=None, pwd=None, convert_cryxml=False, convert_cryxml_fmt=DEFAULT_CRYXML_CONVERT_FMT,
-                quiet=False, monitor=print):
-        """Extract a member from the archive to the current working directory,
-           using its full name. Its file information is extracted as accurately
-           as possible. `member' may be a filename or a ZipInfo object. You can
-           specify a different directory using `path'.
-        """
-        if path is None:
-            path = os.getcwd()
-        else:
-            path = os.fspath(path)
-
-        return self._extract_member(member, path, pwd, convert_cryxml=convert_cryxml,
-                                    convert_cryxml_fmt=convert_cryxml_fmt, quiet=quiet, monitor=monitor)
-
-    def extractall(self, path=None, members=None, pwd=None, convert_cryxml=False,
-                   convert_cryxml_fmt=DEFAULT_CRYXML_CONVERT_FMT, quiet=False, monitor=print):
-        """Extract all members from the archive to the current working
-           directory. `path' specifies a different directory to extract to.
-           `members' is optional and must be a subset of the list returned
-           by namelist().
-        """
-        if members is None:
-            members = self.namelist()
-
-        if path is None:
-            path = os.getcwd()
-        else:
-            path = os.fspath(path)
-
-        for zipinfo in members:
-            self._extract_member(zipinfo, path, pwd, convert_cryxml=convert_cryxml,
-                                 convert_cryxml_fmt=convert_cryxml_fmt, quiet=quiet, monitor=monitor)
+    def getinfo(self, name, case_insensitive=True):
+        name = norm_path(name)
+        try:
+            info = super().getinfo(name)
+        except KeyError:
+            if not case_insensitive:
+                raise
+            info = self.NameToInfoLower.get(name.lower())
+            if info is None:
+                raise KeyError('There is no item named %r in the archive' % name)
+        return info
 
     def search(self, file_filters: typing.Union[list, tuple, set, str], exclude: typing.List[str] = None,
                ignore_case: bool = True, mode: str = 're') -> typing.List[P4KInfo]:
@@ -467,7 +487,7 @@ class P4KFile(zipfile.ZipFile):
             file_filters = [file_filters]
 
         # normalize path slashes from windows to posix
-        file_filters = [_.replace("\\", '/') for _ in file_filters]
+        file_filters = [norm_path(_) for _ in file_filters]
         exclude = exclude or []
 
         if ignore_case:
@@ -478,6 +498,7 @@ class P4KFile(zipfile.ZipFile):
             def in_exclude(f):
                 nonlocal ignore_case, exclude
                 return f.lower() in exclude if ignore_case else f in exclude
+
             r = re.compile('|'.join(f'({fnmatch.translate(_)})' for _ in file_filters),
                            flags=re.IGNORECASE if ignore_case else 0)
             return [info for fn, info in self.NameToInfo.items() if r.match(fn) and not in_exclude(fn)]
@@ -512,63 +533,117 @@ class P4KFile(zipfile.ZipFile):
 
         raise AttributeError(f'Invalid search mode: {mode}')
 
-    def getinfo(self, name, case_insensitive=True):
-        try:
-            info = super().getinfo(name)
-        except KeyError:
-            if not case_insensitive:
-                raise
-            info = self.NameToInfoLower.get(name.lower())
-            if info is None:
-                raise KeyError('There is no item named %r in the archive' % name)
-        return info
+    def extract_filter(self, file_filter, *args, ignore_case=True, search_mode='re', **kwargs):
+        return self.extractall(members=self.search(file_filter, ignore_case=ignore_case, mode=search_mode), *args, **kwargs)
 
-    def save_to(self, member, path, convert_cryxml=False, convert_cryxml_fmt=DEFAULT_CRYXML_CONVERT_FMT):
+    def extract(self, member, *args, **kwargs):
+        """Extract a member from the archive to the current working directory,
+           using its full name. Its file information is extracted as accurately
+           as possible. `member' may be a filename or a ZipInfo object. You can
+           specify a different directory using `path'.
+        """
+        return self.extractall(members=[member], *args, **kwargs)
+
+    def save_to(self, member, *args, **kwargs):
         """ Extract a member into `path`. This will no recreate the archive directory structure, it will place the
         extracted file directly into `path` which must exist. Use `extract` """
-        return self._extract_member(member, path, pwd=None, convert_cryxml=convert_cryxml,
-                                    convert_cryxml_fmt=convert_cryxml_fmt, quiet=False, save_to=True)
+        return self.extractall(members=[member], *args, **kwargs)
 
-    def _extract_member(self, member, targetpath, pwd, convert_cryxml=False,
-                        convert_cryxml_fmt=DEFAULT_CRYXML_CONVERT_FMT, quiet=False, save_to=False, monitor=print):
+    def extractall(self, path=None, members: typing.List[typing.Union[P4KInfo, str]] = None, overwrite: bool = True,
+                   save_to: bool = False, converters: typing.Union[str, typing.List[str]] = None,
+                   converter_options: dict = None, ignore_converter_errors: bool = False,
+                   monitor: typing.Callable = _p4k_extract_monitor):
+        """ Extract all members from the archive to the current working directory. `path' specifies a different
+        directory to extract to. `members' is optional and must be a subset of the list returned by namelist().
+
+        :param path: The output directory to extract files to, defaults to the current working directory
+        :param members: List of the members of the P4K to extract
+        :param overwrite: Overwrite files that already exist
+        :param save_to: If true, the `members` will be extracted without recreating their full path within `path`
+        :param converters: List of `P4KConverterPlugins` to use to convert `members` as they are extracted. Use 'auto'
+            to automatically run all configured converters.
+        :param converter_options: Dictionary of kwargs to pass to the specified converters, allowing converter specific
+            options to be passed
+        :param ignore_converter_errors: If `True` errors within converters will be logged, but extraction will continue
+            and the unconverted files will be extracted
+        :param monitor: Callable used to monitor the progress of the. Set to None to disable monitoring. The callable
+            will be passed (info: P4KInfo, cur_index, total_members)
+        """
+        if members is None:
+            members = self.filelist
+
+        if path is None:
+            path = os.getcwd()
+        else:
+            path = os.fspath(path)
+
+        extracted_files = []
+
+        if not isinstance(converters, list):
+            converters = [converters]
+
+        converters = converters or []
+        converter_handlers = plugins.P4KConverterPlugin.converters()
+
+        if 'auto' in converters:
+            converters = converter_handlers
+        elif converters:
+            converters = {
+                k: v for k, v in converter_handlers.items()
+                if k in converters or v['handler'].name in converters or v['handler'] in converters
+            }
+        else:
+            converters = {}
+
+        total = len(members)
+
+        for name, hook in converters.items():
+            try:
+                # converters will return the members the did not handle
+                converter = hook['handler']
+
+                if not issubclass(converter, plugins.P4KConverterPlugin):
+                    logging.error(f'Invalid converter handler {name}')
+                    continue
+
+                members, ext = hook['handler'].convert(
+                    members=members, path=Path(path), overwrite=overwrite, save_to=save_to,
+                    options=converter_options, monitor=monitor
+                )
+                extracted_files.extend(ext)
+            except Exception as e:
+                if ignore_converter_errors:
+                    logger.exception(f'There was an error running the {name} converter', exc_info=e)
+                else:
+                    raise
+
+        for i, info in enumerate(members):
+            if ext_path := self._extract_member(info, path, save_to=save_to, overwrite=overwrite):
+                if monitor is not None:
+                    monitor(msg=monitor_msg_from_info(info), progress=i, total=total)
+                extracted_files.append(ext_path)
+        return extracted_files
+
+    def _extract_member(self, member, targetpath, pwd=None, save_to=False, overwrite=True):
         """Extract the ZipInfo object 'member' to a physical file on the path targetpath. """
         if not isinstance(member, P4KInfo):
             member = self.getinfo(member)
 
-        # TODO: handle not overwriting existing files flag?
+        if save_to:
+            outpath = Path(targetpath) / Path(member.filename).name
+        else:
+            outpath = Path(targetpath) / Path(member.filename)
 
-        # TODO: change this to use python logging so it can be easily shut off
-        # Convert the file to `convert_cryxml_fmt` if it's a CryXmlB file
-        if member.filename.split('.', maxsplit=1)[-1].lower() in CRYXMLB_FORMATS and convert_cryxml:
-            with self.open(member) as f:
-                if is_cryxmlb_file(f):
-                    if save_to:
-                        outpath = Path(targetpath) / Path(member.filename).name
-                    else:
-                        outpath = Path(targetpath) / Path(member.filename)
-
-                    outpath.parent.mkdir(exist_ok=True, parents=True)
-                    with outpath.open('w') as t:
-                        if convert_cryxml_fmt == 'xml':
-                            t.write(pprint_xml_tree(etree_from_cryxml_file(f)))
-                        else:
-                            json.dump(dict_from_cryxml_file(f), t, indent=2)
-                    return str(outpath)
-
-        if not quiet:
-            monitor(
-                f"{compressor_names[member.compress_type]} | "
-                f'{"Crypt" if member.is_encrypted else "Plain"} | {member.filename}'
-            )
+        if outpath.is_file() and not overwrite:
+            return None
 
         if save_to:
-            targetpath = Path(targetpath) / Path(member.filename).name
-            with self.open(member, pwd=pwd) as source, targetpath.open("wb") as target:
+            with self.open(member, pwd=pwd) as source, outpath.open("wb") as target:
                 shutil.copyfileobj(source, target)
         else:
-            targetpath = super()._extract_member(member, targetpath, pwd)
+            outpath = super()._extract_member(member, targetpath, pwd)
 
-        return targetpath
+        return outpath
 
 
 class _ZipFileWithFlexibleFilenames(zipfile.ZipFile):
@@ -607,8 +682,8 @@ class _ZipFileWithFlexibleFilenames(zipfile.ZipFile):
 
         # Open for reading:
         self._fileRefCnt += 1
-        zef_file = zipfile._SharedFile(self.fp, zinfo.header_offset,
-                                       self._fpclose, self._lock, lambda: self._writing)
+        zef_file = _SharedFile(self.fp, zinfo.header_offset,
+                               self._fpclose, self._lock, lambda: self._writing)
         try:
             # Skip the file header:
             fheader = zef_file.read(zipfile.sizeFileHeader)

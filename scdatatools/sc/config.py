@@ -1,8 +1,11 @@
 import csv
 
-from scdatatools.cry.cryxml import etree_from_cryxml_file
+from scdatatools.engine.cryxml import etree_from_cryxml_file
 from scdatatools.utils import etree_to_dict
 
+
+ACTION_MAP_FIELD_NAMES = ['Category', 'Action', 'ActivationMode', 'keyboard', 'mouse',
+                          'joystick', 'gamepad', 'UIDescription']
 
 class Profile:
     def __init__(self, sc, p4k_path):
@@ -46,9 +49,7 @@ class Profile:
 
     def dump_actionmap_csv(self, fp, language=None):
         am = self.actionmap(language)
-        fieldnames = ['Category', 'Action', 'ActivationMode', 'keyboard', 'mouse',
-                      'joystick', 'gamepad', 'UIDescription']
-        writer = csv.DictWriter(fp, fieldnames=fieldnames, extrasaction='ignore')
+        writer = csv.DictWriter(fp, fieldnames=ACTION_MAP_FIELD_NAMES, extrasaction='ignore')
         writer.writeheader()
         for ui_category, action_category in am.items():
             for category, actions in action_category.items():

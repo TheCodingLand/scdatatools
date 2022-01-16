@@ -1,21 +1,33 @@
-import ctypes
 import io
 import sys
 import typing
 import zlib
 import json
-import xxhash
-import inspect
+import ctypes
 import contextlib
 from pathlib import Path
-from collections import defaultdict
+from datetime import datetime
 from xml.etree import ElementTree
+from collections import defaultdict
+from distutils.util import strtobool
+from contextlib import contextmanager
+
+import xxhash
 
 import tqdm
 import numpy
 from pyquaternion import Quaternion
 
-from scdatatools.cry.model.utils import quaternion_to_dict
+from scdatatools.engine.model_utils import quaternion_to_dict
+
+
+def parse_bool(val) -> bool:
+    """ Parse a boolean value weather in int, str, or bool """
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str):
+        return strtobool(val)
+    return bool(val)
 
 
 def xxhash32_file(file_or_path):
@@ -29,37 +41,37 @@ def xxhash32_file(file_or_path):
         fp = file_or_path.open('rb')
 
     fp.seek(0)
-    hash = xxhash.xxh32()
+    xh = xxhash.xxh32()
     while True:
         s = fp.read(8096)
         if not s:
             break
-        hash.update(s)
+        xh.update(s)
 
     if _close:
         fp.close()
 
-    return hash.hexdigest()
+    return xh.hexdigest()
 
 
 def xxhash32(data):
-    hash = xxhash.xxh32()
-    hash.update(data)
-    return hash.hexdigest()
+    xh = xxhash.xxh32()
+    xh.update(data)
+    return xh.hexdigest()
 
 
-def crc32(fileName_or_path):
-    if not isinstance(fileName_or_path, Path):
-        fileName_or_path = Path(fileName_or_path)
+def crc32(filename_or_path):
+    if not isinstance(filename_or_path, Path):
+        filename_or_path = Path(filename_or_path)
 
-    with fileName_or_path.open('rb') as fh:
-        hash = 0
+    with filename_or_path.open('rb') as fh:
+        crc = 0
         while True:
             s = fh.read(65536)
             if not s:
                 break
-            hash = zlib.crc32(s, hash)
-        return "%08X" % (hash & 0xFFFFFFFF)
+            crc = zlib.crc32(s, crc)
+        return "%08X" % (crc & 0xFFFFFFFF)
 
 
 def get_size(obj, seen=None):
@@ -96,7 +108,7 @@ def version_from_id_file(id_file) -> (dict, str):
         branch = version_data.get("Branch", None)
         version = version_data.get("RequestedP4ChangeNum", None)
         version_label = f"{branch}-{version}"
-    except Exception as e:
+    except Exception:
         sys.stderr.write(
             f"Warning: Unable to determine version of P4K file, missing or corrupt c_win_shader.id"
         )
@@ -106,14 +118,14 @@ def version_from_id_file(id_file) -> (dict, str):
     return version_data, version_label
 
 
-# etree<->dict conversions from
-# from https://stackoverflow.com/a/10076823
-
-
-def etree_to_dict(t: ElementTree.ElementTree) -> dict:
+def etree_to_dict(t: typing.Union[ElementTree.ElementTree, ElementTree.Element]) -> dict:
     """ Convert the given ElementTree `t` to an dict following the following XML to JSON specification:
     https://www.xml.com/pub/a/2006/05/31/converting-between-xml-and-json.html
+
     """
+    # etree<->dict conversions from
+    # from https://stackoverflow.com/a/10076823
+
     if isinstance(t, ElementTree.ElementTree):
         t = t.getroot()
 
@@ -137,7 +149,7 @@ def etree_to_dict(t: ElementTree.ElementTree) -> dict:
     return d
 
 
-def dict_to_etree(d: dict) -> ElementTree:
+def dict_to_etree(dict_obj: dict) -> ElementTree:
     """ Convert the given dict `d` to an ElementTree following the following XML to JSON specification:
     https://www.xml.com/pub/a/2006/05/31/converting-between-xml-and-json.html
     """
@@ -172,14 +184,16 @@ def dict_to_etree(d: dict) -> ElementTree:
             root.text = str(d)
             # assert d == "invalid type", (type(d), d)
 
-    assert isinstance(d, dict) and len(d) == 1
-    tag, body = next(iter(d.items()))
+    assert isinstance(dict_obj, dict) and len(dict_obj) == 1
+    tag, body = next(iter(dict_obj.items()))
     node = ElementTree.Element(tag)
     _to_etree(body, node)
     return ElementTree.ElementTree(node)
 
 
-def norm_path(path):
+def norm_path(path: typing.Union[str, Path]) -> str:
+    if isinstance(path, Path):
+        path = path.as_posix()
     return path.replace('\\', '/')
 
 
@@ -196,8 +210,36 @@ def dict_search(obj: dict, keys: typing.Union[str, list], ignore_case=False):
                 if isinstance(i, dict):
                     values |= dict_search(i, keys, ignore_case=ignore_case)
         elif (ignore_case and k.lower() in keys) or (k in keys):
+            # if ignore_case and k not in keys:
+            #     print(f'dict search ignore-case match: {k}')
             values.add(v)
     return values
+
+
+def dict_contains_value(obj: dict, values_to_check: typing.Union[str, list], ignore_case=False):
+    """ returns the unique values of every key `key` within nested dict objects """
+    if not isinstance(values_to_check, list):
+        values_to_check = [values_to_check]
+
+    def _vals_match(val):
+        if ignore_case:
+            return any(_.lower() in str(val).lower() for _ in values_to_check)
+        return any(_ in val for _ in values_to_check)
+
+    for k, v in obj.items():
+        if isinstance(v, dict):
+            if dict_contains_value(v, values_to_check, ignore_case=ignore_case):
+                return True
+        elif isinstance(v, list):
+            for i in v:
+                if isinstance(i, dict):
+                    if dict_search(i, values_to_check, ignore_case=ignore_case):
+                        return True
+                if _vals_match(v):
+                    return True
+        elif _vals_match(v):
+            return True
+    return False
 
 
 class StructureWithEnums:
@@ -226,16 +268,15 @@ class StructureWithEnums:
         return value
 
     def __str__(self):
-        result = []
-        result.append("struct {0} {{".format(self.__class__.__name__))
+        result = ["struct {0} {{".format(self.__class__.__name__)]
         for field in self._fields_:
-            attr, attrType = field
+            attr, attr_type = field
             if attr in self._map:
-                attrType = repr(self._map[attr]) if len(self._map[attr]) > 1 else self._map[attr].__name__
+                attr_type = repr(self._map[attr]) if len(self._map[attr]) > 1 else self._map[attr].__name__
             else:
-                attrType = attrType.__name__
+                attr_type = attr_type.__name__
             value = getattr(self, attr)
-            result.append("    {0} [{1}] = {2!r};".format(attr, attrType, value))
+            result.append("    {0} [{1}] = {2!r};".format(attr, attr_type, value))
         result.append("};")
         return '\n'.join(result)
 
@@ -268,6 +309,7 @@ class SCJSONEncoder(json.JSONEncoder):
      - Convert `set`s to `list`s
      - Path's use `as_posix`
     """
+
     def default(self, obj):
         if hasattr(obj, 'dict'):
             return obj.dict()
@@ -315,3 +357,33 @@ def redirect_to_tqdm():
         yield
     finally:
         sys.stdout = old_stdout
+
+
+@contextmanager
+def log_time(msg: str = '', handler: typing.Callable = print):
+    """ Context manager that will log the time it took to run the inner context via the callable `handler`
+    (Defaults to `print`)
+    """
+    if msg:
+        handler(msg)
+    start_time = datetime.now()
+    yield
+    handler(f'Finished {msg}{" " if msg else ""}in {datetime.now() - start_time}')
+
+
+def search_for_data_dir_in_path(path):
+    try:
+        if not isinstance(path, Path):
+            path = Path(path)
+        return Path(*path.parts[:tuple(_.lower() for _ in path.parts).index('data')+1])
+    except ValueError:
+        return ''
+
+
+def generate_free_key(key, keys):
+    if key not in keys:
+        return key
+    i = 1
+    while (k := f'{key}.{i:>03}') in keys:
+        i += 1
+    return k

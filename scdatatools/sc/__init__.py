@@ -1,7 +1,5 @@
 import sys
 import json
-import shutil
-import tempfile
 from pathlib import Path
 
 from tqdm import tqdm
@@ -12,10 +10,12 @@ from scdatatools.forge import DataCoreBinary
 from scdatatools.forge.tags import TagDatabase
 from scdatatools.utils import get_size, xxhash32, xxhash32_file
 from scdatatools.wwise import WwiseManager
+from scdatatools.engine.prefabs import PrefabManager
 
 from .config import Profile
+from ..plugins import plugin_manager
 from .localization import SCLocalization
-from .utils import extract_entity
+from .object_container import ObjectContainerManager
 
 # Files that we will NOT skip the hash for when generating inventory with skip_data_hash
 P4K_ALWAYS_HASH_DATA_FILES = ['.cfg', '.crt', '.dpl', '.eco', '.id', '.ini', '.xml', '.pak', '.socpak', '.entxml']
@@ -25,6 +25,8 @@ TRY_VERSION_FILES = ['f_win_game_client_release.id', 'c_hiload_crash_handler.id'
 
 class StarCitizen:
     def __init__(self, game_folder, p4k_file='Data.p4k', p4k_load_monitor=None):
+        plugin_manager.setup()  # make sure the plugin manager is setup
+
         self.branch = self.build_time_stamp = self.config = self.version = None
         self.version_label = self.shelved_change = self.tag = None
         self._fetch_label_success = False
@@ -42,6 +44,7 @@ class StarCitizen:
 
         # setup initial empty caches
         self._datacore = self._tag_database = self._wwise_manager = self._localization = self._profile = None
+        self._prefab_manager = self._oc_manager = None
 
         for ver_file in TRY_VERSION_FILES:
             if (self.game_folder / ver_file).is_file():
@@ -64,6 +67,9 @@ class StarCitizen:
                         pass
         else:
             self.version_label = self.game_folder.name
+            possible_ver = self.game_folder.name.split('-')[-1].split('.')[-1]
+            if possible_ver.isdigit():
+                self.version = possible_ver
             sys.stderr.write(
                 f"Warning: Unable to determine version of StarCitizen\n"
             )
@@ -80,8 +86,11 @@ class StarCitizen:
         assert(self.localization is not None)
         assert(self.wwise is not None)
         assert(self.tag_database is not None)
+        assert(self.prefab_manager is not None)
+        assert(self.oc_manager is not None)
 
-    def generate_inventory(self, p4k_filters=[], skip_local=False, skip_p4k=False, skip_data_hash=False):
+    def generate_inventory(self, p4k_filters: list = None, skip_local=False, skip_p4k=False, skip_data_hash=False):
+        p4k_filters = p4k_filters or []
         inv = {}
         p4k_path = Path('Data.p4k')
 
@@ -122,7 +131,8 @@ class StarCitizen:
         dcb_path = p4k_path / 'Data' / 'Game.dcb'
         for r in tqdm(self.datacore.records, desc='      Reading Datacore',
                       total=len(self.datacore.records), unit='recs', ncols=120, unit_scale=True):
-            path = f'{(dcb_path / r.filename).as_posix()}:{r.id.value}'
+
+            path = f'{(dcb_path / r.filename).with_suffix("").as_posix()}.{r.id.value}.xml'
             try:
                 data = self.datacore.dump_record_json(r, indent=None).encode('utf-8')
             except Exception as e:
@@ -134,17 +144,26 @@ class StarCitizen:
                 inv[path] = (get_size(data), xxhash32(data))
         return inv
 
-    def extract_ship(self, ship_guid_or_path, outdir, remove_outdir=False, monitor=print):
-        """ Extracts a Ship defined in the Datacore. """
-        return extract_entity(self, entity_guid_or_path=ship_guid_or_path, outdir=outdir,
-                              remove_outdir=remove_outdir, monitor=monitor)
-
     @property
     def localization(self):
         if self._localization is None:
             self._localization = SCLocalization(self.p4k)
             self._is_loaded['localization'] = True
         return self._localization
+
+    @property
+    def oc_manager(self):
+        if self._oc_manager is None:
+            self._oc_manager = ObjectContainerManager(self)
+            self._is_loaded['oc_manager'] = True
+        return self._oc_manager
+
+    @property
+    def prefab_manager(self):
+        if self._prefab_manager is None:
+            self._prefab_manager = PrefabManager(self)
+            self._is_loaded['prefab_manager'] = True
+        return self._prefab_manager
 
     @property
     def default_profile(self):
@@ -162,10 +181,8 @@ class StarCitizen:
     @property
     def datacore(self):
         if self._datacore is None:
-            dcb = self.p4k.search('*Game.dcb')
-            if len(dcb) != 1:
-                raise ValueError('Could not determine the location of the datacore')
-            with self.p4k.open(dcb[0]) as f:
+            dcb = self.p4k.getinfo('Data/Game.dcb')
+            with dcb.open() as f:
                 self._datacore = DataCoreBinary(f.read())
                 self._is_loaded['datacore'] = True
         return self._datacore

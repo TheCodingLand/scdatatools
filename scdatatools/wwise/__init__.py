@@ -8,7 +8,7 @@ from subprocess import check_output, STDOUT, CalledProcessError
 
 from .bnk import BankManager
 from scdatatools.p4k import P4KInfo
-from scdatatools.cry.cryxml import is_cryxmlb_file, dict_from_cryxml_string
+from scdatatools.engine.cryxml import is_cryxmlb_file, dict_from_cryxml_string
 
 
 GAME_AUDIO_P4K_RELPATH = Path('Data/Libs/')

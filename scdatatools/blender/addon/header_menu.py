@@ -12,7 +12,6 @@ class TOPBAR_MT_SCImport(bpy.types.Menu):
     def draw(self, context):
         self.layout.operator('scdt.import_sc_blueprint')
         self.layout.operator('scdt.import_material')
-        self.layout.operator('scdt.import_prefab')
 
 
 class TOPBAR_MT_SCUtilities(bpy.types.Menu):

@@ -21,7 +21,7 @@ def install_blender_addon(blender_ver, addon_name, addon_template) -> Path:
 
     addon_py.parent.mkdir(parents=True, exist_ok=True)
     with addon_py.open('w') as addon:
-        addon.write(addon_template.format(path=sorted(_ for _ in sys.path if 'python' not in _.lower())))
+        addon.write(addon_template.format(path=',\n         '.join(repr(sorted(_ for _ in sys.path)).split(', '))))
     return addon_py
 
 

@@ -10,6 +10,10 @@ from .utils import AttrDict
 DCB_NO_PARENT = 0xFFFFFFFF
 
 
+# TODO: come up with a DataCoreObject interface for all the "objects" you'll run across in the datacore (e.g. Records,
+#       StructureInstances, etc. Anything with a `type`?)
+
+
 class DataCoreBase(LittleEndianStructure):
     @property
     def dcb(self):

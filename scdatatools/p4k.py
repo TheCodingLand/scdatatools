@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 ZIP_ZSTD = 100
 p4kFileHeader = b"PK\x03\x14"
 DEFAULT_P4K_KEY = b"\x5E\x7A\x20\x02\x30\x2E\xEB\x1A\x3B\xB6\x17\xC3\x0F\xDE\x1E\x47"
-DEFAULT_CRYXML_CONVERT_FMT = 'xml'
+DEFAULT_CRYXML_CONVERT_FMT = "xml"
 
 compressor_names = zipfile.compressor_names
 compressor_names[100] = "zstd"
@@ -32,8 +32,10 @@ def monitor_msg_from_info(info):
     return f'{compressor_names[info.compress_type]} | {"Crypt" if info.is_encrypted else "Plain"} | {info.filename}'
 
 
-def _p4k_extract_monitor(msg='', progress=None, total=None, level=logging.INFO, exc_info=None):
-    """ Default monitor for P4KFiles extract methods """
+def _p4k_extract_monitor(
+    msg="", progress=None, total=None, level=logging.INFO, exc_info=None
+):
+    """Default monitor for P4KFiles extract methods"""
     print(msg)
 
 
@@ -92,9 +94,9 @@ class P4KExtFile(zipfile.ZipExtFile):
         self.mode = mode
         self.name = p4kinfo.filename
 
-        if hasattr(p4kinfo, 'CRC'):
+        if hasattr(p4kinfo, "CRC"):
             self._expected_crc = p4kinfo.CRC
-            self._running_crc = zipfile.crc32(b'')
+            self._running_crc = zipfile.crc32(b"")
         else:
             self._expected_crc = None
         # TODO: the CRCs don't match, but im getting the same outputs as unp4k - we should figure out what exactly is
@@ -114,7 +116,14 @@ class P4KExtFile(zipfile.ZipExtFile):
 
 
 class P4KInfo(zipfile.ZipInfo):
-    def __init__(self, filename, date_time=(1980, 1, 1, 0, 0, 0), p4k=None, subinfo=None, archive=None):
+    def __init__(
+        self,
+        filename,
+        date_time=(1980, 1, 1, 0, 0, 0),
+        p4k=None,
+        subinfo=None,
+        archive=None,
+    ):
         # ensure posix file paths as specified by the Zip format
         # super().__init__(*args, **kwargs)
         self.orig_filename = filename  # Original file name in archive
@@ -126,13 +135,17 @@ class P4KInfo(zipfile.ZipInfo):
         self._compresslevel = None  # Level for the compressor
         self.comment = b""  # Comment for each file
         self.extra = b""  # ZIP extra data
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             self.create_system = 0  # System which created ZIP archive
         else:
             # Assume everything else is unix-y
             self.create_system = 3  # System which created ZIP archive
-        self.create_version = zipfile.DEFAULT_VERSION  # Version which created ZIP archive
-        self.extract_version = zipfile.DEFAULT_VERSION  # Version needed to extract archive
+        self.create_version = (
+            zipfile.DEFAULT_VERSION
+        )  # Version which created ZIP archive
+        self.extract_version = (
+            zipfile.DEFAULT_VERSION
+        )  # Version needed to extract archive
         self.reserved = 0  # Must be zero
         self.flag_bits = 0  # ZIP flag bits
         self.volume = 0  # Volume number of file header
@@ -148,7 +161,7 @@ class P4KInfo(zipfile.ZipInfo):
         self.subinfo = subinfo
         self.filelist = []
         if self.subinfo is not None and self.subinfo.is_dir():
-            self.filename += '/'  # Make sure still tracked as directory
+            self.filename += "/"  # Make sure still tracked as directory
         self.is_encrypted = False
 
     def open(self, *args, **kwargs):
@@ -164,14 +177,14 @@ class P4KInfo(zipfile.ZipInfo):
         offset = 0
         total = len(self.extra)
         while (offset + 4) < total:
-            tp, ln = struct.unpack("<HH", self.extra[offset:offset + 4])
+            tp, ln = struct.unpack("<HH", self.extra[offset : offset + 4])
             if tp == 0x0001:
                 if ln >= 24:
-                    counts = struct.unpack("<QQQ", self.extra[offset + 4:offset + 28])
+                    counts = struct.unpack("<QQQ", self.extra[offset + 4 : offset + 28])
                 elif ln == 16:
-                    counts = struct.unpack("<QQ", self.extra[offset + 4:offset + 20])
+                    counts = struct.unpack("<QQ", self.extra[offset + 4 : offset + 20])
                 elif ln == 8:
-                    counts = struct.unpack("<Q", self.extra[offset + 4:offset + 12])
+                    counts = struct.unpack("<Q", self.extra[offset + 4 : offset + 12])
                 elif ln == 0:
                     counts = ()
                 else:
@@ -224,7 +237,7 @@ class P4KFile(zipfile.ZipFile):
             self.subarchives[filename] = SUB_ARCHIVES[file_ext](self.open(info))
             info.subarchive = self.subarchives[filename]
 
-            base_p4k_path = Path(filename[:-1 * len(file_ext) - 1])
+            base_p4k_path = Path(filename[: -1 * len(file_ext) - 1])
             archive_name = base_p4k_path.name
             for si in info.subarchive.filelist:
                 # Create ZipInfo instance to store file information
@@ -234,12 +247,20 @@ class P4KFile(zipfile.ZipFile):
                 if sub_path.parts[0] == archive_name:
                     # Paths in socpaks are referenced slightly strangely.
                     sub_path = Path(*sub_path.parts[1:])
-                x = P4KInfo(str(base_p4k_path / sub_path), p4k=self,
-                            subinfo=si, archive=self.subarchives[filename])
+                x = P4KInfo(
+                    str(base_p4k_path / sub_path),
+                    p4k=self,
+                    subinfo=si,
+                    archive=self.subarchives[filename],
+                )
                 x.extra = si.extra
                 x.comment = si.comment
                 x.header_offset = si.header_offset
-                x.volume, x.internal_attr, x.external_attr = si.volume, si.internal_attr, si.external_attr
+                x.volume, x.internal_attr, x.external_attr = (
+                    si.volume,
+                    si.internal_attr,
+                    si.external_attr,
+                )
                 x._raw_time = si._raw_time
                 x.date_time = si.date_time
                 x.create_version = si.create_version
@@ -256,7 +277,9 @@ class P4KFile(zipfile.ZipFile):
                 self.filelist.append(x)
                 self.NameToInfo[x.filename] = x
                 self.NameToInfoLower[x.filename.lower()] = x
-                self.BaseNameToInfo.setdefault(x.filename.split('.', maxsplit=1)[0].lower(), []).append(x)
+                self.BaseNameToInfo.setdefault(
+                    x.filename.split(".", maxsplit=1)[0].lower(), []
+                ).append(x)
 
     def _RealGetContents(self):
         """Read in the table of contents for the ZIP file."""
@@ -340,10 +363,12 @@ class P4KFile(zipfile.ZipFile):
             self.filelist.append(x)
             self.NameToInfo[x.filename] = x
             self.NameToInfoLower[x.filename.lower()] = x
-            self.BaseNameToInfo.setdefault(x.filename.split('.', maxsplit=1)[0].lower(), []).append(x)
+            self.BaseNameToInfo.setdefault(
+                x.filename.split(".", maxsplit=1)[0].lower(), []
+            ).append(x)
 
             # Add sub-archives to be opened later (.pak/.sockpak,etc)
-            file_ext = x.filename.split('.', maxsplit=1)[-1]
+            file_ext = x.filename.split(".", maxsplit=1)[-1]
             if file_ext.lower() in SUB_ARCHIVES:
                 if x.filename not in self.subarchives:
                     self.subarchives[x.filename] = None
@@ -364,7 +389,7 @@ class P4KFile(zipfile.ZipFile):
         files.  If the size is known in advance, it is best to pass a ZipInfo
         instance for name, with zinfo.file_size set.
         """
-        mode = mode.strip('b')
+        mode = mode.strip("b")
         if mode not in {"r", "w"}:
             raise ValueError('open() requires mode "r" or "w"')
         if pwd and not isinstance(pwd, bytes):
@@ -388,7 +413,9 @@ class P4KFile(zipfile.ZipFile):
 
         # if file is in a sub-archive, let that archive handle it
         if zinfo.subinfo is not None:
-            return zinfo.archive.open(zinfo.subinfo, mode=mode, pwd=pwd, force_zip64=force_zip64)
+            return zinfo.archive.open(
+                zinfo.subinfo, mode=mode, pwd=pwd, force_zip64=force_zip64
+            )
 
         if mode == "w":
             return self._open_to_write(zinfo, force_zip64=force_zip64)
@@ -416,8 +443,8 @@ class P4KFile(zipfile.ZipFile):
                 raise zipfile.BadZipFile("Truncated file header")
             fheader = struct.unpack(zipfile.structFileHeader, fheader)
             if (
-                    fheader[zipfile._FH_SIGNATURE] != p4kFileHeader
-                    and fheader[zipfile._FH_SIGNATURE] != zipfile.stringFileHeader
+                fheader[zipfile._FH_SIGNATURE] != p4kFileHeader
+                and fheader[zipfile._FH_SIGNATURE] != zipfile.stringFileHeader
             ):
                 raise zipfile.BadZipFile("Bad magic number for file header")
 
@@ -463,11 +490,16 @@ class P4KFile(zipfile.ZipFile):
                 raise
             info = self.NameToInfoLower.get(name.lower())
             if info is None:
-                raise KeyError('There is no item named %r in the archive' % name)
+                raise KeyError("There is no item named %r in the archive" % name)
         return info
 
-    def search(self, file_filters: typing.Union[list, tuple, set, str], exclude: typing.List[str] = None,
-               ignore_case: bool = True, mode: str = 're') -> typing.List[P4KInfo]:
+    def search(
+        self,
+        file_filters: typing.Union[list, tuple, set, str],
+        exclude: typing.List[str] = None,
+        ignore_case: bool = True,
+        mode: str = "re",
+    ) -> typing.List[P4KInfo]:
         """
         Search the filelist by path
 
@@ -494,66 +526,112 @@ class P4KFile(zipfile.ZipFile):
             file_filters = [_.lower() for _ in file_filters]
             exclude = [_.lower() for _ in exclude]
 
-        if mode == 're':
+        if mode == "re":
+
             def in_exclude(f):
                 nonlocal ignore_case, exclude
                 return f.lower() in exclude if ignore_case else f in exclude
 
-            r = re.compile('|'.join(f'({fnmatch.translate(_)})' for _ in file_filters),
-                           flags=re.IGNORECASE if ignore_case else 0)
-            return [info for fn, info in self.NameToInfo.items() if r.match(fn) and not in_exclude(fn)]
-        elif mode == 'startswith':
+            r = re.compile(
+                "|".join(f"({fnmatch.translate(_)})" for _ in file_filters),
+                flags=re.IGNORECASE if ignore_case else 0,
+            )
+            return [
+                info
+                for fn, info in self.NameToInfo.items()
+                if r.match(fn) and not in_exclude(fn)
+            ]
+        elif mode == "startswith":
             if ignore_case:
-                return [info for fn, info in self.NameToInfoLower.items()
-                        if any(fn.startswith(_) for _ in file_filters) and fn not in exclude]
+                return [
+                    info
+                    for fn, info in self.NameToInfoLower.items()
+                    if any(fn.startswith(_) for _ in file_filters) and fn not in exclude
+                ]
             else:
-                return [info for fn, info in self.NameToInfo.items()
-                        if any(fn.startswith(_) for _ in file_filters) and fn not in exclude]
-        elif mode == 'endswith':
+                return [
+                    info
+                    for fn, info in self.NameToInfo.items()
+                    if any(fn.startswith(_) for _ in file_filters) and fn not in exclude
+                ]
+        elif mode == "endswith":
             if ignore_case:
-                return [info for fn, info in self.NameToInfoLower.items()
-                        if any(fn.endswith(_) for _ in file_filters) and fn not in exclude]
+                return [
+                    info
+                    for fn, info in self.NameToInfoLower.items()
+                    if any(fn.endswith(_) for _ in file_filters) and fn not in exclude
+                ]
             else:
-                return [info for fn, info in self.NameToInfo.items()
-                        if any(fn.endswith(_) for _ in file_filters) and fn not in exclude]
-        elif mode == 'in':
+                return [
+                    info
+                    for fn, info in self.NameToInfo.items()
+                    if any(fn.endswith(_) for _ in file_filters) and fn not in exclude
+                ]
+        elif mode == "in":
             if ignore_case:
-                return [info for fn, info in self.NameToInfoLower.items()
-                        if fn in file_filters and fn not in exclude]
+                return [
+                    info
+                    for fn, info in self.NameToInfoLower.items()
+                    if fn in file_filters and fn not in exclude
+                ]
             else:
-                return [info for fn, info in self.NameToInfo.items()
-                        if fn in file_filters and fn not in exclude]
-        elif mode == 'in_strip':
+                return [
+                    info
+                    for fn, info in self.NameToInfo.items()
+                    if fn in file_filters and fn not in exclude
+                ]
+        elif mode == "in_strip":
             if ignore_case:
-                return [info for fn, info in self.NameToInfoLower.items()
-                        if fn.split('.', maxsplit=1)[0] in file_filters and fn not in exclude]
+                return [
+                    info
+                    for fn, info in self.NameToInfoLower.items()
+                    if fn.split(".", maxsplit=1)[0] in file_filters
+                    and fn not in exclude
+                ]
             else:
-                return [info for fn, info in self.NameToInfo.items()
-                        if fn.split('.', maxsplit=1)[0] in file_filters and fn not in exclude]
+                return [
+                    info
+                    for fn, info in self.NameToInfo.items()
+                    if fn.split(".", maxsplit=1)[0] in file_filters
+                    and fn not in exclude
+                ]
 
-        raise AttributeError(f'Invalid search mode: {mode}')
+        raise AttributeError(f"Invalid search mode: {mode}")
 
-    def extract_filter(self, file_filter, *args, ignore_case=True, search_mode='re', **kwargs):
-        return self.extractall(members=self.search(file_filter, ignore_case=ignore_case, mode=search_mode), *args, **kwargs)
+    def extract_filter(
+        self, file_filter, *args, ignore_case=True, search_mode="re", **kwargs
+    ):
+        return self.extractall(
+            members=self.search(file_filter, ignore_case=ignore_case, mode=search_mode),
+            *args,
+            **kwargs,
+        )
 
     def extract(self, member, *args, **kwargs):
         """Extract a member from the archive to the current working directory,
-           using its full name. Its file information is extracted as accurately
-           as possible. `member' may be a filename or a ZipInfo object. You can
-           specify a different directory using `path'.
+        using its full name. Its file information is extracted as accurately
+        as possible. `member' may be a filename or a ZipInfo object. You can
+        specify a different directory using `path'.
         """
         return self.extractall(members=[member], *args, **kwargs)
 
     def save_to(self, member, *args, **kwargs):
-        """ Extract a member into `path`. This will no recreate the archive directory structure, it will place the
-        extracted file directly into `path` which must exist. Use `extract` """
+        """Extract a member into `path`. This will no recreate the archive directory structure, it will place the
+        extracted file directly into `path` which must exist. Use `extract`"""
         return self.extractall(members=[member], *args, **kwargs)
 
-    def extractall(self, path=None, members: typing.List[typing.Union[P4KInfo, str]] = None, overwrite: bool = True,
-                   save_to: bool = False, converters: typing.Union[str, typing.List[str]] = None,
-                   converter_options: dict = None, ignore_converter_errors: bool = False,
-                   monitor: typing.Callable = _p4k_extract_monitor):
-        """ Extract all members from the archive to the current working directory. `path' specifies a different
+    def extractall(
+        self,
+        path=None,
+        members: typing.List[typing.Union[P4KInfo, str]] = None,
+        overwrite: bool = True,
+        save_to: bool = False,
+        converters: typing.Union[str, typing.List[str]] = None,
+        converter_options: dict = None,
+        ignore_converter_errors: bool = False,
+        monitor: typing.Callable = _p4k_extract_monitor,
+    ):
+        """Extract all members from the archive to the current working directory. `path' specifies a different
         directory to extract to. `members' is optional and must be a subset of the list returned by namelist().
 
         :param path: The output directory to extract files to, defaults to the current working directory
@@ -585,12 +663,15 @@ class P4KFile(zipfile.ZipFile):
         converters = converters or []
         converter_handlers = plugins.P4KConverterPlugin.converters()
 
-        if 'auto' in converters:
+        if "auto" in converters:
             converters = converter_handlers
         elif converters:
             converters = {
-                k: v for k, v in converter_handlers.items()
-                if k in converters or v['handler'].name in converters or v['handler'] in converters
+                k: v
+                for k, v in converter_handlers.items()
+                if k in converters
+                or v["handler"].name in converters
+                or v["handler"] in converters
             }
         else:
             converters = {}
@@ -600,32 +681,42 @@ class P4KFile(zipfile.ZipFile):
         for name, hook in converters.items():
             try:
                 # converters will return the members the did not handle
-                converter = hook['handler']
+                converter = hook["handler"]
 
                 if not issubclass(converter, plugins.P4KConverterPlugin):
-                    logging.error(f'Invalid converter handler {name}')
+                    logging.error(f"Invalid converter handler {name}")
                     continue
 
-                members, ext = hook['handler'].convert(
-                    members=members, path=Path(path), overwrite=overwrite, save_to=save_to,
-                    options=converter_options, monitor=monitor
+                members, ext = hook["handler"].convert(
+                    members=members,
+                    path=Path(path),
+                    overwrite=overwrite,
+                    save_to=save_to,
+                    options=converter_options,
+                    monitor=monitor,
                 )
                 extracted_files.extend(ext)
             except Exception as e:
                 if ignore_converter_errors:
-                    logger.exception(f'There was an error running the {name} converter', exc_info=e)
+                    logger.exception(
+                        f"There was an error running the {name} converter", exc_info=e
+                    )
                 else:
                     raise
 
         for i, info in enumerate(members):
-            if ext_path := self._extract_member(info, path, save_to=save_to, overwrite=overwrite):
+            if ext_path := self._extract_member(
+                info, path, save_to=save_to, overwrite=overwrite
+            ):
                 if monitor is not None:
                     monitor(msg=monitor_msg_from_info(info), progress=i, total=total)
                 extracted_files.append(ext_path)
         return extracted_files
 
-    def _extract_member(self, member, targetpath, pwd=None, save_to=False, overwrite=True):
-        """Extract the ZipInfo object 'member' to a physical file on the path targetpath. """
+    def _extract_member(
+        self, member, targetpath, pwd=None, save_to=False, overwrite=True
+    ):
+        """Extract the ZipInfo object 'member' to a physical file on the path targetpath."""
         if not isinstance(member, P4KInfo):
             member = self.getinfo(member)
 
@@ -647,7 +738,7 @@ class P4KFile(zipfile.ZipFile):
 
 
 class _ZipFileWithFlexibleFilenames(zipfile.ZipFile):
-    """ A regular ZipFile that doesn't enforce filenames perfectly matching the CD filename"""
+    """A regular ZipFile that doesn't enforce filenames perfectly matching the CD filename"""
 
     def open(self, name, mode="r", pwd=None, *, force_zip64=False):
         if mode not in {"r", "w"}:
@@ -657,14 +748,13 @@ class _ZipFileWithFlexibleFilenames(zipfile.ZipFile):
         if pwd and (mode == "w"):
             raise ValueError("pwd is only supported for reading files")
         if not self.fp:
-            raise ValueError(
-                "Attempt to use ZIP archive that was already closed")
+            raise ValueError("Attempt to use ZIP archive that was already closed")
 
         # Make sure we have an info object
         if isinstance(name, zipfile.ZipInfo):
             # 'name' is already an info object
             zinfo = name
-        elif mode == 'w':
+        elif mode == "w":
             zinfo = zipfile.ZipInfo(name)
             zinfo.compress_type = self.compression
             zinfo._compresslevel = self.compresslevel
@@ -672,18 +762,25 @@ class _ZipFileWithFlexibleFilenames(zipfile.ZipFile):
             # Get info object for name
             zinfo = self.getinfo(name)
 
-        if mode == 'w':
+        if mode == "w":
             return self._open_to_write(zinfo, force_zip64=force_zip64)
 
         if self._writing:
-            raise ValueError("Can't read from the ZIP file while there "
-                             "is an open writing handle on it. "
-                             "Close the writing handle before trying to read.")
+            raise ValueError(
+                "Can't read from the ZIP file while there "
+                "is an open writing handle on it. "
+                "Close the writing handle before trying to read."
+            )
 
         # Open for reading:
         self._fileRefCnt += 1
-        zef_file = _SharedFile(self.fp, zinfo.header_offset,
-                               self._fpclose, self._lock, lambda: self._writing)
+        zef_file = _SharedFile(
+            self.fp,
+            zinfo.header_offset,
+            self._fpclose,
+            self._lock,
+            lambda: self._writing,
+        )
         try:
             # Skip the file header:
             fheader = zef_file.read(zipfile.sizeFileHeader)
@@ -711,8 +808,10 @@ class _ZipFileWithFlexibleFilenames(zipfile.ZipFile):
                 if not pwd:
                     pwd = self.pwd
                 if not pwd:
-                    raise RuntimeError("File %r is encrypted, password "
-                                       "required for extraction" % name)
+                    raise RuntimeError(
+                        "File %r is encrypted, password "
+                        "required for extraction" % name
+                    )
             else:
                 pwd = None
 
@@ -731,7 +830,4 @@ class Pak(_ZipFileWithFlexibleFilenames):
 
 
 # Down here so the can reference local classes
-SUB_ARCHIVES = {
-    'pak': Pak,
-    'socpak': SOCPak
-}
+SUB_ARCHIVES = {"pak": Pak, "socpak": SOCPak}

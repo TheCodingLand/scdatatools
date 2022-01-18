@@ -7,6 +7,7 @@ class SCDTProperties:
     """
     Stores the variables for the addon
     """
+
     # ----------------- read/write variables -----------------
     pass
 
@@ -15,9 +16,10 @@ class SCDTUIProperties:
     """
     User configurable properties in the Add-ons preferences
     """
+
     default_sc_data_dir: bpy.props.StringProperty(
         name="Star Citizen Default Data Directory",
-        default='',
+        default="",
         update=utils.auto_format_sc_data_dir_path,
         # description=(
         #     "The default base 'Data' directory containing exported assets. All imported assets will be looked "
@@ -36,18 +38,19 @@ class SCDTUIProperties:
 
 
 class SCDTUIWindowManagerPropertyGroup(bpy.types.PropertyGroup, SCDTProperties):
-    """ Property group that stores constants in the window manager context """
+    """Property group that stores constants in the window manager context"""
 
 
 class SCDTSavedProperties(bpy.types.PropertyGroup):
-    """ Property group that stores constants in the scene context. These will get stored to the blend file. """
+    """Property group that stores constants in the scene context. These will get stored to the blend file."""
 
 
 class SCDTPreferences(SCDTProperties, SCDTUIProperties, bpy.types.AddonPreferences):
     """
     This class creates the settings interface in the scdt addon.
     """
-    bl_idname = 'scdt'
+
+    bl_idname = "scdt"
 
     def draw(self, context, properties=None):
         """
@@ -65,17 +68,19 @@ class SCDTPreferences(SCDTProperties, SCDTUIProperties, bpy.types.AddonPreferenc
 
         # SC Data Dir
         row = layout.row()
-        row.label(text='Default SC Data Dir')
+        row.label(text="Default SC Data Dir")
         row = layout.row()
         row.alert = properties.incorrect_sc_data_dir_folder_path
-        row.prop(properties, 'default_sc_data_dir', text='')
+        row.prop(properties, "default_sc_data_dir", text="")
 
 
 def register():
     bpy.utils.register_class(SCDTUIWindowManagerPropertyGroup)
     bpy.utils.register_class(SCDTSavedProperties)
 
-    bpy.types.WindowManager.scdt = bpy.props.PointerProperty(type=SCDTUIWindowManagerPropertyGroup)
+    bpy.types.WindowManager.scdt = bpy.props.PointerProperty(
+        type=SCDTUIWindowManagerPropertyGroup
+    )
     bpy.types.Scene.scdt = bpy.props.PointerProperty(type=SCDTSavedProperties)
 
     bpy.utils.register_class(SCDTPreferences)
@@ -91,8 +96,8 @@ def unregister():
 
 
 def get_scdv_pref(prop):
-    return getattr(bpy.context.preferences.addons['scdt'].preferences, prop)
+    return getattr(bpy.context.preferences.addons["scdt"].preferences, prop)
 
 
 def set_scdv_pref(prop, value):
-    return setattr(bpy.context.preferences.addons['scdt'].preferences, prop, value)
+    return setattr(bpy.context.preferences.addons["scdt"].preferences, prop, value)

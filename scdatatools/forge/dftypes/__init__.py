@@ -81,7 +81,7 @@ class StructureDefinition(DataCoreNamed):
     def __str__(self):
         return (
             f'struct:{self.name}_parent:{"None" if self.parent is None else self.parent.name}_'
-            f'props:{self.property_count}_type:{self.node_type}'
+            f"props:{self.property_count}_type:{self.node_type}"
         )
 
     @property
@@ -104,7 +104,7 @@ class StructureDefinition(DataCoreNamed):
             ]
             if self.parent_index != DCB_NO_PARENT:
                 props = (
-                        self.dcb.structure_definitions[self.parent_index].properties + props
+                    self.dcb.structure_definitions[self.parent_index].properties + props
                 )
             setattr(self, "_props", props)
         return getattr(self, "_props", [])
@@ -170,8 +170,8 @@ class EnumDefinition(DataCoreNamed):
             [
                 self.dcb.values[DataTypes.EnumValueName][_].value
                 for _ in range(
-                self.first_value_index, self.first_value_index + self.value_count
-            )
+                    self.first_value_index, self.first_value_index + self.value_count
+                )
             ],
         )
 
@@ -324,10 +324,10 @@ class StructureInstance:
         return AttrDict(sorted(props.items(), key=lambda _: str.casefold(_[0])))
 
     def __repr__(self):
-        return f'<StructInstance {self.name} props:{self.structure_definition.property_count}>'
+        return f"<StructInstance {self.name} props:{self.structure_definition.property_count}>"
 
     def __str__(self):
-        return f'structInstance_{self.name}_props:{self.structure_definition.property_count}'
+        return f"structInstance_{self.name}_props:{self.structure_definition.property_count}"
 
 
 class StringReference(DataCoreBase):
@@ -338,7 +338,7 @@ class StringReference(DataCoreBase):
         return self.dcb.string_for_offset(self.string_offset)
 
     def __repr__(self):
-        return f'<StringRef offset:{self.string_offset}>'
+        return f"<StringRef offset:{self.string_offset}>"
 
     def __str__(self):
         return self.value
@@ -366,12 +366,14 @@ class Pointer:
     @property
     def reference(self):
         if (
-                self.structure_index == DCB_NO_PARENT
-                or self.instance_index == DCB_NO_PARENT
+            self.structure_index == DCB_NO_PARENT
+            or self.instance_index == DCB_NO_PARENT
         ):
             return None
         # return self.dcb.structure_instances[self.structure_index][self.instance_index]
-        return self.dcb.get_structure_instance(self.structure_index, self.instance_index)
+        return self.dcb.get_structure_instance(
+            self.structure_index, self.instance_index
+        )
 
     @property
     def structure_definition(self):
@@ -389,7 +391,9 @@ class StrongPointer(Pointer, DataCoreBase):
     def __repr__(self):
         if self.structure_definition is not None:
             return f"<StrongPointer structure:{self.structure_definition.name} instance:{self.instance_index}>"
-        return f"<StrongPointer structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
+        return (
+            f"<StrongPointer structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
+        )
 
     def __str__(self):
         if self.structure_definition is not None:
@@ -401,7 +405,9 @@ class ClassReference(StrongPointer):
     def __repr__(self):
         if self.structure_definition is not None:
             return f"<ClassReference structure:{self.structure_definition.name} instance:{self.instance_index}>"
-        return f"<ClassReference structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
+        return (
+            f"<ClassReference structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
+        )
 
     def __str__(self):
         if self.structure_definition is not None:
@@ -465,14 +471,22 @@ class Record(Pointer, DataCoreNamed):
         return self.dcb.string_for_offset(self.filename_offset)
 
     def __repr__(self):
-        struct_name = self.structure_definition.name if self.structure_definition is not None else DCB_NO_PARENT
+        struct_name = (
+            self.structure_definition.name
+            if self.structure_definition is not None
+            else DCB_NO_PARENT
+        )
         return (
             f"<Record name:{self.name} {self.id.value} struct:{struct_name} "
             f"instance:{self.instance_index}>"
         )
 
     def __str__(self):
-        struct_name = self.structure_definition.name if self.structure_definition is not None else DCB_NO_PARENT
+        struct_name = (
+            self.structure_definition.name
+            if self.structure_definition is not None
+            else DCB_NO_PARENT
+        )
         return f"record:{self.name}:{self.id.value}_struct:{struct_name}"
 
 

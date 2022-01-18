@@ -18,9 +18,11 @@ class AttrDict(dict):
             self[item] = value
 
     def _convert_dicts(self):
-        """ update all dicts within this dict to be `AttrDict` dicts recursively """
+        """update all dicts within this dict to be `AttrDict` dicts recursively"""
         for k in self.keys():
             if isinstance(self[k], dict):
                 if not isinstance(self[k], AttrDict):
-                    self[k] = AttrDict(sorted(self[k].items(), key=lambda _: str.casefold(_)))
+                    self[k] = AttrDict(
+                        sorted(self[k].items(), key=lambda _: str.casefold(_))
+                    )
                 self[k].__convert_dicts()

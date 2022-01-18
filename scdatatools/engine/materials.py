@@ -5,7 +5,11 @@ from xml.etree import ElementTree
 
 from scdatatools.p4k import P4KInfo
 from scdatatools.utils import search_for_data_dir_in_path
-from scdatatools.engine.cryxml import etree_from_cryxml_file, etree_from_cryxml_string, is_cryxmlb_file
+from scdatatools.engine.cryxml import (
+    etree_from_cryxml_file,
+    etree_from_cryxml_string,
+    is_cryxmlb_file,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -23,7 +27,7 @@ class MaterialLibrary:
 
         if isinstance(mtl, (str, Path)):
             self.mtl_path = Path(mtl)
-            mtl = self.mtl_path.open('rb')
+            mtl = self.mtl_path.open("rb")
         elif isinstance(mtl, P4KInfo):
             self._p4k = mtl.p4k
             self.mtl_path = Path(mtl.filename)
@@ -36,24 +40,28 @@ class MaterialLibrary:
             self.data_dir = search_for_data_dir_in_path(self.mtl_path)
             if not self.data_dir:
                 self.data_dir = self.mtl_path.parent
-                logger.debugscbp(f'could not determine data_dir from mtl path. defaulting to mtl directory %s',
-                                 self.data_dir)
+                logger.debugscbp(
+                    f"could not determine data_dir from mtl path. defaulting to mtl directory %s",
+                    self.data_dir,
+                )
 
         try:
             if is_cryxmlb_file(mtl):
                 et = etree_from_cryxml_file(mtl)
             else:
-                et = ElementTree.parse(mtl, parser=ElementTree.XMLParser(encoding='utf-8'))
+                et = ElementTree.parse(
+                    mtl, parser=ElementTree.XMLParser(encoding="utf-8")
+                )
         except Exception as e:
             logger.error(f"could not load material {self.mtl_path}", exc_info=e)
             raise
 
         self.materials = []
-        for mat in et.findall('.//Material'):
+        for mat in et.findall(".//Material"):
             attrs = mat.attrib
-            if 'Name' not in attrs:
-                attrs['Name'] = self.mtl_path.stem
-            attrs['PrefixedName'] = f'{self.mtl_path.stem}_mtl_{attrs["Name"]}'
+            if "Name" not in attrs:
+                attrs["Name"] = self.mtl_path.stem
+            attrs["PrefixedName"] = f'{self.mtl_path.stem}_mtl_{attrs["Name"]}'
             for subelement in mat:
                 attrs[subelement.tag] = subelement
             self.materials.append(attrs)

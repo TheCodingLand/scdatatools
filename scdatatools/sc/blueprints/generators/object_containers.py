@@ -18,9 +18,15 @@ if typing.TYPE_CHECKING:
     from scdatatools import StarCitizen
 
 
-def blueprint_from_socpak(sc: 'StarCitizen', socpak: typing.Union[str, P4KInfo, Path], bp: Blueprint = None,
-                          container_name: str = '', bone_name: str = '', attrs: dict = None,
-                          monitor: typing.Callable = None) -> 'Blueprint':
+def blueprint_from_socpak(
+    sc: "StarCitizen",
+    socpak: typing.Union[str, P4KInfo, Path],
+    bp: Blueprint = None,
+    container_name: str = "",
+    bone_name: str = "",
+    attrs: dict = None,
+    monitor: typing.Callable = None,
+) -> "Blueprint":
     """
     Generates a `Blueprint` which can be used to extract and import the assets defined within the given Object Container
 
@@ -43,13 +49,15 @@ def blueprint_from_socpak(sc: 'StarCitizen', socpak: typing.Union[str, P4KInfo, 
 
     name = container_name if container_name else p4k_path.stem
     attrs = attrs or {}
-    attrs['socpak'] = p4k_path.as_posix()
+    attrs["socpak"] = p4k_path.as_posix()
 
     if bp is None:
         bp = Blueprint(name, sc, monitor=monitor)
 
-    oc = bp.sc.oc_manager.load_socpak(f'{p4k_path.as_posix()}'.lower())
-    added_path = bp.add_file_to_extract(p4k_path, no_process=True)  # extract the socpak itself
+    oc = bp.sc.oc_manager.load_socpak(f"{p4k_path.as_posix()}".lower())
+    added_path = bp.add_file_to_extract(
+        p4k_path, no_process=True
+    )  # extract the socpak itself
     bp.add_file_to_extract([_.filename for _ in oc.socpak.filelist], no_process=True)
 
     bp.bone_names.add(bone_name.lower())
@@ -62,7 +70,7 @@ def blueprint_from_socpak(sc: 'StarCitizen', socpak: typing.Union[str, P4KInfo, 
     with bp.set_current_container(name, attrs=attrs):
         for soc_name, soc in oc.socs.items():
             soc_path = norm_path(soc.soc_info.filename).lower()
-            bp.current_container['socs'].append(soc_path)
+            bp.current_container["socs"].append(soc_path)
             bp.add_file_to_extract(soc_path, no_process=True)
             process_soc(bp, soc, bone_name=bone_name, geom_attrs=geom_attrs)
             # soc_proc = ('path', norm_path(soc.soc_info.filename).lower())
@@ -143,13 +151,20 @@ def blueprint_from_socpak(sc: 'StarCitizen', socpak: typing.Union[str, P4KInfo, 
         for child_guid, child in oc.children.items():
             try:
                 blueprint_from_socpak(
-                    sc, socpak=child['name'], container_name=child.get('entityName', ''), bp=bp, bone_name=bone_name,
+                    sc,
+                    socpak=child["name"],
+                    container_name=child.get("entityName", ""),
+                    bp=bp,
+                    bone_name=bone_name,
                     attrs={
-                        'pos': vector_from_csv(
-                            child['pos'] if 'pos' in child else child['entdata'].get('@Pos', child.get('pos', '0,0,0'))
+                        "pos": vector_from_csv(
+                            child["pos"]
+                            if "pos" in child
+                            else child["entdata"].get("@Pos", child.get("pos", "0,0,0"))
                         ),
-                        'rotation': quaternion_from_csv(child.get('rot', '1,0,0,0')),
-                    })
+                        "rotation": quaternion_from_csv(child.get("rot", "1,0,0,0")),
+                    },
+                )
             except Exception as e:
                 bp.log(f'Failed to load child container of {name}: {child["name"]} {e}')
     return bp

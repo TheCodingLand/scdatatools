@@ -4,7 +4,7 @@ from pathlib import Path
 from enum import IntEnum
 
 
-GFX_FILE_SIGNATURE = b'GFX'
+GFX_FILE_SIGNATURE = b"GFX"
 
 
 class GFXVersion(IntEnum):
@@ -25,7 +25,7 @@ class TagHeader(ctypes.LittleEndianStructure):
         obj = type(cls).from_buffer(cls, source, offset)
         obj.offset = offset
         obj.type = obj.raw_header >> 6
-        obj.length = obj.raw_header & 0x003f
+        obj.length = obj.raw_header & 0x003F
         obj.data_offset = 2
         obj.data_length = obj.length
         if obj.length == 0x3F:
@@ -42,11 +42,13 @@ class Tag:
         self.data = data
 
     def __repr__(self):
-        return f'<Tag type:{repr(self.header.type)} length:{self.header.length}>'
+        return f"<Tag type:{repr(self.header.type)} length:{self.header.length}>"
 
     @classmethod
     def from_buffer(cls, header, data):
-        return cls(header, data[header.data_offset:header.data_offset + header.data_length])
+        return cls(
+            header, data[header.data_offset : header.data_offset + header.data_length]
+        )
 
 
 class ExportAssets(Tag):
@@ -55,16 +57,19 @@ class ExportAssets(Tag):
         offset = 2
         self.assets = []
         while offset < self.header.data_length:
-            str_end = data[offset+2:].find(b'\x00')
+            str_end = data[offset + 2 :].find(b"\x00")
             if str_end < 0:
                 break
-            self.assets.append((
-                struct.unpack('<h', data[offset:offset+2])[0], data[offset+2:offset+2+str_end].decode('utf-8')
-            ))
+            self.assets.append(
+                (
+                    struct.unpack("<h", data[offset : offset + 2])[0],
+                    data[offset + 2 : offset + 2 + str_end].decode("utf-8"),
+                )
+            )
             offset += 2 + str_end + 1
 
     def __repr__(self):
-        return f'<ExportAssets type:{repr(self.header.type)} length:{self.header.length} assets:{len(self.assets)}>'
+        return f"<ExportAssets type:{repr(self.header.type)} length:{self.header.length} assets:{len(self.assets)}>"
 
 
 class GFXHeader(ctypes.LittleEndianStructure):
@@ -77,14 +82,10 @@ class GFXHeader(ctypes.LittleEndianStructure):
         ("frame_rate", ctypes.c_uint16),
         ("frame_count", ctypes.c_uint16),
     ]
-    _map = {
-        "version": GFXVersion
-    }
+    _map = {"version": GFXVersion}
 
 
-TAG_FOR_TYPE = {
-    0x38: ExportAssets
-}
+TAG_FOR_TYPE = {0x38: ExportAssets}
 
 
 def tag_from_header(hdr: TagHeader, data: (bytearray, bytes), offset):
@@ -101,22 +102,24 @@ class GFX:
     def __init__(self, gfx_file_or_data):
         if isinstance(gfx_file_or_data, str) and Path(gfx_file_or_data).is_file():
             self.filename = Path(gfx_file_or_data).absolute()
-            with self.filename.open('rb') as f:
+            with self.filename.open("rb") as f:
                 self.raw_data = bytearray(f.read())
         else:
-            self.filename = ''
+            self.filename = ""
             self.raw_data = bytearray(gfx_file_or_data)
 
         self.header = GFXHeader.from_buffer(self.raw_data, 0)
         if self.header.signature != GFX_FILE_SIGNATURE:
-            raise ValueError(f'Invalid file signature for GFX: {self.header.signature}')
+            raise ValueError(f"Invalid file signature for GFX: {self.header.signature}")
 
         self.tags = []
         self.assets = {}
         offset = ctypes.sizeof(self.header)
         while offset < self.header.file_length:
             tag_hdr = TagHeader.from_buffer(self.raw_data, offset)
-            tag = tag_from_header(tag_hdr, self.raw_data[offset:offset+tag_hdr.length], offset)
+            tag = tag_from_header(
+                tag_hdr, self.raw_data[offset : offset + tag_hdr.length], offset
+            )
 
             if isinstance(tag, ExportAssets):
                 self.assets.update(tag.assets)

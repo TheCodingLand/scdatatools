@@ -7,7 +7,7 @@ from scdatatools.utils import StructureWithEnums
 
 
 logger = logging.getLogger(__name__)
-HIRC_SIGNATURE = b'HIRC'
+HIRC_SIGNATURE = b"HIRC"
 
 
 class HIRCSettingsTypes(IntEnum):
@@ -54,19 +54,17 @@ class HIRCObject(ctypes.LittleEndianStructure, StructureWithEnums):
         ("length", ctypes.c_uint32),
         ("id", ctypes.c_uint32),
     ]
-    _map = {
-        "type": HIRCObjectTypes
-    }
+    _map = {"type": HIRCObjectTypes}
 
     @classmethod
     def from_buffer(cls, source, offset):
         obj = type(cls).from_buffer(cls, source, offset)
         obj.source_offset = offset
-        obj.raw_data = copy.copy(source[offset:offset + obj.length + 1])
+        obj.raw_data = copy.copy(source[offset : offset + obj.length + 1])
         return obj
 
     def __repr__(self):
-        return f'<{self.__class__.__name__} type:{self.type.name} len:{self.length} id:{self.id}>'
+        return f"<{self.__class__.__name__} type:{self.type.name} len:{self.length} id:{self.id}>"
 
 
 class HIRCUnknown(HIRCObject):
@@ -105,8 +103,12 @@ class HIRCRandom(HIRCObject):
             # logger.debug(f'Failed to read HIRCRandom object "{r.id}", setting sounds to []')
             r.sounds = []
         else:
-            r.sounds = list(struct.unpack(f'<{r.num_sounds}I',
-                                          source[sound_offset:sound_offset + (r.num_sounds*4)]))
+            r.sounds = list(
+                struct.unpack(
+                    f"<{r.num_sounds}I",
+                    source[sound_offset : sound_offset + (r.num_sounds * 4)],
+                )
+            )
         return r
 
 
@@ -244,7 +246,7 @@ class HIRCEvent(HIRCObject):
 
         offset += ctypes.sizeof(he)
         for i in range(he.num_actions):
-            he.event_actions.append(struct.unpack_from('<I', source, offset)[0])
+            he.event_actions.append(struct.unpack_from("<I", source, offset)[0])
             offset += 4
         return he
 
@@ -269,13 +271,13 @@ class HIRCHeader(ctypes.LittleEndianStructure):
     _fields_ = [
         ("signature", ctypes.c_char * 4),
         ("length", ctypes.c_uint32),
-        ("num_objects", ctypes.c_uint32)
+        ("num_objects", ctypes.c_uint32),
     ]
 
     @classmethod
     def from_buffer(cls, source, offset=0):
         hirc = type(cls).from_buffer(cls, source, offset)
-        assert (hirc.signature == HIRC_SIGNATURE)
+        assert hirc.signature == HIRC_SIGNATURE
         hirc.objects = []
 
         for t in HIRCObjectTypes:
@@ -284,7 +286,9 @@ class HIRCHeader(ctypes.LittleEndianStructure):
         offset += ctypes.sizeof(hirc)
         for i in range(hirc.num_objects):
             obj_type = source[offset]
-            obj = HIRC_OBJ_HEADER_FOR_TYPE.get(obj_type, HIRCUnknown).from_buffer(source, offset)
+            obj = HIRC_OBJ_HEADER_FOR_TYPE.get(obj_type, HIRCUnknown).from_buffer(
+                source, offset
+            )
             obj.offset = offset
             hirc.objects.append(obj)
             getattr(hirc, obj.type.name)[obj.id] = obj

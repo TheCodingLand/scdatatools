@@ -8,7 +8,7 @@ from functools import partial
 RECORD_HANDLER = {}
 
 
-def register_record_handler(dco_type, filename_match='.*'):
+def register_record_handler(dco_type, filename_match=".*"):
     """
     Registers a class handler for the specified `dco_type`.
 
@@ -18,18 +18,20 @@ def register_record_handler(dco_type, filename_match='.*'):
 
     This should be used as a decorator for a sub-class of `DataCoreObject`
     """
+
     def _record_handler_wrapper(handler_class):
         RECORD_HANDLER.setdefault(dco_type, {})[filename_match] = handler_class
         return handler_class
+
     return _record_handler_wrapper
 
 
-def dco_from_guid(datacore, guid: typing.Union[str, GUID]) -> 'DataCoreObject':
+def dco_from_guid(datacore, guid: typing.Union[str, GUID]) -> "DataCoreObject":
     """
     Takes a :str:`guid` and returns a :class:`DataCoreObject` created from the proper DCO subclass for the record type
     """
     record = datacore.records_by_guid[str(guid)]
-    matched = {'': DataCoreObject}
+    matched = {"": DataCoreObject}
 
     if record.type in RECORD_HANDLER:
         # find every matching record handler and store them
@@ -48,8 +50,11 @@ class DataCoreObject:
     method to create a :class:`DataCoreObject` is to the use the :func:`dco_from_guid` function, which will
     automagically use the correct subclass for the :class:`Record` type.
     """
+
     def __init__(self, datacore, guid_or_dco: typing.Union[str, GUID, Record]):
-        self.record = guid_or_dco if isinstance(guid_or_dco, Record) else str(guid_or_dco)
+        self.record = (
+            guid_or_dco if isinstance(guid_or_dco, Record) else str(guid_or_dco)
+        )
         self._datacore = datacore
 
     @property

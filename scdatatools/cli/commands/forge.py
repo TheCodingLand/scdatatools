@@ -11,7 +11,7 @@ from scdatatools import p4k
 
 
 def _dump_record(dcb, record, output, guid, guid_if_exists, xml, quiet):
-    if output == '-':
+    if output == "-":
         if xml:
             sys.stdout.write(dcb.dump_record_xml(record))
         else:
@@ -20,11 +20,11 @@ def _dump_record(dcb, record, output, guid, guid_if_exists, xml, quiet):
         if output.is_dir():
             output = output / Path(record.filename)
         output.parent.mkdir(parents=True, exist_ok=True)
-        suffix = '.xml' if xml else '.json'
+        suffix = ".xml" if xml else ".json"
         if guid or (guid_if_exists and output.is_file()):
-            output = output.parent / f'{output.stem}.{record.id.value}{suffix}'
+            output = output.parent / f"{output.stem}.{record.id.value}{suffix}"
         else:
-            output = output.parent / f'{output.stem}{suffix}'
+            output = output.parent / f"{output.stem}{suffix}"
         if not quiet:
             print(str(output))
         try:
@@ -37,57 +37,66 @@ def _dump_record(dcb, record, output, guid, guid_if_exists, xml, quiet):
             print(f"ERROR: Error processing {record.filename}: {e}")
 
 
-@command(help="Convert a DataForge file to a readable format", exclusive_arguments=('xml', 'json'))
-@argument("forge_file", description="DataForge (.dcb) file to extract data from. (or Data.p4k)", positional=True)
+@command(
+    help="Convert a DataForge file to a readable format",
+    exclusive_arguments=("xml", "json"),
+)
+@argument(
+    "forge_file",
+    description="DataForge (.dcb) file to extract data from. (or Data.p4k)",
+    positional=True,
+)
 @argument("single", description="Extract first matching file only", aliases=["-1"])
-@argument("guid", aliases=["-g"],
-          description="Include the GUID in the filename (avoids overwriting from records with the same 'filename') "
-                      "(Default: False)")
-@argument("guid_if_exists", aliases=["-G"],
-          description="Include the GUID in the filename only if the output file already exists. (Default: True)")
+@argument(
+    "guid",
+    aliases=["-g"],
+    description="Include the GUID in the filename (avoids overwriting from records with the same 'filename') "
+    "(Default: False)",
+)
+@argument(
+    "guid_if_exists",
+    aliases=["-G"],
+    description="Include the GUID in the filename only if the output file already exists. (Default: True)",
+)
 @argument("xml", aliases=["-x"], description="Convert to XML (Default)")
 @argument("json", aliases=["-j"], description="Convert to JSON")
 @argument(
     "output",
     description="The output directory to extract files into or the output path if --single. "
-                "Defaults to current directory. Use '-' to output a single file to the stdout",
+    "Defaults to current directory. Use '-' to output a single file to the stdout",
     aliases=["-o"],
 )
-@argument(
-    "quiet",
-    description="Don't output progress.",
-    aliases=["-q"]
-)
+@argument("quiet", description="Don't output progress.", aliases=["-q"])
 @argument(
     "file_filter",
     description="Posix style file filter of which files to extract",
-    aliases=["-f"]
+    aliases=["-f"],
 )
 def unforge(
-        forge_file: typing.Text,
-        file_filter: typing.Text = "*",
-        output: typing.Text = ".",
-        guid: bool = False,
-        guid_if_exists: bool = True,
-        xml: bool = True,
-        json: bool = False,
-        single: bool = False,
-        quiet: bool = False,
+    forge_file: typing.Text,
+    file_filter: typing.Text = "*",
+    output: typing.Text = ".",
+    guid: bool = False,
+    guid_if_exists: bool = True,
+    xml: bool = True,
+    json: bool = False,
+    single: bool = False,
+    quiet: bool = False,
 ):
     forge_file = Path(forge_file)
-    output = Path(output).absolute() if output != '-' else output
+    output = Path(output).absolute() if output != "-" else output
     file_filter = file_filter.strip("'").strip('"')
 
     if not forge_file.is_file():
         sys.stderr.write(f"Could not open DataForge file from {forge_file}\n")
         sys.exit(1)
 
-    if forge_file.suffix == '.p4k':
-        print(f'Opening {forge_file}')
+    if forge_file.suffix == ".p4k":
+        print(f"Opening {forge_file}")
         p = p4k.P4KFile(forge_file)
-        dcb = p.search('*Game.dcb')
+        dcb = p.search("*Game.dcb")
         if len(dcb) != 1:
-            raise ValueError('Could not determine the location of the datacore')
+            raise ValueError("Could not determine the location of the datacore")
         with p.open(dcb[0]) as f:
             print(f"Opening DataForge file from: {forge_file}")
             _datacore_tmp = tempfile.TemporaryFile()
@@ -112,4 +121,6 @@ def unforge(
         print(f"Extracting files into {output} with filter '{file_filter}'")
         print("=" * 120)
         for record in dcb.search_filename(file_filter):
-            _dump_record(dcb, record, output, guid, guid_if_exists, not json, quiet=quiet)
+            _dump_record(
+                dcb, record, output, guid, guid_if_exists, not json, quiet=quiet
+            )

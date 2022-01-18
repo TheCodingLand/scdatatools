@@ -7,7 +7,7 @@ from .chunks import defs
 from .chunks.base import ChunkHeader, Chunk
 
 
-CHCR_FILE_SIGNATURE = b'CrCh'
+CHCR_FILE_SIGNATURE = b"CrCh"
 
 
 class ChCrVersion(IntEnum):
@@ -18,31 +18,28 @@ class ChCrVersion(IntEnum):
 
 @defs.chunk_file_header(CHCR_FILE_SIGNATURE)
 class ChCrHeader(ctypes.LittleEndianStructure, FileHeaderStructure):
-    file_type = 'CrCh'
+    file_type = "CrCh"
     _fields_ = [
         ("signature", ctypes.c_uint32),
         ("version", ctypes.c_uint32),
         ("num_chunks", ctypes.c_uint32),
         ("chunk_hdr_table_offset", ctypes.c_uint32),
     ]
-    _map = {
-        "version": ChCrVersion
-    }
+    _map = {"version": ChCrVersion}
 
 
 @defs.chunk_header_handler(0x746)
 class ChunkHeader746(ChunkHeader):
     default_chunk_class = Chunk
     _fields_ = [
-        ('type', ctypes.c_uint16),
-        ('version', ctypes.c_uint16),
-        ('id', ctypes.c_uint32),
-        ('size', ctypes.c_uint32),
-        ('offset', ctypes.c_uint32),
+        ("type", ctypes.c_uint16),
+        ("version", ctypes.c_uint16),
+        ("id", ctypes.c_uint32),
+        ("size", ctypes.c_uint32),
+        ("offset", ctypes.c_uint32),
     ]
-    _map = {
-        'type': defs.ChunkType
-    }
+    _map = {"type": defs.ChunkType}
+
 
 # class ChCr(Model):
 #     filetype = 'ChCr'

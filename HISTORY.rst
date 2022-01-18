@@ -2,6 +2,24 @@
 History
 =======
 
+1.0.0 (2022-01-18)
+------------------
+
+* First major version
+* Texture conversion utilities
+* Improved CLI commands
+* Refactored and improved Star Engine format handling
+* Star Citizen Blueprint (scbp) system
+* Plugin framework
+* Blender add-on supporting scbp imports
+* Audio (wwise) system handling
+* P4K converters to enable auto-conversion of proprietary formats during export (textures, models, etc.)
+* Prefab Library Manager
+* Object Container Manager
+* Material Library processor (mtl)
+* Launcher utilities to auto-discover installed SC versions
+
+
 0.1.7 (2021-04-02)
 ------------------
 

@@ -20,170 +20,225 @@ logger = logging.getLogger(__name__)
 
 RECORD_KEYS_WITH_PATHS = [
     # all keys are lowercase to ignore case while matching
-    '@file',  # @File mtl
-    '@path',  # @Path/@path chrparams, entxml, soc_cryxml, mtl
-    '@texture',  # soc_cryxml
-    '@cubemaptexture',  # @cubemapTexture soc_cryxml
-    '@externallayerfilepath',  # @externalLayerFilePath soc_cryxml
-    'animationdatabase',  # AnimationDatabase Ship Entity record in 'SAnimationControllerParams'
-    'animationcontroller',  # AnimationController Ship Entity record in 'SAnimationControllerParams'
-    'voxeldatafile',  # voxelDataFile Ship Entity record in 'SVehiclePhysicsGridParams'
+    "@file",  # @File mtl
+    "@path",  # @Path/@path chrparams, entxml, soc_cryxml, mtl
+    "@texture",  # soc_cryxml
+    "@cubemaptexture",  # @cubemapTexture soc_cryxml
+    "@externallayerfilepath",  # @externalLayerFilePath soc_cryxml
+    "animationdatabase",  # AnimationDatabase Ship Entity record in 'SAnimationControllerParams'
+    "animationcontroller",  # AnimationController Ship Entity record in 'SAnimationControllerParams'
+    "voxeldatafile",  # voxelDataFile Ship Entity record in 'SVehiclePhysicsGridParams'
 ]
-RECORD_KEYS_WITH_AUDIO = [
-    'audioTrigger'
-]
+RECORD_KEYS_WITH_AUDIO = ["audioTrigger"]
 COMPONENT_PROCESS_PRIORITY = [
-    'SGeometryResourceParams',
-    'SItemPortContainerComponentParams',
-    'SEntityComponentDefaultLoadoutParams',
-    'VehicleComponentParams',
+    "SGeometryResourceParams",
+    "SItemPortContainerComponentParams",
+    "SEntityComponentDefaultLoadoutParams",
+    "VehicleComponentParams",
 ]
 
 
 def _search_record(bp, record):
-    """ This is a brute-force method of extracting related files from a datacore record. It does no additional
+    """This is a brute-force method of extracting related files from a datacore record. It does no additional
     processing of the record, if there is specific data that should be extracted a different method should be
-    implemented and used for that record type. """
+    implemented and used for that record type."""
     d = bp.sc.datacore.record_to_dict(record)
     bp.add_file_to_extract(dict_search(d, RECORD_KEYS_WITH_PATHS, ignore_case=True))
 
 
-@datacore_type_processor('SGeometryResourceParams')
-def process_geometry_resource_params(bp: 'Blueprint', component, record: 'Record', tags='',
-                                     *args, **kwargs) -> bool:
-    if component.name == 'SGeometryDataParams':
-        mtl = component.properties['Material'].properties['path']
-        geom_path = component.properties['Geometry'].properties['path']
+@datacore_type_processor("SGeometryResourceParams")
+def process_geometry_resource_params(
+    bp: "Blueprint", component, record: "Record", tags="", *args, **kwargs
+) -> bool:
+    if component.name == "SGeometryDataParams":
+        mtl = component.properties["Material"].properties["path"]
+        geom_path = component.properties["Geometry"].properties["path"]
         bp.add_file_to_extract(mtl)
-        attrs = {'tags': tags}
+        attrs = {"tags": tags}
 
         if geom_path:
             if bp.entity is not None and record.id.value == bp.entity.id.value:
                 # Setting pos to a non None for the primary guid will create the base instance
-                geom, created = bp.get_or_create_geom(geom_path, create_params={
-                    'attrs': attrs, 'pos': Vector3D(), 'materials': mtl,
-                })
-                bp.entity_geom = geom['name']
+                geom, created = bp.get_or_create_geom(
+                    geom_path,
+                    create_params={
+                        "attrs": attrs,
+                        "pos": Vector3D(),
+                        "materials": mtl,
+                    },
+                )
+                bp.entity_geom = geom["name"]
             else:
-                geom, created = bp.get_or_create_geom(geom_path, create_params={
-                    'attrs': attrs, 'materials': mtl,
-                })
+                geom, created = bp.get_or_create_geom(
+                    geom_path,
+                    create_params={
+                        "attrs": attrs,
+                        "materials": mtl,
+                    },
+                )
 
             if geom is not None:
-                bp.record_geometry.setdefault(str(record.id), {}).setdefault(tags, set()).add(geom['name'])
+                bp.record_geometry.setdefault(str(record.id), {}).setdefault(
+                    tags, set()
+                ).add(geom["name"])
             else:
                 bp.log(f'Could not create geom "{geom_path}', logging.ERROR)
 
             try:
-                tint_id = str(component.properties['Palette'].properties['RootRecord'])
-                if tint_id != '00000000-0000-0000-0000-000000000000':
+                tint_id = str(component.properties["Palette"].properties["RootRecord"])
+                if tint_id != "00000000-0000-0000-0000-000000000000":
                     palette = bp.sc.datacore.records_by_guid[tint_id]
-                    geom['tint_palettes'].add(norm_path(palette.filename))
+                    geom["tint_palettes"].add(norm_path(palette.filename))
                     bp.add_record_to_extract(tint_id)
-                    bp.add_file_to_extract(palette.properties['root'].properties['decalTexture'])
+                    bp.add_file_to_extract(
+                        palette.properties["root"].properties["decalTexture"]
+                    )
             except Exception as e:
                 bp.log(f'could not dump tint for "{geom_path}"', exc_info=e)
 
-    if 'Geometry' in component.properties:
-        process_geometry_resource_params(bp, component.properties['Geometry'], record=record,
-                                         tags=component.properties.get('Tags', ''))
-    if 'SubGeometry' in component.properties:
-        for sg in component.properties.get('SubGeometry', []):
-            process_geometry_resource_params(bp, sg, record=record,
-                                             tags=component.properties.get('Tags', ''))
-    if 'Material' in component.properties:
-        process_geometry_resource_params(bp, component.properties['Material'], record=record)
-    if 'path' in component.properties:
-        bp.add_file_to_extract(component.properties['path'])
+    if "Geometry" in component.properties:
+        process_geometry_resource_params(
+            bp,
+            component.properties["Geometry"],
+            record=record,
+            tags=component.properties.get("Tags", ""),
+        )
+    if "SubGeometry" in component.properties:
+        for sg in component.properties.get("SubGeometry", []):
+            process_geometry_resource_params(
+                bp, sg, record=record, tags=component.properties.get("Tags", "")
+            )
+    if "Material" in component.properties:
+        process_geometry_resource_params(
+            bp, component.properties["Material"], record=record
+        )
+    if "path" in component.properties:
+        bp.add_file_to_extract(component.properties["path"])
 
     return True
 
 
-@datacore_type_processor('SEntityComponentDefaultLoadoutParams')
-def process_component_loadouts(bp: 'Blueprint', component, record: 'Record', parent_loadout=None,
-                               *args, **kwargs) -> bool:
+@datacore_type_processor("SEntityComponentDefaultLoadoutParams")
+def process_component_loadouts(
+    bp: "Blueprint", component, record: "Record", parent_loadout=None, *args, **kwargs
+) -> bool:
     geom_path = bp.geometry_for_record(record, base=True)
     parent_geom, _ = bp.get_or_create_geom(geom_path)
     if parent_geom is None:
-        raise ValueError(f'Could not determine parent geometry for loadout component of {record.filename}')
+        raise ValueError(
+            f"Could not determine parent geometry for loadout component of {record.filename}"
+        )
     if parent_loadout is None:
-        parent_loadout = parent_geom['loadout']
+        parent_loadout = parent_geom["loadout"]
     try:
-        for entry in component.properties['loadout'].properties.get('entries', []):
+        for entry in component.properties["loadout"].properties.get("entries", []):
             try:
-                if not entry.properties['entityClassName']:
+                if not entry.properties["entityClassName"]:
                     continue
 
-                if entry.properties['entityClassName'] not in bp.sc.datacore.entities:
-                    bp.log(f'Could not find entity in Datacore: {entry.properties["entityClassName"]}', logging.WARNING)
+                if entry.properties["entityClassName"] not in bp.sc.datacore.entities:
+                    bp.log(
+                        f'Could not find entity in Datacore: {entry.properties["entityClassName"]}',
+                        logging.WARNING,
+                    )
                     continue
 
                 ipe = bp.sc.datacore.entities[entry.properties["entityClassName"]]
                 bp.add_record_to_extract(ipe.id)
-                port_name = entry.properties['itemPortName']
+                port_name = entry.properties["itemPortName"]
 
                 def _geom_for_port(port):
                     ipe_geom = bp.geometry_for_record(ipe)
                     for tag in ipe_geom:
                         if tag and tag.lower() in port.lower():
                             return ipe_geom[tag]
-                    return ipe_geom.get('', [])
+                    return ipe_geom.get("", [])
 
-                if port_name in parent_geom['helpers']:
-                    helper = parent_geom['helpers'][port_name]
-                    for geom_path in _geom_for_port(helper['name']):
-                        bp.get_or_create_geom(geom_path, parent=parent_geom, create_params={
-                            'pos': helper['pos'], 'rotation': helper['rotation'],
-                            'attrs': {'bone_name': helper['name'].lower()}
-                        })
-                    bp.bone_names.add(helper['name'].lower())
+                if port_name in parent_geom["helpers"]:
+                    helper = parent_geom["helpers"][port_name]
+                    for geom_path in _geom_for_port(helper["name"]):
+                        bp.get_or_create_geom(
+                            geom_path,
+                            parent=parent_geom,
+                            create_params={
+                                "pos": helper["pos"],
+                                "rotation": helper["rotation"],
+                                "attrs": {"bone_name": helper["name"].lower()},
+                            },
+                        )
+                    bp.bone_names.add(helper["name"].lower())
                 else:
                     # assign record to be instanced at the set itemPortName
                     port_name = port_name.lower()
                     ip = bp.get_or_create_item_port(port_name, parent=parent_loadout)
-                    ip['geometry'].update(_geom_for_port(port_name))
+                    ip["geometry"].update(_geom_for_port(port_name))
                     bp.bone_names.add(port_name)
-                    if entry.properties['loadout']:
-                        process_component_loadouts(bp, entry, record, parent_loadout=ip.setdefault('loadout', {}))
+                    if entry.properties["loadout"]:
+                        process_component_loadouts(
+                            bp,
+                            entry,
+                            record,
+                            parent_loadout=ip.setdefault("loadout", {}),
+                        )
             except Exception as e:
-                bp.log(f'processing component SEntityComponentDefaultLoadoutParams', exc_info=e)
+                bp.log(
+                    f"processing component SEntityComponentDefaultLoadoutParams",
+                    exc_info=e,
+                )
     except Exception as e:
-        bp.log(f'processing component SEntityComponentDefaultLoadoutParams: {component}', exc_info=e)
+        bp.log(
+            f"processing component SEntityComponentDefaultLoadoutParams: {component}",
+            exc_info=e,
+        )
         return False
 
     return True
 
 
-@datacore_type_processor('SItemPortContainerComponentParams')
-def process_item_port_component_params(bp: 'Blueprint', component, record: 'Record', *args, **kwargs) -> bool:
+@datacore_type_processor("SItemPortContainerComponentParams")
+def process_item_port_component_params(
+    bp: "Blueprint", component, record: "Record", *args, **kwargs
+) -> bool:
     helpers = {}
-    for port in component.properties['Ports']:
+    for port in component.properties["Ports"]:
         try:
-            helper = port.properties['AttachmentImplementation'].properties['Helper'].properties['Helper']
+            helper = (
+                port.properties["AttachmentImplementation"]
+                .properties["Helper"]
+                .properties["Helper"]
+            )
         except KeyError:
             continue
-        offset = helper.properties['Offset']
-        helpers[port.properties['Name'].lower()] = {
-            'pos': Vector3D(**offset.properties['Position'].properties),
-            'rotation': Quaternion(w=1, **offset.properties['Rotation'].properties),
-            'name': helper.properties['Name'].lower()
+        offset = helper.properties["Offset"]
+        helpers[port.properties["Name"].lower()] = {
+            "pos": Vector3D(**offset.properties["Position"].properties),
+            "rotation": Quaternion(w=1, **offset.properties["Rotation"].properties),
+            "name": helper.properties["Name"].lower(),
         }
-        bp.bone_names.add(helper.properties['Name'].lower())
+        bp.bone_names.add(helper.properties["Name"].lower())
     if helpers:
         geom_path = bp.geometry_for_record(record, base=True)
         parent_geom, _ = bp.get_or_create_geom(geom_path)
         if parent_geom is None:
-            if 'dockingtube' not in record.name.lower():
+            if "dockingtube" not in record.name.lower():
                 # dockingtube entityclassdefinition records dont have geometry, just ignore them here
-                bp.log(f'Could not determine parent geometry for item port component params of {record.filename}',
-                       logging.WARNING)
+                bp.log(
+                    f"Could not determine parent geometry for item port component params of {record.filename}",
+                    logging.WARNING,
+                )
         else:
-            parent_geom['helpers'].update(helpers)
+            parent_geom["helpers"].update(helpers)
     return True
 
 
-@datacore_type_processor('ShipAudioComponentParams', 'AudioPassByComponentParams', 'EntityPhysicalAudioParams')
-def process_audio_component(bp: 'Blueprint', component, record: 'Record', *args, **kwargs) -> bool:
+@datacore_type_processor(
+    "ShipAudioComponentParams",
+    "AudioPassByComponentParams",
+    "EntityPhysicalAudioParams",
+)
+def process_audio_component(
+    bp: "Blueprint", component, record: "Record", *args, **kwargs
+) -> bool:
     # TODO: handle this
     _search_record(bp, component)
     return True
@@ -191,22 +246,24 @@ def process_audio_component(bp: 'Blueprint', component, record: 'Record', *args,
 
 def _handle_vehicle_definition(bp, rec, def_p4k_path):
     # TODO: this needs to move to p4k processors and down select `xml` files that are vehicle definitions
-    def_p4k_path = norm_path(f'{"" if def_p4k_path.startswith("data") else "data/"}{def_p4k_path}').lower()
+    def_p4k_path = norm_path(
+        f'{"" if def_p4k_path.startswith("data") else "data/"}{def_p4k_path}'
+    ).lower()
     bp.add_file_to_extract(def_p4k_path)
-    if ('path', def_p4k_path) in bp._entities_to_process:
-        bp._entities_to_process.remove(('path', def_p4k_path))
+    if ("path", def_p4k_path) in bp._entities_to_process:
+        bp._entities_to_process.remove(("path", def_p4k_path))
 
     vdef_info = bp.sc.p4k.NameToInfoLower[def_p4k_path]
     vdef = dict_from_cryxml_file(bp.sc.p4k.open(vdef_info))
 
     def _walk_parts(part):
-        if isinstance(part.get('Part'), dict):
-            yield from _walk_parts(part['Part'])
-        elif 'Part' in part:
-            for p in part['Part']:
+        if isinstance(part.get("Part"), dict):
+            yield from _walk_parts(part["Part"])
+        elif "Part" in part:
+            for p in part["Part"]:
                 yield from _walk_parts(p)
-        elif 'Parts' in part:
-            yield from _walk_parts(part['Parts'])
+        elif "Parts" in part:
+            yield from _walk_parts(part["Parts"])
         else:
             yield part
         yield part
@@ -217,107 +274,127 @@ def _handle_vehicle_definition(bp, rec, def_p4k_path):
         raise ValueError(f'Could not determine geometry for record "{rec}"')
     parts = {}
     parent_parts = {}
-    for part in _walk_parts(vdef['Vehicle']['Parts']):
-        if part.get('@class', '') == 'Tread':
-            parent_parts[part['@name'].lower()] = {
-                'filename': part['Tread']['@filename'],
-                'children': [
-                    _['@partName'] for _ in part['Tread']['Wheels']['Wheel']
-                ]
+    for part in _walk_parts(vdef["Vehicle"]["Parts"]):
+        if part.get("@class", "") == "Tread":
+            parent_parts[part["@name"].lower()] = {
+                "filename": part["Tread"]["@filename"],
+                "children": [_["@partName"] for _ in part["Tread"]["Wheels"]["Wheel"]],
             }
-            bp.bone_names.add(part['Tread']['Sprocket']['@name'].lower())
-            bp.add_material(part['Tread'].get('@materialName', ''))
-        if 'SubPart' in part and part.get('@class', '') == 'SubPartWheel':
-            parts[part['@name'].lower()] = part['SubPart']['@filename']
+            bp.bone_names.add(part["Tread"]["Sprocket"]["@name"].lower())
+            bp.add_material(part["Tread"].get("@materialName", ""))
+        if "SubPart" in part and part.get("@class", "") == "SubPartWheel":
+            parts[part["@name"].lower()] = part["SubPart"]["@filename"]
 
     for parent_part_name, params in parent_parts.items():
-        parent_part_geom, _ = bp.get_or_create_geom(params['filename'])
-        ip = bp.get_or_create_item_port(parent_part_name, parent=parent_geom['loadout'])
-        ip['geometry'].add(parent_part_geom['name'])
+        parent_part_geom, _ = bp.get_or_create_geom(params["filename"])
+        ip = bp.get_or_create_item_port(parent_part_name, parent=parent_geom["loadout"])
+        ip["geometry"].add(parent_part_geom["name"])
         bp.bone_names.add(parent_part_name)
-        for child_part_name in params['children']:
+        for child_part_name in params["children"]:
             if child_part_name not in parts:
-                bp.log(f'did not find child part {child_part_name} for {parent_part_name} in '
-                       f'{parent_geom["name"]}')
+                bp.log(
+                    f"did not find child part {child_part_name} for {parent_part_name} in "
+                    f'{parent_geom["name"]}'
+                )
                 continue
             child_part = parts.pop(child_part_name)
             child_geom, _ = bp.get_or_create_geom(child_part)
-            ip = bp.get_or_create_item_port(child_part_name, parent=parent_part_geom['loadout'])
-            ip['geometry'].add(child_geom['name'])
+            ip = bp.get_or_create_item_port(
+                child_part_name, parent=parent_part_geom["loadout"]
+            )
+            ip["geometry"].add(child_geom["name"])
             bp.bone_names.add(child_part_name)
 
     for part, part_file in parts.items():
         geom, _ = bp.get_or_create_geom(part_file)
-        ip = bp.get_or_create_item_port(part, parent=parent_geom['loadout'])
-        ip['geometry'].add(geom['name'])
+        ip = bp.get_or_create_item_port(part, parent=parent_geom["loadout"])
+        ip["geometry"].add(geom["name"])
         bp.bone_names.add(part)
 
 
-@datacore_type_processor('VehicleComponentParams')
-def process_vehicle_components(bp: 'Blueprint', component, record: 'Record', *args, **kwargs) -> bool:
+@datacore_type_processor("VehicleComponentParams")
+def process_vehicle_components(
+    bp: "Blueprint", component, record: "Record", *args, **kwargs
+) -> bool:
     vc = component
-    for prop in ['landingSystem']:
+    for prop in ["landingSystem"]:
         if vc.properties.get(prop):
             bp.add_record_to_extract(vc.properties[prop])
-    for prop in ['physicsGrid']:
+    for prop in ["physicsGrid"]:
         if prop in vc.properties:
             _search_record(bp, vc.properties[prop])
-    if vc.properties.get('vehicleDefinition'):
-        _handle_vehicle_definition(bp, record, vc.properties['vehicleDefinition'])
-    if vc.properties.get('objectContainers'):
-        for oc in vc.properties['objectContainers']:
+    if vc.properties.get("vehicleDefinition"):
+        _handle_vehicle_definition(bp, record, vc.properties["vehicleDefinition"])
+    if vc.properties.get("objectContainers"):
+        for oc in vc.properties["objectContainers"]:
             try:
-                p4k_info = bp.sc.p4k.NameToInfoLower[f'data/{norm_path(oc.properties["fileName"])}'.lower()]
+                p4k_info = bp.sc.p4k.NameToInfoLower[
+                    f'data/{norm_path(oc.properties["fileName"])}'.lower()
+                ]
                 attrs = {}
-                if 'Offset' in oc.properties:
-                    offset = oc.properties['Offset'].properties
+                if "Offset" in oc.properties:
+                    offset = oc.properties["Offset"].properties
                     attrs = {
-                        'pos': offset['Position'].properties,
-                        'rotation': ang3_to_quaternion(offset['Rotation']),
+                        "pos": offset["Position"].properties,
+                        "rotation": ang3_to_quaternion(offset["Rotation"]),
                     }
-                bp.add_container(p4k_info.filename, {
-                    'socpak': p4k_info,
-                    'bone_name': oc.properties['boneName'],
-                    'attrs': attrs
-                })
+                bp.add_container(
+                    p4k_info.filename,
+                    {
+                        "socpak": p4k_info,
+                        "bone_name": oc.properties["boneName"],
+                        "attrs": attrs,
+                    },
+                )
                 # process_socpak(bp, p4k_info.filename, p4k_info, bone_name=oc.properties['boneName'], attrs=attrs)
             except KeyError:
-                bp.log(f'could not find socpak for object container: "{oc.properties["fileName"]}"', logging.ERROR)
+                bp.log(
+                    f'could not find socpak for object container: "{oc.properties["fileName"]}"',
+                    logging.ERROR,
+                )
 
     return True
 
 
-@datacore_type_processor('EntityClassDefinition')
-def process_entity_class(bp: 'Blueprint', record: 'Entity') -> bool:
+@datacore_type_processor("EntityClassDefinition")
+def process_entity_class(bp: "Blueprint", record: "Entity") -> bool:
     # handle priority components first
     sorted_components = sorted(
-        record.properties['Components'],
-        key=lambda c: COMPONENT_PROCESS_PRIORITY.index(c.type) if c.type in COMPONENT_PROCESS_PRIORITY else 99
+        record.properties["Components"],
+        key=lambda c: COMPONENT_PROCESS_PRIORITY.index(c.type)
+        if c.type in COMPONENT_PROCESS_PRIORITY
+        else 99,
     )
     for component in sorted_components:
         process_datacore_object(bp, component, record=record)
     return True
 
 
-@datacore_type_processor('SAnimationControllerParams')
-def process_animation_controller_params(bp: 'Blueprint', component, record: 'Record', *args, **kwargs) -> bool:
+@datacore_type_processor("SAnimationControllerParams")
+def process_animation_controller_params(
+    bp: "Blueprint", component, record: "Record", *args, **kwargs
+) -> bool:
     # TODO: to better at handling this (remove dict_search)
     d = bp.sc.datacore.record_to_dict(component)
     p4k_files = set(dict_search(d, RECORD_KEYS_WITH_PATHS, ignore_case=True))
-    bp.add_file_to_extract([f'Data/Animations/Mannequin/ADB/{_}' for _ in p4k_files])
+    bp.add_file_to_extract([f"Data/Animations/Mannequin/ADB/{_}" for _ in p4k_files])
     return True
 
 
-@datacore_type_processor('VehicleLandingGearSystem')
-def process_vehicle_landing_gear(bp: 'Blueprint', record: 'Record', *args, **kwargs) -> bool:
+@datacore_type_processor("VehicleLandingGearSystem")
+def process_vehicle_landing_gear(
+    bp: "Blueprint", record: "Record", *args, **kwargs
+) -> bool:
     parent_geom = bp.geometry_for_record(bp.entity, base=True)
     parent_geom, _ = bp.get_or_create_geom(parent_geom)
-    for gear in record.properties['gears']:
-        process_geometry_resource_params(bp, gear.properties['geometry'], record)
-        geom, _ = bp.get_or_create_geom(gear.properties['geometry'].properties['path'])
+    for gear in record.properties["gears"]:
+        process_geometry_resource_params(bp, gear.properties["geometry"], record)
+        geom, _ = bp.get_or_create_geom(gear.properties["geometry"].properties["path"])
         if geom is None:
             continue
-        ip = bp.get_or_create_item_port(gear.properties['bone'], parent=parent_geom['loadout'])
-        ip['geometry'].add(geom['name'])
-        bp.bone_names.add(gear.properties['bone'].lower())
+        ip = bp.get_or_create_item_port(
+            gear.properties["bone"], parent=parent_geom["loadout"]
+        )
+        ip["geometry"].add(geom["name"])
+        bp.bone_names.add(gear.properties["bone"].lower())
     return True

@@ -11,12 +11,11 @@ class AreaShapeObject(Chunk):
         self.portals = []
 
         self.chunk_data.read(4)  # unknown1
-        self.area_shapes_len = self.chunk_data.unpack('<I')
-        self.num_vis_areas = self.chunk_data.unpack('<I')
-        self.num_portals = self.chunk_data.unpack('<I')
+        self.area_shapes_len = self.chunk_data.unpack("<I")
+        self.num_vis_areas = self.chunk_data.unpack("<I")
+        self.num_portals = self.chunk_data.unpack("<I")
         self.chunk_data.read(4)  # unknown2
 
         # TODO: flesh out the rest of the areashape chunk
         #    dymek had parsed out some of the, what looks to be, old format, could be useful:
         #    https://github.com/dymek91/Exporting-Toolkit/blob/master/shipsExporter/CryEngine/ChCr/SCOC/AreaShapes.cs
-

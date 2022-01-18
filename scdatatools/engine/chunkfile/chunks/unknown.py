@@ -1,4 +1,3 @@
-
 # TODO: these are placeholders to avoid verbose logging outputs - need to be researched/implemented
 
 from . import defs
@@ -17,6 +16,7 @@ class UnknownSC12001(Chunk):
         offset [c_ulong] = 6220;
     };
     """
+
     pass
 
 
@@ -33,6 +33,7 @@ class UnknownSC6001(Chunk):
     };
 
     """
+
     pass
 
 
@@ -48,6 +49,7 @@ class UnknownSC2005(Chunk):
         offset [c_ulong] = 64;
     };
     """
+
     pass
 
 
@@ -68,4 +70,5 @@ class UnknownSC7002(Chunk):
         offset [c_ulong] = 2280;
     };
     """
+
     pass

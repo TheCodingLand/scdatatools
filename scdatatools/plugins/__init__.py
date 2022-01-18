@@ -25,11 +25,11 @@ class DataToolsPlugin:
 class P4KConverterPlugin(DataToolsPlugin):
     # List of file suffixes that this converter handles. This is used to easily select which files to
     # run converters for
-    name = ''
-    display_name = ''
+    name = ""
+    display_name = ""
     handles = []
 
-    CONVERTER_HOOK = 'scdt.p4k_converter'
+    CONVERTER_HOOK = "scdt.p4k_converter"
 
     def register(self):
         super().register()
@@ -41,16 +41,22 @@ class P4KConverterPlugin(DataToolsPlugin):
 
     @staticmethod
     def outpath(outdir, member, save_to):
-        """ Return the output path for the given member and the given save_to state """
+        """Return the output path for the given member and the given save_to state"""
         if save_to:
             return outdir / Path(member.filename).name
         return outdir / Path(member.filename)
 
     @classmethod
-    def convert(cls, members: typing.List['P4KInfo'], path: typing.Union[Path, str], overwrite: bool = False,
-                save_to: bool = False, options: typing.Dict = None,
-                monitor: typing.Callable = None) -> typing.List['P4KInfo']:
-        """ Handles converting `P4KInfo` files from the given list. Returns the list of members there were _not_ handled
+    def convert(
+        cls,
+        members: typing.List["P4KInfo"],
+        path: typing.Union[Path, str],
+        overwrite: bool = False,
+        save_to: bool = False,
+        options: typing.Dict = None,
+        monitor: typing.Callable = None,
+    ) -> typing.List["P4KInfo"]:
+        """Handles converting `P4KInfo` files from the given list. Returns the list of members there were _not_ handled
         by this converter
 
         :param members: List of `P4KInfo` files to attempt to convert
@@ -82,58 +88,67 @@ class PluginManager:
             from scdatatools.engine.cryxml import CryXmlConverter
             from scdatatools.engine.textures.converter import DDSTextureConverter
             from scdatatools.engine.chunkfile.converter import CGFModelConverter
+
             self.discover_plugins()
             self._setup = True
 
     def register_plugin(self, plugin: DataToolsPlugin):
         plug = plugin.__module__
         if not issubclass(plugin, self.PLUGIN_CLASS):
-            raise ValueError(f'Invalid plugin class type for "{plug}", must inherit from {self.PLUGIN_CLASS}')
+            raise ValueError(
+                f'Invalid plugin class type for "{plug}", must inherit from {self.PLUGIN_CLASS}'
+            )
         if plug in self.plugins:
-            raise KeyError(f'Plugin {plug} has already been registered')
+            raise KeyError(f"Plugin {plug} has already been registered")
         self.plugins[plug] = plugin()
         self.plugins[plug].register()
-        logger.info(f'Registered plugin {plug}')
+        logger.info(f"Registered plugin {plug}")
 
     def unregister_plugin(self, plugin: DataToolsPlugin):
         plug = plugin.__module__
         if plug in self.plugins:
-            raise KeyError(f'Plugin {plug} is not registered')
+            raise KeyError(f"Plugin {plug} is not registered")
         self.plugins[plug].unregister()
         del self.plugins[plug]
-        logger.info(f'Unregistered plugin {plug}')
+        logger.info(f"Unregistered plugin {plug}")
 
-    def register_hook(self, hook: str, handler: callable, name=None, priority=100, **kwargs):
-        """ Registers `func` with the hook `hook` """
-        hook_name = f'{handler.__module__}{handler.__name__}' if name is None else name
-        self._hooks.setdefault(hook, {})[hook_name] = {'handler': handler, 'kwargs': kwargs, 'priority': priority}
+    def register_hook(
+        self, hook: str, handler: callable, name=None, priority=100, **kwargs
+    ):
+        """Registers `func` with the hook `hook`"""
+        hook_name = f"{handler.__module__}{handler.__name__}" if name is None else name
+        self._hooks.setdefault(hook, {})[hook_name] = {
+            "handler": handler,
+            "kwargs": kwargs,
+            "priority": priority,
+        }
         return self._hooks[hook][hook_name]
 
     def unregister_hook(self, hook: str, handler: typing.Union[callable, str]):
-        """ Removes `func` from the hook `hook` """
+        """Removes `func` from the hook `hook`"""
         if isinstance(handler, callable):
-            hook_name = f'{handler.__module__}{handler.__name__}'
+            hook_name = f"{handler.__module__}{handler.__name__}"
         else:
             hook_name = handler
         if hook_name in self._hooks.setdefault(hook, {}):
             self._hooks.pop(hook_name)
 
     def hooks(self, hook):
-        """ Returns the registered handlers for `hook` sorted by priority """
-        return sorted(self._hooks.get(hook, {}).items(), key=lambda h: h[1]['priority'])
+        """Returns the registered handlers for `hook` sorted by priority"""
+        return sorted(self._hooks.get(hook, {}).items(), key=lambda h: h[1]["priority"])
 
     def handle_hook(self, hook, *args, **kwargs):
-        """ Calls the top priority handler for the given `hook` with args/kwargs. If no handlers are available, throws
+        """Calls the top priority handler for the given `hook` with args/kwargs. If no handlers are available, throws
         PluginManager.HandlerNotAvailable
         """
         handlers = self.hooks(hook)
         if not handlers:
             raise self.HandlerNotAvailable
-        return handlers[0][1]['handler'](*args, **kwargs)
+        return handlers[0][1]["handler"](*args, **kwargs)
 
     @classmethod
     def discover_plugins(cls, plugins_dir=None):
-        """ Dynamically discover and load plugins """
+        """Dynamically discover and load plugins"""
         discovered_plugins = {
             name: importlib.import_module(name)
             for finder, name, ispkg in pkgutil.iter_modules()
@@ -157,7 +172,7 @@ unregister_hook = plugin_manager.unregister_hook
 
 
 def register(plugin: DataToolsPlugin):
-    """ Decorator to register a `DataToolsPlugin`
+    """Decorator to register a `DataToolsPlugin`
 
     @plugins.register
     class MyPlugin(DataToolsPlugin):

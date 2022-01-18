@@ -6,28 +6,30 @@ class TOPBAR_MT_SCImport(bpy.types.Menu):
     """
     This defines a new class that will be the menu, "Import".
     """
+
     bl_idname = "TOPBAR_MT_SCImport"
     bl_label = "Import"
 
     def draw(self, context):
-        self.layout.operator('scdt.import_sc_blueprint')
-        self.layout.operator('scdt.import_material')
+        self.layout.operator("scdt.import_sc_blueprint")
+        self.layout.operator("scdt.import_material")
 
 
 class TOPBAR_MT_SCUtilities(bpy.types.Menu):
     """
     This defines a new class that will be the menu, "Utilities".
     """
+
     bl_idname = "TOPBAR_MT_SCUtilities"
     bl_label = "Utilities"
 
     def draw(self, context):
-        self.layout.operator('scdt.remove_sc_physics_proxies')
-        self.layout.operator('scdt.remove_proxy_meshes')
-        self.layout.operator('scdt.remove_sc_bboxes')
-        self.layout.operator('scdt.remove_sc_visarea')
-        self.layout.operator('scdt.load_sc_shader_nodes')
-        self.layout.operator('scdt.make_real')
+        self.layout.operator("scdt.remove_sc_physics_proxies")
+        self.layout.operator("scdt.remove_proxy_meshes")
+        self.layout.operator("scdt.remove_sc_bboxes")
+        self.layout.operator("scdt.remove_sc_visarea")
+        self.layout.operator("scdt.load_sc_shader_nodes")
+        self.layout.operator("scdt.make_real")
 
 
 class TOPBAR_MT_SCModding(bpy.types.Menu):
@@ -35,6 +37,7 @@ class TOPBAR_MT_SCModding(bpy.types.Menu):
     This defines a new class that will be the top most parent menu, "SCModding".
     All the other action menu items are children of this.
     """
+
     bl_idname = "TOPBAR_MT_SCModding"
     bl_label = "SC Modding"
 

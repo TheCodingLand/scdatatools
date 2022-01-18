@@ -16,7 +16,7 @@ __all__ = [
     "etree_from_cryxml_string",
     "dict_from_cryxml_string",
     "camel_attr_to_snake",
-    "is_cryxmlb_file"
+    "is_cryxmlb_file",
 ]
 
 import re
@@ -44,12 +44,12 @@ from scdatatools.p4k import monitor_msg_from_info, P4KInfo
 
 logger = logging.getLogger(__name__)
 CRYXMLB_SIGNATURE = b"CryXmlB"
-CRYXMLB_EXTENSIONS = ['xml', 'mtl', 'chrparams', 'entxml', 'rmp', 'animevents', 'adb']
+CRYXMLB_EXTENSIONS = ["xml", "mtl", "chrparams", "entxml", "rmp", "animevents", "adb"]
 
 
 class CryXmlConversionFormat(enum.Enum):
-    xml = 'xml'
-    json = 'json'
+    xml = "xml"
+    json = "json"
 
 
 class _StandardXmlFile(Exception):
@@ -57,7 +57,7 @@ class _StandardXmlFile(Exception):
 
 
 class _CryXMLBParser:
-    """ Parsers a CryXMLB file """
+    """Parsers a CryXMLB file"""
 
     def __init__(self, target, encoding="UTF-8"):
         self.target = target
@@ -278,7 +278,7 @@ def is_cryxmlb_file(source):
 
 
 def etree_from_cryxml_file(source) -> ElementTree:
-    """ Convenience method that converts the file `source` to an ElementTree.
+    """Convenience method that converts the file `source` to an ElementTree.
 
     :param source: File name or file object
     """
@@ -286,7 +286,7 @@ def etree_from_cryxml_file(source) -> ElementTree:
 
 
 def etree_from_cryxml_string(string) -> ElementTree:
-    """ Convenience method that converts the data `string` to an ElementTree.
+    """Convenience method that converts the data `string` to an ElementTree.
 
     :param string: CryXMLB data
     """
@@ -294,7 +294,7 @@ def etree_from_cryxml_string(string) -> ElementTree:
 
 
 def dict_from_cryxml_file(source) -> dict:
-    """ Convenience method that converts the file `source` to a dictionary.
+    """Convenience method that converts the file `source` to a dictionary.
 
     :param source: File name or file object
     """
@@ -302,14 +302,14 @@ def dict_from_cryxml_file(source) -> dict:
 
 
 def dict_from_cryxml_string(string) -> dict:
-    """ Convenience method that converts the data `string` to a dictionary.
+    """Convenience method that converts the data `string` to a dictionary.
 
     :param string: CryXMLB data
     """
     return etree_to_dict(etree_from_cryxml_string(string))
 
 
-_CAMELCASE_TO_SNAKE_RE = re.compile(r'((?<=[a-z0-9])[A-Z]|(?!^)(?<!_)[A-Z](?=[a-z]))')
+_CAMELCASE_TO_SNAKE_RE = re.compile(r"((?<=[a-z0-9])[A-Z]|(?!^)(?<!_)[A-Z](?=[a-z]))")
 
 
 def camel_attr_to_snake(name) -> str:
@@ -321,33 +321,39 @@ def camel_attr_to_snake(name) -> str:
     :param name: CamelCased attribute name
     :return: Snake cased variant
     """
-    if name[0] == '@':
+    if name[0] == "@":
         name = name[1:]
-    return _CAMELCASE_TO_SNAKE_RE.sub(r'_\1', name).lower()
+    return _CAMELCASE_TO_SNAKE_RE.sub(r"_\1", name).lower()
 
 
 @plugins.register
 class CryXmlConverter(plugins.P4KConverterPlugin):
-    name = 'cryxml_converter'
-    display_name = 'CryXml Converter'
+    name = "cryxml_converter"
+    display_name = "CryXml Converter"
     handles = CRYXMLB_EXTENSIONS
 
     @classmethod
-    def convert(cls, members: typing.List['P4KInfo'], path: Path, overwrite: bool = False,
-                save_to: bool = False, options: typing.Dict = None,
-                monitor: typing.Callable = None) -> tuple[list['P4KInfo'], list[Path]]:
+    def convert(
+        cls,
+        members: typing.List["P4KInfo"],
+        path: Path,
+        overwrite: bool = False,
+        save_to: bool = False,
+        options: typing.Dict = None,
+        monitor: typing.Callable = None,
+    ) -> typing.Tuple[typing.List["P4KInfo"], typing.List[Path]]:
 
         options = options or {}
         unhandled_members = []
         extracted_paths = []
-        convert_cryxml_fmt = options.get('convert_cryxml_fmt', 'xml').casefold()
+        convert_cryxml_fmt = options.get("convert_cryxml_fmt", "xml").casefold()
 
-        if convert_cryxml_fmt == 'cryxmlb':
+        if convert_cryxml_fmt == "cryxmlb":
             return members, extracted_paths
 
         while members:
             member = members.pop()
-            ext = member.filename.split('.', maxsplit=1)[-1].casefold()
+            ext = member.filename.split(".", maxsplit=1)[-1].casefold()
 
             if ext not in CRYXMLB_EXTENSIONS:
                 unhandled_members.append(member)
@@ -356,21 +362,32 @@ class CryXmlConverter(plugins.P4KConverterPlugin):
 
                 if overwrite or not outpath.is_file():
                     try:
-                        with member.open('rb') as member_file:
+                        with member.open("rb") as member_file:
                             if is_cryxmlb_file(member_file):
                                 outpath.parent.mkdir(exist_ok=True, parents=True)
-                                with outpath.open('w') as outfile:
-                                    if convert_cryxml_fmt == 'xml':
-                                        outfile.write(pprint_xml_tree(etree_from_cryxml_file(member_file)))
+                                with outpath.open("w") as outfile:
+                                    if convert_cryxml_fmt == "xml":
+                                        outfile.write(
+                                            pprint_xml_tree(
+                                                etree_from_cryxml_file(member_file)
+                                            )
+                                        )
                                     else:
-                                        json.dump(dict_from_cryxml_file(member_file), outfile, indent=2)
+                                        json.dump(
+                                            dict_from_cryxml_file(member_file),
+                                            outfile,
+                                            indent=2,
+                                        )
                                 if monitor is not None:
                                     monitor(monitor_msg_from_info(member))
                             else:
                                 unhandled_members.append(member)
                         extracted_paths.append(outpath.as_posix())
                     except Exception as e:
-                        logger.exception(f'Failed to convert CryXmlB file {member.filename}', exc_info=e)
+                        logger.exception(
+                            f"Failed to convert CryXmlB file {member.filename}",
+                            exc_info=e,
+                        )
                         unhandled_members.append(member)
 
         return unhandled_members, extracted_paths

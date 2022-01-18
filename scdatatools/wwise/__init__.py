@@ -11,8 +11,8 @@ from scdatatools.p4k import P4KInfo
 from scdatatools.engine.cryxml import is_cryxmlb_file, dict_from_cryxml_string
 
 
-GAME_AUDIO_P4K_RELPATH = Path('Data/Libs/')
-GAME_AUDIO_P4K_SEARCH = str(GAME_AUDIO_P4K_RELPATH / 'GameAudio' / '*.xml')
+GAME_AUDIO_P4K_RELPATH = Path("Data/Libs/")
+GAME_AUDIO_P4K_SEARCH = str(GAME_AUDIO_P4K_RELPATH / "GameAudio" / "*.xml")
 
 
 class WwiseManager:
@@ -25,20 +25,24 @@ class WwiseManager:
         :param revorb: Optionally specify the revorb command path. Otherwise it will try to be automatically found.
         """
         self.sc = sc
-        self.wems = {Path(_.filename).stem: _ for _ in sc.p4k.search('Data/Sounds/wwise/*.wem')}
+        self.wems = {
+            Path(_.filename).stem: _ for _ in sc.p4k.search("Data/Sounds/wwise/*.wem")
+        }
         self.bank_manager = BankManager()
-        for bnk in self.sc.p4k.search('Data/Sounds/wwise/*.bnk'):
-            self.bank_manager.load_bank(Path(bnk.filename).name, sc.p4k.open(bnk).read())
+        for bnk in self.sc.p4k.search("Data/Sounds/wwise/*.bnk"):
+            self.bank_manager.load_bank(
+                Path(bnk.filename).name, sc.p4k.open(bnk).read()
+            )
 
         self.preloads = {}
         self.triggers = {}
         self.external_sources = {}
         self._loaded_game_files = set()
 
-        self.ww2ogg = ww2ogg if ww2ogg is not None else shutil.which('ww2ogg.exe')
+        self.ww2ogg = ww2ogg if ww2ogg is not None else shutil.which("ww2ogg.exe")
         if self.ww2ogg is not None:
             self.ww2ogg = Path(self.ww2ogg)
-        self.revorb = revorb if revorb is not None else shutil.which('revorb.exe')
+        self.revorb = revorb if revorb is not None else shutil.which("revorb.exe")
         if self.revorb is not None:
             self.revorb = Path(self.revorb)
 
@@ -57,32 +61,43 @@ class WwiseManager:
             try:
                 ga = dict_from_cryxml_string(raw)
             except Exception as e:
-                logging.exception(f'Exception processing GameAudio file: {game_audio_file.name}', exc_info=e)
+                logging.exception(
+                    f"Exception processing GameAudio file: {game_audio_file.name}",
+                    exc_info=e,
+                )
                 return
 
             ga_name = Path(game_audio_file.name).stem
-            self.preloads[ga_name] = {'triggers': {}, 'external_sources': {}}
+            self.preloads[ga_name] = {"triggers": {}, "external_sources": {}}
 
             # Process ATL Triggers
-            atl_triggers = ga.get('ATLConfig', {}).get('AudioTriggers', {}).get('ATLTrigger', [])
+            atl_triggers = (
+                ga.get("ATLConfig", {}).get("AudioTriggers", {}).get("ATLTrigger", [])
+            )
             if isinstance(atl_triggers, dict):
-                atl_triggers = [atl_triggers]    # if there is only one trigger it wont be a list
+                atl_triggers = [
+                    atl_triggers
+                ]  # if there is only one trigger it wont be a list
             for trigger in atl_triggers:
-                atl_name = trigger.get('@atl_name', '')
+                atl_name = trigger.get("@atl_name", "")
                 if atl_name:
-                    self.preloads[ga_name]['triggers'][atl_name] = trigger
+                    self.preloads[ga_name]["triggers"][atl_name] = trigger
                     self.triggers[atl_name] = trigger
 
             # Process ATLExternalSources
-            atl_ext_sources = ga.get('ATLConfig',
-                                     {}).get('AudioExternalSources',
-                                             {}).get('ATLExternalSource', [])
+            atl_ext_sources = (
+                ga.get("ATLConfig", {})
+                .get("AudioExternalSources", {})
+                .get("ATLExternalSource", [])
+            )
             if isinstance(atl_ext_sources, dict):
-                atl_ext_sources = [atl_ext_sources]    # if there is only one ext_source it wont be a list
+                atl_ext_sources = [
+                    atl_ext_sources
+                ]  # if there is only one ext_source it wont be a list
             for ext_source in atl_ext_sources:
-                atl_name = ext_source.get('@atl_name', '')
+                atl_name = ext_source.get("@atl_name", "")
                 if atl_name:
-                    self.preloads[ga_name]['external_sources'][atl_name] = ext_source
+                    self.preloads[ga_name]["external_sources"][atl_name] = ext_source
                     self.external_sources[atl_name] = ext_source
 
             self._loaded_game_files.add(game_audio_file.name)
@@ -91,14 +106,19 @@ class WwiseManager:
         if not atl_name:
             return {}
         if atl_name in self.external_sources:
-            wf = self.external_sources[atl_name]['ATLExternalSourceEntry']['WwiseExternalSource']['@wwise_filename']
+            wf = self.external_sources[atl_name]["ATLExternalSourceEntry"][
+                "WwiseExternalSource"
+            ]["@wwise_filename"]
             wf_name = Path(wf).stem
             return {wf_name: self.wems[wf_name]}
         wem_ids = self.bank_manager.wems_for_atl_name(atl_name)
         return {str(_): self.wems[str(_)] for _ in wem_ids if str(_) in self.wems}
 
-    def convert_wem(self, wem_bytes_or_id: typing.Union[bytes, str, int, P4KInfo],
-                    return_file: bool = False) -> typing.Union[bytes, Path]:
+    def convert_wem(
+        self,
+        wem_bytes_or_id: typing.Union[bytes, str, int, P4KInfo],
+        return_file: bool = False,
+    ) -> typing.Union[bytes, Path]:
         """
         Converts the given `wem` buffer into `ogg`
 
@@ -109,39 +129,49 @@ class WwiseManager:
         :return: Converted `ogg` bytes object or a `Path` if `return_file` is true
         """
         if not self.ww2ogg:
-            raise ValueError(f'Could not find ww2ogg, ensure it exists in your system path, set the ww2ogg '
-                             f'attribute for the Wwise manager')
+            raise ValueError(
+                f"Could not find ww2ogg, ensure it exists in your system path, set the ww2ogg "
+                f"attribute for the Wwise manager"
+            )
         if not self.revorb:
-            raise ValueError(f'Could not find revorb, ensure it exists in your system path, set the revorb '
-                             f'attribute for the Wwise manager')
+            raise ValueError(
+                f"Could not find revorb, ensure it exists in your system path, set the revorb "
+                f"attribute for the Wwise manager"
+            )
 
-        _ = NamedTemporaryFile(suffix=f'.wem', delete=False)
+        _ = NamedTemporaryFile(suffix=f".wem", delete=False)
         tmpout = Path(_.name)
-        oggout = Path(tmpout.parent / f'{tmpout.stem}.ogg')
+        oggout = Path(tmpout.parent / f"{tmpout.stem}.ogg")
         _.close()
 
         if isinstance(wem_bytes_or_id, (str, int)):
-            with self.sc.p4k.open(self.wems[str(wem_bytes_or_id)]) as source, tmpout.open('wb') as t:
+            with self.sc.p4k.open(
+                self.wems[str(wem_bytes_or_id)]
+            ) as source, tmpout.open("wb") as t:
                 shutil.copyfileobj(source, t)
         elif isinstance(wem_bytes_or_id, P4KInfo):
-            with self.sc.p4k.open(wem_bytes_or_id) as source, tmpout.open('wb') as t:
+            with self.sc.p4k.open(wem_bytes_or_id) as source, tmpout.open("wb") as t:
                 shutil.copyfileobj(source, t)
         else:
-            with tmpout.open('wb') as t:
+            with tmpout.open("wb") as t:
                 t.write(wem_bytes_or_id)
 
         curdir = os.getcwd()
         try:
             os.chdir(self.ww2ogg.parent.absolute())
-            check_output(f'{self.ww2ogg} {tmpout.absolute()} -o {oggout.absolute()} '
-                         f'--pcb packed_codebooks_aoTuV_603.bin', stderr=STDOUT, shell=True)
-            check_output(f'{self.revorb} {oggout}', stderr=STDOUT, shell=True)
+            check_output(
+                f"{self.ww2ogg} {tmpout.absolute()} -o {oggout.absolute()} "
+                f"--pcb packed_codebooks_aoTuV_603.bin",
+                stderr=STDOUT,
+                shell=True,
+            )
+            check_output(f"{self.revorb} {oggout}", stderr=STDOUT, shell=True)
             if not return_file:
-                with oggout.open('rb') as o:
+                with oggout.open("rb") as o:
                     return o.read()
             return oggout
         except CalledProcessError as e:
-            raise Exception(f'Error converting wem: {e}')
+            raise Exception(f"Error converting wem: {e}")
         finally:
             os.chdir(curdir)
             tmpout.unlink(missing_ok=True)

@@ -7,13 +7,14 @@ if typing.TYPE_CHECKING:
     from scdatatools.forge.dftypes import DataCoreBase
 
 
-IGNORED_FILETYPES = ['dds', 'tif', 'socpak', 'brmp', 'obj', 'altg']
+IGNORED_FILETYPES = ["dds", "tif", "socpak", "brmp", "obj", "altg"]
 
 
 class BluePrintProcessorManager:
-    """ Manages processors for `filetypes`. This class should be accessed via `process_manager` singleton defined in
+    """Manages processors for `filetypes`. This class should be accessed via `process_manager` singleton defined in
     `scdatatools.sc.blueprints.processors.process_manager`
     """
+
     def __init__(self):
         self._processors_for_filetype = {}
         self._processors_for_datacore_type = {}
@@ -29,12 +30,18 @@ class BluePrintProcessorManager:
     def processors_for_filetype(self, filetype: str) -> typing.List[typing.Callable]:
         return self._processors_for_filetype.setdefault(filetype, [])
 
-    def processors_for_datacore_type(self, record_type: str) -> typing.List[typing.Callable]:
+    def processors_for_datacore_type(
+        self, record_type: str
+    ) -> typing.List[typing.Callable]:
         return self._processors_for_datacore_type.setdefault(record_type, [])
 
-    def register_filetype_processor(self, filetype: typing.Union[str, typing.List[str]],
-                                    processor: typing.Callable, index: int = -1) -> typing.Callable:
-        """ Register the given `processor` for the given `filetype` (or list of filetypes) at `index`
+    def register_filetype_processor(
+        self,
+        filetype: typing.Union[str, typing.List[str]],
+        processor: typing.Callable,
+        index: int = -1,
+    ) -> typing.Callable:
+        """Register the given `processor` for the given `filetype` (or list of filetypes) at `index`
         :param filetype: `str` of the filetype (e.g. 'xml')
         :param processor: Processor to be called to process a file matching `filetype`
         :param index: Index to insert the `processor` into list of processors for `filetype`. Defaults to appending
@@ -44,32 +51,46 @@ class BluePrintProcessorManager:
             if index == -1:
                 self._processors_for_filetype.setdefault(filetype, []).append(processor)
             else:
-                self._processors_for_filetype.setdefault(filetype, []).insert(index, processor)
+                self._processors_for_filetype.setdefault(filetype, []).insert(
+                    index, processor
+                )
         return processor
 
     def unregister_filetype_processor(self, filetype, processor):
         self.processors_for_filetype(filetype).remove(processor)
 
-    def register_datacore_type_processor(self, datacore_type: typing.Union[str, typing.List[str]],
-                                         processor: typing.Callable, index: int = -1) -> typing.Callable:
-        """ Register the given `processor` for the given `datacore_type` (or list of datacore_types) at `index`
+    def register_datacore_type_processor(
+        self,
+        datacore_type: typing.Union[str, typing.List[str]],
+        processor: typing.Callable,
+        index: int = -1,
+    ) -> typing.Callable:
+        """Register the given `processor` for the given `datacore_type` (or list of datacore_types) at `index`
         :param datacore_type: `str` of the record_type (e.g. 'ShipEntity')
         :param processor: Processor to be called to process a file matching `record_type`
         :param index: Index to insert the `processor` into list of processors for `record_type`. Defaults to appending
         """
-        datacore_types = [datacore_type] if isinstance(datacore_type, str) else datacore_type
+        datacore_types = (
+            [datacore_type] if isinstance(datacore_type, str) else datacore_type
+        )
         for datacore_type in datacore_types:
             if index == -1:
-                self._processors_for_datacore_type.setdefault(datacore_type, []).append(processor)
+                self._processors_for_datacore_type.setdefault(datacore_type, []).append(
+                    processor
+                )
             else:
-                self._processors_for_datacore_type.setdefault(datacore_type, []).insert(index, processor)
+                self._processors_for_datacore_type.setdefault(datacore_type, []).insert(
+                    index, processor
+                )
         return processor
 
     def unregister_datacore_type_processor(self, record_type, processor):
         self.processors_for_datacore_type(record_type).remove(processor)
 
-    def process_p4kfile(self, blueprint: 'Blueprint', path: str, *args, **kwargs) -> bool:
-        """ Processes the given path/p4k_info for `Blueprint` using the appropriate processor for `filetype`.
+    def process_p4kfile(
+        self, blueprint: "Blueprint", path: str, *args, **kwargs
+    ) -> bool:
+        """Processes the given path/p4k_info for `Blueprint` using the appropriate processor for `filetype`.
 
         Multiple processors for a `filetype` may be registered, and each one will be tried in turn until one is
         successful (returns `True`).
@@ -77,25 +98,33 @@ class BluePrintProcessorManager:
         :returns: `bool` whether or not the path was processed successfully
         """
         self._check_loaded()
-        filetype = path.split('.', maxsplit=1)[1]
+        filetype = path.split(".", maxsplit=1)[1]
 
         try:
             p4k_info = blueprint.sc.p4k.getinfo(path)
         except KeyError:
-            blueprint.log(f'Cant find p4k file to process, how did we get here? {path}', logging.ERROR)
+            blueprint.log(
+                f"Cant find p4k file to process, how did we get here? {path}",
+                logging.ERROR,
+            )
             return False
 
-        if filetype not in self._processors_for_filetype and filetype.split('.')[0] not in IGNORED_FILETYPES:
-            blueprint.log(f'unhandled p4k file: {path}', logging.WARNING)
+        if (
+            filetype not in self._processors_for_filetype
+            and filetype.split(".")[0] not in IGNORED_FILETYPES
+        ):
+            blueprint.log(f"unhandled p4k file: {path}", logging.WARNING)
             return False
 
         for processor in self.processors_for_filetype(filetype):
             if processor(blueprint, path, p4k_info, *args, **kwargs):
-                blueprint.log(f'process: ({filetype}) {p4k_info.filename}')
+                blueprint.log(f"process: ({filetype}) {p4k_info.filename}")
                 return True
 
-    def process_datacore_object(self, blueprint: 'Blueprint', object: 'DataCoreBase', *args, **kwargs) -> bool:
-        """ Processes the given `object` for `Blueprint` using the appropriate processor for its `type`.
+    def process_datacore_object(
+        self, blueprint: "Blueprint", object: "DataCoreBase", *args, **kwargs
+    ) -> bool:
+        """Processes the given `object` for `Blueprint` using the appropriate processor for its `type`.
 
         Multiple processors for a `datacore_type` may be registered, and each one will be tried in turn until one is
         successful (returns `True`).
@@ -125,7 +154,9 @@ register_filetype_processor = processor_manager.register_filetype_processor
 process_p4kfile = processor_manager.process_p4kfile
 
 processors_for_datacore_type = processor_manager.processors_for_datacore_type
-unregister_datacore_type_processor = processor_manager.unregister_datacore_type_processor
+unregister_datacore_type_processor = (
+    processor_manager.unregister_datacore_type_processor
+)
 register_datacore_type_processor = processor_manager.register_datacore_type_processor
 process_datacore_object = processor_manager.process_datacore_object
 # endregion singleton access methods
@@ -133,28 +164,34 @@ process_datacore_object = processor_manager.process_datacore_object
 
 
 def filetype_processor(*filetypes, index=-1):
-    """ Decorator to register filetype processors
+    """Decorator to register filetype processors
 
     @filetype_processor('xml', 'entxml', 'cryxml')
     def xml_processor(bp, path):
         ...
 
     """
+
     def do_register(func):
         global processor_manager
         return processor_manager.register_filetype_processor(filetypes, func, index)
+
     return do_register
 
 
 def datacore_type_processor(*datacore_types, index=-1):
-    """ Decorator to register datacore_type processors
+    """Decorator to register datacore_type processors
 
     @datacore_type_processor('ShipInsuranceRecord', 'ShipInsurancePolicyRecord')
     def ship_insurance_processor(bp, object, *args, **kwargs):
         ...
 
     """
+
     def do_register(func):
         global processor_manager
-        return processor_manager.register_datacore_type_processor(datacore_types, func, index)
+        return processor_manager.register_datacore_type_processor(
+            datacore_types, func, index
+        )
+
     return do_register

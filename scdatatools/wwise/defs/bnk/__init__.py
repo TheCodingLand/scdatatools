@@ -3,14 +3,14 @@ import struct
 
 from scdatatools.wwise.defs.bnk.hirc import HIRC_SIGNATURE, HIRCHeader
 
-BNK_SIGNATURE = b'BKHD'
-DIDX_SIGNATURE = b'DIDX'
-DATA_SIGNATURE = b'DATA'
-STID_SIGNATURE = b'STID'
-INIT_SIGNATURE = b'INIT'
-STMG_SIGNATURE = b'STMG'
-ENVS_SIGNATURE = b'ENVS'
-PLAT_SIGNATURE = b'PLAT'
+BNK_SIGNATURE = b"BKHD"
+DIDX_SIGNATURE = b"DIDX"
+DATA_SIGNATURE = b"DATA"
+STID_SIGNATURE = b"STID"
+INIT_SIGNATURE = b"INIT"
+STMG_SIGNATURE = b"STMG"
+ENVS_SIGNATURE = b"ENVS"
+PLAT_SIGNATURE = b"PLAT"
 
 
 class GUID(ctypes.LittleEndianStructure):
@@ -43,36 +43,36 @@ class DIDXWemRecord(ctypes.LittleEndianStructure):
     _fields_ = [
         ("id", ctypes.c_uint32),
         ("data_offset", ctypes.c_uint32),
-        ("length", ctypes.c_uint32)
+        ("length", ctypes.c_uint32),
     ]
 
 
 class DIDXHeader(ctypes.LittleEndianStructure):
-    _fields_ = [
-        ("signature", ctypes.c_char * 4),
-        ("length", ctypes.c_uint32)
-    ]
+    _fields_ = [("signature", ctypes.c_char * 4), ("length", ctypes.c_uint32)]
 
     @classmethod
     def from_buffer(cls, source, offset=0):
         didx = type(cls).from_buffer(cls, source, offset)
-        assert(didx.signature == DIDX_SIGNATURE)
+        assert didx.signature == DIDX_SIGNATURE
 
         didx.wem_hdrs = []
         num_wems = didx.length // ctypes.sizeof(DIDXWemRecord)
         for i in range(num_wems):
-            didx.wem_hdrs.append(DIDXWemRecord.from_buffer(source, offset + 8 + (i * ctypes.sizeof(DIDXWemRecord))))
+            didx.wem_hdrs.append(
+                DIDXWemRecord.from_buffer(
+                    source, offset + 8 + (i * ctypes.sizeof(DIDXWemRecord))
+                )
+            )
         return didx
 
     def calculated_size(self):
-        return ctypes.sizeof(DIDXHeader) + ctypes.sizeof(DIDXWemRecord) * len(getattr(self, 'wem_hdrs', []))
+        return ctypes.sizeof(DIDXHeader) + ctypes.sizeof(DIDXWemRecord) * len(
+            getattr(self, "wem_hdrs", [])
+        )
 
 
 class DATAHeader(ctypes.LittleEndianStructure):
-    _fields_ = [
-        ("signature", ctypes.c_char * 4),
-        ("length", ctypes.c_uint32)
-    ]
+    _fields_ = [("signature", ctypes.c_char * 4), ("length", ctypes.c_uint32)]
 
 
 class INITHeader(ctypes.LittleEndianStructure):
@@ -108,16 +108,15 @@ class PLATHeader(ctypes.LittleEndianStructure):
 
 
 class STIDSoundBankHeader(ctypes.LittleEndianStructure):
-    _fields_ = [
-        ("id", ctypes.c_uint32),
-        ("name_length", ctypes.c_uint8)
-    ]
+    _fields_ = [("id", ctypes.c_uint32), ("name_length", ctypes.c_uint8)]
 
     @classmethod
     def from_buffer(cls, source, offset=0):
         hdr = type(cls).from_buffer(cls, source, offset)
         hdr.length = ctypes.sizeof(cls) + hdr.name_length
-        hdr.name = source[offset + ctypes.sizeof(cls):offset + ctypes.sizeof(cls) + hdr.name_length].decode('utf-8')
+        hdr.name = source[
+            offset + ctypes.sizeof(cls) : offset + ctypes.sizeof(cls) + hdr.name_length
+        ].decode("utf-8")
         return hdr
 
 
@@ -132,7 +131,7 @@ class STIDHeader(ctypes.LittleEndianStructure):
     @classmethod
     def from_buffer(cls, source, offset=0):
         stid = type(cls).from_buffer(cls, source, offset)
-        assert(stid.signature == STID_SIGNATURE)
+        assert stid.signature == STID_SIGNATURE
 
         stid.sound_banks = []
         banks_offset = offset + ctypes.sizeof(cls)
@@ -154,4 +153,3 @@ HEADER_FOR_SIGNATURE = {
     ENVS_SIGNATURE: ENVSHeader,
     PLAT_SIGNATURE: PLATHeader,
 }
-

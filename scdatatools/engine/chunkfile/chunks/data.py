@@ -19,4 +19,4 @@ class CryXMLBChunk(Chunk):
 @defs.chunk_handler(defs.ChunkType.JSON, versions=[0x744])
 class JSONChunk(Chunk):
     def dict(self):
-        return json.loads(self.chunk_data.data.decode('utf-8'))
+        return json.loads(self.chunk_data.data.decode("utf-8"))

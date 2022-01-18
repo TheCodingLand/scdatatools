@@ -1,5 +1,6 @@
 # this must be pip installed from the project root e.g. pip install -r dev/requirements.txt
 -e .
 -r ../docs/requirements.txt
-setuptools-scm
+bumpversion
+twine
 nose

@@ -22,7 +22,7 @@ from scdatatools.engine.model_utils import quaternion_to_dict
 
 
 def parse_bool(val) -> bool:
-    """ Parse a boolean value weather in int, str, or bool """
+    """Parse a boolean value weather in int, str, or bool"""
     if isinstance(val, bool):
         return val
     if isinstance(val, str):
@@ -31,14 +31,14 @@ def parse_bool(val) -> bool:
 
 
 def xxhash32_file(file_or_path):
-    if hasattr(file_or_path, 'read'):
+    if hasattr(file_or_path, "read"):
         fp = file_or_path
         _close = False
     else:
         _close = True
         if not isinstance(file_or_path, Path):
             file_or_path = Path(file_or_path)
-        fp = file_or_path.open('rb')
+        fp = file_or_path.open("rb")
 
     fp.seek(0)
     xh = xxhash.xxh32()
@@ -64,7 +64,7 @@ def crc32(filename_or_path):
     if not isinstance(filename_or_path, Path):
         filename_or_path = Path(filename_or_path)
 
-    with filename_or_path.open('rb') as fh:
+    with filename_or_path.open("rb") as fh:
         crc = 0
         while True:
             s = fh.read(65536)
@@ -88,9 +88,9 @@ def get_size(obj, seen=None):
     if isinstance(obj, dict):
         size += sum([get_size(v, seen) for v in obj.values()])
         size += sum([get_size(k, seen) for k in obj.keys()])
-    elif hasattr(obj, '__dict__'):
+    elif hasattr(obj, "__dict__"):
         size += get_size(obj.__dict__, seen)
-    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+    elif hasattr(obj, "__iter__") and not isinstance(obj, (str, bytes, bytearray)):
         size += sum([get_size(i, seen) for i in obj])
     return size
 
@@ -99,10 +99,10 @@ def version_from_id_file(id_file) -> (dict, str):
     opened = False
     if isinstance(id_file, str):
         opened = True
-        id_file = open(id_file, 'r')
+        id_file = open(id_file, "r")
 
     version_data = {}
-    version_label = ''
+    version_label = ""
     try:
         version_data = json.loads(id_file.read()).get("Data", {})
         branch = version_data.get("Branch", None)
@@ -118,8 +118,10 @@ def version_from_id_file(id_file) -> (dict, str):
     return version_data, version_label
 
 
-def etree_to_dict(t: typing.Union[ElementTree.ElementTree, ElementTree.Element]) -> dict:
-    """ Convert the given ElementTree `t` to an dict following the following XML to JSON specification:
+def etree_to_dict(
+    t: typing.Union[ElementTree.ElementTree, ElementTree.Element]
+) -> dict:
+    """Convert the given ElementTree `t` to an dict following the following XML to JSON specification:
     https://www.xml.com/pub/a/2006/05/31/converting-between-xml-and-json.html
 
     """
@@ -150,7 +152,7 @@ def etree_to_dict(t: typing.Union[ElementTree.ElementTree, ElementTree.Element])
 
 
 def dict_to_etree(dict_obj: dict) -> ElementTree:
-    """ Convert the given dict `d` to an ElementTree following the following XML to JSON specification:
+    """Convert the given dict `d` to an ElementTree following the following XML to JSON specification:
     https://www.xml.com/pub/a/2006/05/31/converting-between-xml-and-json.html
     """
 
@@ -194,11 +196,11 @@ def dict_to_etree(dict_obj: dict) -> ElementTree:
 def norm_path(path: typing.Union[str, Path]) -> str:
     if isinstance(path, Path):
         path = path.as_posix()
-    return path.replace('\\', '/')
+    return path.replace("\\", "/")
 
 
 def dict_search(obj: dict, keys: typing.Union[str, list], ignore_case=False):
-    """ returns the unique values of every key `key` within nested dict objects """
+    """returns the unique values of every key `key` within nested dict objects"""
     if not isinstance(keys, list):
         keys = [keys]
     values = set()
@@ -216,8 +218,10 @@ def dict_search(obj: dict, keys: typing.Union[str, list], ignore_case=False):
     return values
 
 
-def dict_contains_value(obj: dict, values_to_check: typing.Union[str, list], ignore_case=False):
-    """ returns the unique values of every key `key` within nested dict objects """
+def dict_contains_value(
+    obj: dict, values_to_check: typing.Union[str, list], ignore_case=False
+):
+    """returns the unique values of every key `key` within nested dict objects"""
     if not isinstance(values_to_check, list):
         values_to_check = [values_to_check]
 
@@ -243,12 +247,12 @@ def dict_contains_value(obj: dict, values_to_check: typing.Union[str, list], ign
 
 
 class StructureWithEnums:
-    """Add missing enum feature to ctypes Structures.
-    """
+    """Add missing enum feature to ctypes Structures."""
+
     _map = {}
 
     def __getattribute__(self, name):
-        _map = ctypes.Structure.__getattribute__(self, '_map')
+        _map = ctypes.Structure.__getattribute__(self, "_map")
 
         value = ctypes.Structure.__getattribute__(self, name)
         if name in _map:
@@ -264,7 +268,9 @@ class StructureWithEnums:
                 except ValueError:
                     pass
             else:
-                sys.stderr.write(f'\n{value} is not valid for any of the types "{repr(classes)}"\n')
+                sys.stderr.write(
+                    f'\n{value} is not valid for any of the types "{repr(classes)}"\n'
+                )
         return value
 
     def __str__(self):
@@ -272,13 +278,17 @@ class StructureWithEnums:
         for field in self._fields_:
             attr, attr_type = field
             if attr in self._map:
-                attr_type = repr(self._map[attr]) if len(self._map[attr]) > 1 else self._map[attr].__name__
+                attr_type = (
+                    repr(self._map[attr])
+                    if len(self._map[attr]) > 1
+                    else self._map[attr].__name__
+                )
             else:
                 attr_type = attr_type.__name__
             value = getattr(self, attr)
             result.append("    {0} [{1}] = {2!r};".format(attr, attr_type, value))
         result.append("};")
-        return '\n'.join(result)
+        return "\n".join(result)
 
     __repr__ = __str__
 
@@ -286,8 +296,8 @@ class StructureWithEnums:
 class FileHeaderStructure(StructureWithEnums):
     def __getattribute__(self, item):
         val = super().__getattribute__(item)
-        if item == 'signature':
-            return val.to_bytes(4, 'little')
+        if item == "signature":
+            return val.to_bytes(4, "little")
         return val
 
 
@@ -302,25 +312,25 @@ class NamedBytesIO(io.BytesIO):
 
 
 class SCJSONEncoder(json.JSONEncoder):
-    """ A :class:`JSONEncoder` which will handle _any_ element by eventually failing back to `str`. It will also:
+    """A :class:`JSONEncoder` which will handle _any_ element by eventually failing back to `str`. It will also:
 
-     - Respect classes that have a `to_dict`, `to_json`, `dict` or `json` method.
-     - Handle Quaternions with :func:`quaternion_to_dict`
-     - Convert `set`s to `list`s
-     - Path's use `as_posix`
+    - Respect classes that have a `to_dict`, `to_json`, `dict` or `json` method.
+    - Handle Quaternions with :func:`quaternion_to_dict`
+    - Convert `set`s to `list`s
+    - Path's use `as_posix`
     """
 
     def default(self, obj):
-        if hasattr(obj, 'dict'):
+        if hasattr(obj, "dict"):
             return obj.dict()
-        elif hasattr(obj, 'to_dict'):
+        elif hasattr(obj, "to_dict"):
             return obj.to_dict()
-        elif hasattr(obj, 'to_json'):
+        elif hasattr(obj, "to_json"):
             r = obj.to_json()
             if isinstance(r, str):
                 return json.loads(r)
             return r
-        elif hasattr(obj, 'json'):
+        elif hasattr(obj, "json"):
             r = obj.json()
             if isinstance(r, str):
                 return json.loads(r)
@@ -360,8 +370,8 @@ def redirect_to_tqdm():
 
 
 @contextmanager
-def log_time(msg: str = '', handler: typing.Callable = print):
-    """ Context manager that will log the time it took to run the inner context via the callable `handler`
+def log_time(msg: str = "", handler: typing.Callable = print):
+    """Context manager that will log the time it took to run the inner context via the callable `handler`
     (Defaults to `print`)
     """
     if msg:
@@ -375,15 +385,17 @@ def search_for_data_dir_in_path(path):
     try:
         if not isinstance(path, Path):
             path = Path(path)
-        return Path(*path.parts[:tuple(_.lower() for _ in path.parts).index('data')+1])
+        return Path(
+            *path.parts[: tuple(_.lower() for _ in path.parts).index("data") + 1]
+        )
     except ValueError:
-        return ''
+        return ""
 
 
 def generate_free_key(key, keys):
     if key not in keys:
         return key
     i = 1
-    while (k := f'{key}.{i:>03}') in keys:
+    while (k := f"{key}.{i:>03}") in keys:
         i += 1
     return k

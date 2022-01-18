@@ -10,7 +10,7 @@ class SourceInfoChunk(Chunk):
     def __init__(self, header, data, model):
         super().__init__(header, data, model)
         self.raw_data = data
-        self.data = '\n'.join(self.raw_data.decode('utf-8').split('\x00'))
+        self.data = "\n".join(self.raw_data.decode("utf-8").split("\x00"))
 
 
 @defs.chunk_handler(defs.ChunkType.ExportFlags, versions=[0x001])
@@ -30,6 +30,7 @@ class Controller826(Chunk):
         offset [c_ulong] = 968;
     };
     """
+
     pass  # TODO: implement this
 
 

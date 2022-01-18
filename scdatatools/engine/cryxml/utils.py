@@ -50,6 +50,6 @@ def indent_tree(tree, space="  ", level=0):
 
 
 def pprint_xml_tree(tree: ElementTree, indent=2) -> str:
-    """ Pretty prints an XML ElementTree to a string """
+    """Pretty prints an XML ElementTree to a string"""
     indent_tree(tree, space=" " * indent)
-    return ElementTree.tostring(tree.getroot()).decode('utf-8').replace('><', '>\n<')
+    return ElementTree.tostring(tree.getroot()).decode("utf-8").replace("><", ">\n<")

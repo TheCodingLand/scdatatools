@@ -11,10 +11,12 @@ from scdatatools import p4k
 @command(help="Extract files from a P4K file")
 @argument("p4k_file", description="P4K file to unpack files from", positional=True)
 @argument("single", description="Extract first matching file only", aliases=["-1"])
-@argument("convert_cryxml",
-          description="Automatically convert CryXmlB files to specified format.",
-          choices=['', 'xml', 'json'],
-          aliases=["-c"])
+@argument(
+    "convert_cryxml",
+    description="Automatically convert CryXmlB files to specified format.",
+    choices=["", "xml", "json"],
+    aliases=["-c"],
+)
 @argument(
     "output",
     description="The output directory to extract files into or the output path if --single. "
@@ -26,16 +28,12 @@ from scdatatools import p4k
     description="Posix style file filter of which files to extract. Defaults to '*'",
     aliases=["-f"],
 )
-@argument(
-    "quiet",
-    description="Don't output progress.",
-    aliases=["-q"]
-)
+@argument("quiet", description="Don't output progress.", aliases=["-q"])
 def unp4k(
     p4k_file: typing.Text,
     output: typing.Text = ".",
     file_filter: typing.Text = "*",
-    convert_cryxml: typing.Text = '',
+    convert_cryxml: typing.Text = "",
     single: bool = False,
     quiet: bool = False,
 ):
@@ -78,11 +76,16 @@ def unp4k(
         print("=" * 80)
         output.mkdir(parents=True, exist_ok=True)
         try:
-            convert_cryxml_fmt = ''
+            convert_cryxml_fmt = ""
             if convert_cryxml:
                 convert_cryxml_fmt = convert_cryxml
                 convert_cryxml = True
-            p.extract_filter(file_filter=file_filter, path=str(output),
-                             convert_cryxml=convert_cryxml, convert_cryxml_fmt=convert_cryxml_fmt, quiet=quiet)
+            p.extract_filter(
+                file_filter=file_filter,
+                path=str(output),
+                convert_cryxml=convert_cryxml,
+                convert_cryxml_fmt=convert_cryxml_fmt,
+                quiet=quiet,
+            )
         except KeyboardInterrupt:
             pass

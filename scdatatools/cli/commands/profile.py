@@ -11,8 +11,8 @@ from scdatatools.sc import StarCitizen
 @argument("scdir", description="StarCitizen Game Folder")
 @argument("csv", description="Output as a CSV instead", aliases=["-c"])
 def actionmap(
-        scdir: Path,
-        csv: bool = False,
+    scdir: Path,
+    csv: bool = False,
 ):
     sc = StarCitizen(scdir)
     am = sc.default_profile.actionmap()
@@ -20,6 +20,6 @@ def actionmap(
     if csv:
         out = io.StringIO()
         sc.default_profile.dump_actionmap_csv(out)
-        print(out.getvalue().replace('\r', ''))
+        print(out.getvalue().replace("\r", ""))
     else:
         print(json.dumps(am, indent=4))

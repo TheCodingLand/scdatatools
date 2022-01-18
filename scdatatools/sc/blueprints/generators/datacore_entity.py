@@ -11,8 +11,12 @@ if typing.TYPE_CHECKING:
     from scdatatools import StarCitizen
 
 
-def blueprint_from_datacore_entity(sc: 'StarCitizen', record_or_guid: typing.Union[Record, DataCoreObject, str],
-                                   bp: Blueprint = None, monitor: typing.Callable = None) -> 'Blueprint':
+def blueprint_from_datacore_entity(
+    sc: "StarCitizen",
+    record_or_guid: typing.Union[Record, DataCoreObject, str],
+    bp: Blueprint = None,
+    monitor: typing.Callable = None,
+) -> "Blueprint":
     """
     Generates a `Blueprint` which can be used to extract and import the assets referenced from a specific
     `EntityClassDefinition` from a `DataCoreBinary`.
@@ -32,7 +36,7 @@ def blueprint_from_datacore_entity(sc: 'StarCitizen', record_or_guid: typing.Uni
         record = record_or_guid.record
     else:
         record = record_or_guid
-    assert(record.type == 'EntityClassDefinition')
+    assert record.type == "EntityClassDefinition"
 
     processs = False
     if bp is None:
@@ -40,7 +44,7 @@ def blueprint_from_datacore_entity(sc: 'StarCitizen', record_or_guid: typing.Uni
         bp = Blueprint(record.name, sc, monitor=monitor)
         bp.entity = record
 
-    bp.log(f'process datacore entity: {record.name}')
+    bp.log(f"process datacore entity: {record.name}")
     bp.add_record_to_extract(record.id)
 
     if processs:

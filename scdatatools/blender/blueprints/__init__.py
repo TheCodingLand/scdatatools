@@ -71,6 +71,10 @@ def geom_collection_for_path(geom_path: Path):
     geom_parts = [GEOM_COLLECTION] + list(geom_path.parent.parts)
     if GEOM_SCENE not in bpy.data.scenes:
         bpy.data.scenes.new(name=GEOM_SCENE)
+        if 'ViewLayer' in bpy.data.scenes[GEOM_SCENE].view_layers:
+            # in Blender 3.0 new scenes have a view layer named "ViewLayer", normalize it to how 2.93 does it
+            vl = bpy.data.scenes[GEOM_SCENE].view_layers['ViewLayer']
+            vl.name = 'View Layer'
     geom_scene = bpy.data.scenes[GEOM_SCENE]
     col_view_layer = geom_scene.view_layers["View Layer"].layer_collection
     col = geom_scene.collection

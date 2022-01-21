@@ -7,6 +7,8 @@ import hashlib
 import subprocess
 from itertools import chain
 from pathlib import Path
+from packaging.version import Version
+from packaging.specifiers import SpecifierSet
 
 
 import tqdm
@@ -23,10 +25,10 @@ logger = logging.getLogger(__name__)
 
 
 def available_blender_installations(
-    include_paths: typing.List[Path] = None, compatible_only=False
+    include_paths: typing.List[Path] = None, compatible_only=False, supported_versions=">=3.9.2,<3.10",
 ) -> dict:
     """Return a dictionary of discovered Blender Installations where each value is the `Path` to the installation and
-    a `bool` of whether or not the version's Python is compatible with scdatatools.
+    a `bool` of whether the version's Python is compatible with scdatatools.
 
 
     ... code-block:: python
@@ -36,10 +38,10 @@ def available_blender_installations(
 
     :param include_paths: Additional Blender directories to check
     :param compatible_only: If `True` only return compatible versions of Blender
+    :param supported_versions: Version specification used for the compatability check
     """
     blender_installs = {}
-
-    pyver = str(sys.hexversion)
+    compat_spec = SpecifierSet(supported_versions)
     blender = "blender.exe" if sys.platform == "win32" else "blender"
 
     include_paths = set(include_paths if include_paths is not None else [])
@@ -83,7 +85,7 @@ def available_blender_installations(
                     if _.startswith("VERCHECK")
                 ]
                 if versions:
-                    compatible = versions[0][2] == pyver
+                    compatible = Version(versions[0][1]) in compat_spec
                     if compatible_only and not compatible:
                         continue
                     bv = versions[0][3].rsplit(".", maxsplit=1)[0]

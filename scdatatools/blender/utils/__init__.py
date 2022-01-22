@@ -5,6 +5,7 @@ import shutil
 import logging
 import hashlib
 import subprocess
+import concurrent.futures
 from itertools import chain
 from pathlib import Path
 from packaging.version import Version
@@ -34,7 +35,7 @@ def available_blender_installations(
     ... code-block:: python
 
         available_blender_installations()
-        {'2.93': {'path': WindowsPath('C:/Program Files/Blender Foundation/Blender 2.93'), 'compatible': True}}
+        {'WindowsPath('C:/Program Files/Blender Foundation/Blender 2.93/blender.exe'): {'version': '2.93', 'compatible': True}}
 
     :param include_paths: Additional Blender directories to check
     :param compatible_only: If `True` only return compatible versions of Blender
@@ -46,7 +47,7 @@ def available_blender_installations(
 
     include_paths = set(include_paths if include_paths is not None else [])
     if shutil.which(blender):
-        include_paths.add(Path(shutil.which("blender")).parent)
+        include_paths.add(Path(shutil.which(blender)).parent)
 
     if sys.platform == "win32":
         include_paths.update(
@@ -65,41 +66,50 @@ def available_blender_installations(
             )
         )
 
-    for ip in include_paths:
-        for b in ip.glob(blender):
-            try:
-                versions = [
-                    _.split()
-                    for _ in subprocess.run(
-                        f'"{b}" -b --factory-startup --python-expr "import sys, bpy; '
-                        f"print('VERCHECK', sys.version.split("
-                        ")[0], "
-                        'sys.hexversion, bpy.app.version_string)"',
-                        shell=True,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        timeout=5,
-                    )
-                    .stdout.decode("utf-8")
-                    .split("\n")
-                    if _.startswith("VERCHECK")
-                ]
-                if versions:
-                    compatible = Version(versions[0][1]) in compat_spec
-                    if compatible_only and not compatible:
-                        continue
-                    bv = versions[0][3].rsplit(".", maxsplit=1)[0]
-                    blender_installs[bv] = {
-                        "path": b,
-                        "compatible": compatible,
-                        "pyver": versions[0][1],
-                    }
-            except (
-                subprocess.CalledProcessError,
-                StopIteration,
-                subprocess.TimeoutExpired,
-            ):
-                continue
+    def _fetch_version(blender_path):
+        try:
+            ret = subprocess.run(
+                f'"{blender_path}" -b --factory-startup --python-expr "import sys, bpy; '
+                f"print('VERCHECK', sys.version.split()[0], "
+                f'sys.hexversion, bpy.app.version_string)"',
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=5,
+            )
+            versions = [
+                _.split() for _ in ret.stdout.decode("utf-8").split("\n") if _.startswith("VERCHECK")
+            ]
+            if versions:
+                compatible = Version(versions[0][1]) in compat_spec
+                if compatible_only and not compatible:
+                    return None
+                bv = versions[0][3].rsplit(".", maxsplit=1)[0]
+                return blender_path.as_posix(), {
+                    "path": blender_path,
+                    "version": bv,
+                    "compatible": compatible,
+                    "pyver": versions[0][1],
+                }
+        except (
+            subprocess.CalledProcessError,
+            StopIteration,
+            subprocess.TimeoutExpired,
+        ):
+            pass
+        return None
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = []
+
+        for ip in include_paths:
+            ip = Path(ip)
+            for b in ip.glob(blender):
+                futures.append(executor.submit(_fetch_version, blender_path=b))
+
+        for future in concurrent.futures.as_completed(futures):
+            if (res := future.result()) is not None:
+                blender_installs[res[0]] = res[1]
 
     return blender_installs
 

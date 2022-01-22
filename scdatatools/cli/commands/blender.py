@@ -31,7 +31,7 @@ class Blender:
         if list_versions:
             print(
                 "\n".join(
-                    f' {k}:\t{v["path"]}'
+                    f' {v["version"]}:\t{v["path"]}'
                     for k, v in available_blender_installations().items()
                     if v["compatible"]
                 )
@@ -39,7 +39,7 @@ class Blender:
             return
 
         if version is None:
-            version = list(available_blender_installations().keys())
+            version = set(_["version"] for _ in available_blender_installations().values())
 
         for v in version:
             print(f"Installed add-on to {str(install(v))}")

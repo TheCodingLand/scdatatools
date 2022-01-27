@@ -1,4 +1,5 @@
 import json
+import logging
 import typing
 
 from pathlib import Path
@@ -22,7 +23,12 @@ if typing.TYPE_CHECKING:
 def process_chunked_file(
     bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs
 ) -> bool:
-    c = load_chunk_file(p4k_info)
+    try:
+        c = load_chunk_file(p4k_info)
+    except Exception as e:
+        bp.log(f'Failed to load chunk file {path}: {e}', level=logging.ERROR)
+        return False
+
     for chunk in c.chunks.values():
         if isinstance(chunk, chunks.CryXMLBChunk):
             x = chunk.dict()

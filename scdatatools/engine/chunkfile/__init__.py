@@ -318,5 +318,9 @@ def load_chunk_file(
 
     ext = filename.suffix
     if ext in GEOMETRY_EXTENSIONS:
-        return GeometryChunkFile(chunk_file, *args, **kwargs)
+        try:
+            return GeometryChunkFile(chunk_file, *args, **kwargs)
+        except KeyError:
+            # this happens if the main component of the geometry is missing
+            pass
     return ChunkFile(chunk_file, *args, **kwargs)

@@ -2,6 +2,15 @@
 History
 =======
 
+1.0.1 (2022-02-02)
+------------------
+
+* Fixed issue when the primary part of a model was missing (cgam, but no cga)
+* Fixed an issue in texture extraction when _not_ converting or un-splitting textures
+* Improved Blender compatability checking and Blender version handling
+* Support for Blender 3.0
+
+
 1.0.0 (2022-01-18)
 ------------------
 

@@ -90,6 +90,12 @@ def create_light(
     shadowCasting = float(
         light["EntityComponentLight"]["shadowParams"].get("@shadowCasting", 1)
     )
+    projectorNearPlane = float(
+        light["EntityComponentLight"]["shadowParams"].get("@projectorNearPlane", None)
+    )
+    maxDistance = float(
+        light["EntityComponentLight"]["fadeParams"].get("@maxDistance", None)
+    )
 
     # TODO: EntityComponentLight.defaultState.lightStyle?
     # TODO: use shadowParams.@shadowCasting?
@@ -101,7 +107,7 @@ def create_light(
         # Spot lights
         light_data = bpy.data.lights.new(name=light_group_collection.name, type="SPOT")
         light_data.spot_size = math.radians(fov)
-        light_data.spot_blend = focusedBeam
+        light_data.spot_blend = bulbRadius
         light_data.shadow_soft_size = bulbRadius
         # light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
         # light_data.spread = math.radians(fov)
@@ -142,6 +148,7 @@ def create_light(
         tex_path = data_dir / texture
         light_data["texture"] = tex_path.as_posix()
         ies_group = light_data.node_tree.nodes.new(type="ShaderNodeGroup")
+        falloff_node = light_data.node_tree.nodes.new(type="ShaderNodeLightFalloff")
         if ies_group is not None:
             ies_group.node_tree = create_light_texture(tex_path)
             if ies_group.node_tree is not None:
@@ -149,7 +156,12 @@ def create_light(
                 light_obj.data.node_tree.links.new(
                     ies_group.outputs["Color"], temp_node.inputs["Color"]
                 )
+                falloff_node.location.y = ies_group.location.y - 150
+                falloff_node.inputs["Strength"].default_value = 8
                 temp_node.inputs["Strength"].default_value = 8
+                light_obj.data.node_tree.links.new(
+                    falloff_node.outputs["Quadratic"], temp_node.inputs["Strength"]
+                )
                 temp_node = ies_group
                 if light_data.type == "SPOT":
                     spot_size = (
@@ -170,10 +182,24 @@ def create_light(
         )
         # light_obj.data.color = (1,1,1)
 
-    # if shadowCasting == 0:
-    #   light_data.cycles.cast_shadow = False
-    # else:
-    #    light_data.cycles.cast_shadow = True
+    if shadowCasting == 0:
+        #eevee
+        light_data.use_shadow = False
+        #cycles
+        #light_data.cycles.cast_shadow = False
+    else:
+        #eevee
+        light_data.use_shadow = True
+        light_data.use_contact_shadow = True
+        #cycles
+        #light_data.cycles.cast_shadow = True
+
+    if maxDistance: 
+        light_data.use_custom_distance = True
+        light_data.cutoff_distance = maxDistance
+    if projectorNearPlane: 
+        light_data.shadow_buffer_clip_start = projectorNearPlane
+
 
     location = str_to_tuple(light["@Pos"], float)
     rotation_quaternion = Quaternion((1, 0, 0, 0))  # initial rotation X+

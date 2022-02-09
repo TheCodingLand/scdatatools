@@ -58,7 +58,7 @@ def set_viewport(mat, mtl_attrs, trans=False):
         mat.show_transparent_back = True
         mat.cycles.use_transparent_shadow = True
         mat.use_screen_refraction = True
-        mat.refraction_depth = 0.0005
+        mat.refraction_depth = 0.01
     else:
         mat.blend_method = "OPAQUE"
         mat.shadow_method = "CLIP"
@@ -281,7 +281,7 @@ class MTLLoader:
                 shadergroup.inputs["geom link"].default_value = 1
             shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]
             shadergroup.inputs["emit Strength"].default_value = 4
-        elif "DECAL" in mtl_attrs["StringGenMask"]:
+        elif "DECAL" in mtl_attrs["StringGenMask"] or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             viewport_trans = True
         else:
@@ -335,7 +335,13 @@ class MTLLoader:
             pass
         try:
             shadergroup.inputs["BlendLayer2Glossiness"].default_value = (
-                float(mtl_attrs["PublicParams"].get("BlendLayer2Glossiness", 128)) / 255
+                int(mtl_attrs["PublicParams"].get("BlendLayer2Glossiness", 128))/255 
+            )
+        except:
+            pass
+        try:
+            shadergroup.inputs["BlendFactor"].default_value = (
+                float(mtl_attrs["PublicParams"].get("Blend Factor", 0))
             )
         except:
             pass
@@ -756,15 +762,15 @@ class MTLLoader:
                         imagenodealphaout, mat.nodes["Tint"].inputs["detail Alpha"]
                     )
                     mat.links.new(imagenodein, detailmapnodeout)
-                elif node.name in ["TexSlot8", "Heightmap"]:
-                    mat.links.new(
-                        imagenodecolorout,
-                        mat.nodes["Material Output"].inputs["disp Color"],
-                    )
-                elif node.name in ["TexSlot9", "Blendmap"]:
+                elif node.name in ["TexSlot8", "Blendmap"]:
                     mat.links.new(
                         imagenodecolorout,
                         mat.nodes["Material Output"].inputs["blend Color"],
+                    )
+                elif node.name in ["TexSlot9", "Heightmap"]:
+                    mat.links.new(
+                        imagenodecolorout,
+                        mat.nodes["Material Output"].inputs["disp Color"],
                     )
         return mat
 

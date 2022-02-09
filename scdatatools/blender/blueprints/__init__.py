@@ -76,7 +76,9 @@ def geom_collection_for_path(geom_path: Path):
             vl = bpy.data.scenes[GEOM_SCENE].view_layers['ViewLayer']
             vl.name = 'View Layer'
     geom_scene = bpy.data.scenes[GEOM_SCENE]
-    col_view_layer = geom_scene.view_layers["View Layer"].layer_collection
+    #col_view_layer = geom_scene.view_layers["View Layer"].layer_collection
+    # Or you can just call it by index
+    col_view_layer = geom_scene.view_layers[0].layer_collection 
     col = geom_scene.collection
 
     cur_path = Path()

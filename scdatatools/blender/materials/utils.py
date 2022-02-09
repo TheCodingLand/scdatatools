@@ -27,6 +27,7 @@ REQUIRED_SHADER_NODE_GROUPS = [
     "_Parallax (UV)",
     "_TintDecalConverter",
     "_Hologramcig",
+    "Roughness global",
 ]
 
 

@@ -293,7 +293,11 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
     ) -> typing.Tuple[typing.List["P4KInfo"], typing.List[Path]]:
 
         options = options or {}
-        output_fmt = options.get("convert_dds_fmt", "dds")
+        output_fmt = options.get("convert_dds_fmt", "dds").casefold()
+
+        if output_fmt == 'dds' and not options.get('convert_dds_unsplit', False):
+            # output dds and unsplit not checked, do nothing
+            return members, []
 
         converter = ConverterUtility(options.get("convert_dds_converter", "default"))
         converter_bin = options.get("convert_dds_converter_bin", "")

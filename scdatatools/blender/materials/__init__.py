@@ -53,8 +53,8 @@ def set_viewport(mat, mtl_attrs, trans=False):
     mat.diffuse_color = make_tuple(mtl_attrs.get("Diffuse", "1,1,1") + ",1")
     mat.roughness = 1 - (float(mtl_attrs.get("Shininess", 128)) / 255)
     if trans:
-        mat.blend_method = "BLEND"
-        mat.shadow_method = "NONE"
+        mat.blend_method = "HASHED"
+        mat.shadow_method = "CLIP"
         mat.show_transparent_back = True
         mat.cycles.use_transparent_shadow = True
         mat.use_screen_refraction = True

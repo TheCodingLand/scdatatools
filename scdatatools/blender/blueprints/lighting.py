@@ -31,10 +31,10 @@ def set_light_state(light_obj, state):
             ]
 
 
-def set_linked_light(obj_name, color, temp=None):
+def set_linked_light(obj_name, color, temp=None, source=None):
     for obj in find_obj_by_name(obj_name, True):
-        if obj.type != "MESH":
-            continue
+        #if obj.type != "MESH":
+        #    continue
         obj["light_link"] = [0, 0, 0]
         if temp:
             obj["light_link_temp"] = temp
@@ -46,10 +46,11 @@ def set_linked_light(obj_name, color, temp=None):
             "softmin": 0.0,
             "softmax": 1.0,
             "default": [0.0, 0.0, 0.0],
-            "subtype": "COLOR",
+            "subtype": "COLOR_GAMMA",
             "description": "node_outline_prop",
         }
-        obj["light_link"] = [color[2], color[1], color[0]]  # BGR
+        obj["light_link"] = [color[0], color[1], color[2]]  # RGB
+        obj['light_link_source'] = source
     return
 
 
@@ -99,16 +100,13 @@ def create_light(
 
     # TODO: EntityComponentLight.defaultState.lightStyle?
     # TODO: use shadowParams.@shadowCasting?
-    bulbRadius = (
-        bulbRadius * 0
-    )  # set to zero for hard IES light edges, increase for softness
 
     if lightType == "Projector":
         # Spot lights
         light_data = bpy.data.lights.new(name=light_group_collection.name, type="SPOT")
         light_data.spot_size = math.radians(fov)
         light_data.spot_blend = bulbRadius
-        light_data.shadow_soft_size = bulbRadius
+        light_data.shadow_soft_size = bulbRadius * 0 # set to zero for hard IES light edges, increase for softness
         # light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
         # light_data.spread = math.radians(fov)
         # light_data.size = bulbRadius
@@ -186,7 +184,7 @@ def create_light(
         #eevee
         light_data.use_shadow = False
         #cycles
-        #light_data.cycles.cast_shadow = False
+        light_data.cycles.cast_shadow = False
     else:
         #eevee
         light_data.use_shadow = True
@@ -285,7 +283,7 @@ def create_light(
         if light["GeomLink"].get("@SubObjectName"):
             light_obj["GeomLink"] = light["GeomLink"].get("@SubObjectName")
             set_linked_light(
-                light["GeomLink"].get("@SubObjectName"), light_obj.data.color
+                light["GeomLink"].get("@SubObjectName"), light_obj.data.color, None, light_obj.name
             )
 
     logger.debugscbp(f"created light {light_obj.name} in {light_group_collection.name}")

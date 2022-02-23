@@ -28,7 +28,8 @@ class ConverterUtility(enum.Enum):
 
 # normal maps and glossmaps need to force texconv to use specific formats
 TEXCONV_DEFAULT_ARGS = " -f rgba"
-TEXCONV_DDNA_ARGS = " -f B8G8R8A8_UNORM -nmap rgb -nmapamp 10.0"
+#TEXCONV_DDNA_ARGS = " -f B8G8R8A8_UNORM -nmap rgb -nmapamp 10.0"
+TEXCONV_DDNA_ARGS = " -f B8G8R8A8_UNORM"
 TEXCONV_GLOSSMAP_ARGS = " -f BC4_UNORM"
 
 DEFAULT_TEXCONV_ARGS = "-nologo"

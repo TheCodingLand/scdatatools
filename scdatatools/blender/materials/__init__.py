@@ -983,7 +983,7 @@ class MTLLoader:
                         )
                     except:
                         pass
-            elif tex.get("Map") in ["TexSlot3", "TexSlot2A"]:
+            elif tex.get("Map") in ["TexSlot2A", "Glossmap"]:
                 try:
                     mat.node_tree.links.new(
                         texnode.outputs["Color"], shadergroup.inputs["ddna Alpha"]
@@ -999,6 +999,13 @@ class MTLLoader:
                     except:
                         # logger.error("failed to link DDNA Map")
                         pass
+            elif tex.get("Map") in ["TexSlot3"]:
+                try:
+                    mat.node_tree.links.new(
+                        texnode.outputs["Color"], shadergroup.inputs["ddna Color"]
+                    )
+                except:
+                    pass
             elif tex.get("Map") in ["TexSlot4", "Specular"]:
                 try:
                     mat.node_tree.links.new(

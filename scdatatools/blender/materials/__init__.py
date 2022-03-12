@@ -281,7 +281,7 @@ class MTLLoader:
                 shadergroup.inputs["geom link"].default_value = 1
             shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]
             shadergroup.inputs["emit Strength"].default_value = 4
-        elif "DECAL" in mtl_attrs["StringGenMask"] or "decal" in matname.lower():
+        elif "DECAL" in mtl_attrs["StringGenMask"]: # or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             viewport_trans = True
         else:
@@ -589,6 +589,9 @@ class MTLLoader:
         )
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
         shadergroup.inputs["ddna Alpha"].default_value = mat.roughness
+        shadergroup.inputs["Emission"].default_value = make_tuple(
+            mtl_attrs["Emissive"] + ",1"
+        )
         shaderout.location.x += 200
 
         use_tint_node_group = False
@@ -707,10 +710,10 @@ class MTLLoader:
         # mat['filename'] = mtl_path.as_posix()
 
         mat.nodes["Tint"].inputs["diff Color"].default_value = make_tuple(
-            mtl_attrs.get("Diffuse") + ",1"
+            mtl_attrs.get("Diffuse", ".5,.5,.5") + ",1"
         )
         mat.nodes["Tint"].inputs["spec Color"].default_value = make_tuple(
-            mtl_attrs.get("Specular") + ",1"
+            mtl_attrs.get("Specular", ".5,.5,.5") + ",1"
         )
         mat.nodes["detail Scale"].outputs[0].default_value = float(
             mtl_attrs["PublicParams"].get("DetailTiling", 1)
@@ -888,7 +891,7 @@ class MTLLoader:
                 textures.append(newtex)
 
             if tex.get("Map") in ["TexSlot3", "TexSlot2A"]:
-                filename = filename.replace("ddna", "ddna.glossMap")
+                filename = filename.replace("ddna", "ddna.glossmap")
             try:
                 img = image_for_texture(filename, self.data_dir)
             except FileNotFoundError:
@@ -967,7 +970,7 @@ class MTLLoader:
                     except:
                         # logger.error("failed to link Diffuse Map")
                         pass
-            elif tex.get("Map") in ["TexSlot2", "Bumpmap"]:
+            elif tex.get("Map") in ["TexSlot2"]: #this should be a ddna map
                 try:
                     mat.node_tree.links.new(
                         texnode.outputs["Color"], shadergroup.inputs["ddna Color"]
@@ -983,7 +986,7 @@ class MTLLoader:
                         )
                     except:
                         pass
-            elif tex.get("Map") in ["TexSlot2A", "Glossmap"]:
+            elif tex.get("Map") in ["TexSlot2A", "Glossmap"]: #this is a glossmap made during the texture conversion
                 try:
                     mat.node_tree.links.new(
                         texnode.outputs["Color"], shadergroup.inputs["ddna Alpha"]
@@ -993,13 +996,13 @@ class MTLLoader:
                     try:
                         mat.node_tree.links.new(
                             texnode.outputs["Color"],
-                            shadergroup.inputs["Primary ddna Color"],
+                            shadergroup.inputs["Primary ddna Alpha"],
                         )
                         # mat.node_tree.links.new(texnode.outputs['Alpha'], shadergroup.inputs['Primary ddna Alpha'])
                     except:
                         # logger.error("failed to link DDNA Map")
                         pass
-            elif tex.get("Map") in ["TexSlot3"]:
+            elif tex.get("Map") in ["TexSlot3"]: #this is a ddn map
                 try:
                     mat.node_tree.links.new(
                         texnode.outputs["Color"], shadergroup.inputs["ddna Color"]

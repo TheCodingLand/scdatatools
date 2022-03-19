@@ -22,8 +22,8 @@ def set_light_state(light_obj, state):
         return
 
     light_obj.data.color = light_obj["states"][state]["color"]
-    # adjust intensity by +6EV; make this a user settings later
-    light_obj.data.energy = light_obj["states"][state]["intensity"] * pow(2, 6)
+    # adjust intensity by +4EV; make this a user settings later
+    light_obj.data.energy = light_obj["states"][state]["intensity"] * pow(2, 4) #+4ev? +6ev? I can't decide
     if light_obj["use_temperature"]:
         if temp_node := light_obj.data.node_tree.nodes.get("Temperature"):
             temp_node.inputs[0].default_value = light_obj["states"][state][

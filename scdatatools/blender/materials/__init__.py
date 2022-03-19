@@ -233,7 +233,7 @@ class MTLLoader:
                     new_mat = self.create_layer_node(attrs)
                 elif shader_type in ("hologram", "hologramcig"):
                     new_mat = self.create_hologram_surface(attrs)
-                elif shader_type in ("monitor", "displayscreen", "uiplane"):
+                elif shader_type in ("monitor", "displayscreen", "uiplane", "RTT_Text_To_Decal"):
                     new_mat = self.create_proxy_material(attrs)
                 elif shader_type == "nodraw":
                     new_mat = self.create_proxy_material(attrs)

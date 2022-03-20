@@ -28,12 +28,13 @@ class P4KConverterPlugin(DataToolsPlugin):
     name = ""
     display_name = ""
     handles = []
+    converter_hook_kwargs = {}
 
     CONVERTER_HOOK = "scdt.p4k_converter"
 
     def register(self):
         super().register()
-        plugin_manager.register_hook(P4KConverterPlugin.CONVERTER_HOOK, self.__class__)
+        plugin_manager.register_hook(P4KConverterPlugin.CONVERTER_HOOK, self.__class__, **self.converter_hook_kwargs)
 
     @classmethod
     def converters(cls):
@@ -88,12 +89,13 @@ class PluginManager:
             from scdatatools.engine.cryxml import CryXmlConverter
             from scdatatools.engine.textures.converter import DDSTextureConverter
             from scdatatools.engine.chunkfile.converter import CGFModelConverter
+            from scdatatools.engine.chunkfile.asset_extractor import ModelAssetsExtractor
 
             self.discover_plugins()
             self._setup = True
 
     def register_plugin(self, plugin: DataToolsPlugin):
-        plug = plugin.__module__
+        plug = f'{plugin.__module__}.{plugin.__qualname__}'
         if not issubclass(plugin, self.PLUGIN_CLASS):
             raise ValueError(
                 f'Invalid plugin class type for "{plug}", must inherit from {self.PLUGIN_CLASS}'
@@ -105,7 +107,7 @@ class PluginManager:
         logger.info(f"Registered plugin {plug}")
 
     def unregister_plugin(self, plugin: DataToolsPlugin):
-        plug = plugin.__module__
+        plug = f'{plugin.__module__}.{plugin.__qualname__}'
         if plug in self.plugins:
             raise KeyError(f"Plugin {plug} is not registered")
         self.plugins[plug].unregister()

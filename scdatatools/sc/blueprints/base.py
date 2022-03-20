@@ -136,6 +136,7 @@ class Blueprint:
         :param name: Name of the `Blueprint`
         :param sc: The `StarCitizen` object to lookup information from
         :param monitor: The output log handling function the `Blueprint` will use in addition to `logging`
+        :param convert_cryxml_fmt: The output format for DataCore records (json or xml)
         """
         self.name = name
         self.sc = sc
@@ -155,7 +156,7 @@ class Blueprint:
         self.entity_geom = ""
         self.asset_info = {}
         self.p4k_files = set()
-        self.extract_filter = set()
+        self._extract_filter = set()
         self.geometry = {}
         self.socs = {}
         self.records = set()
@@ -163,6 +164,11 @@ class Blueprint:
         self.tint_palettes = {}
         self.containers = {"base": self._empty_container()}
         self.current_container = self.containers["base"]
+
+    @property
+    def extract_filter(self) -> set:
+        self._process()
+        return self._extract_filter
 
     def extract(self, *args, **kwargs) -> list:
         """
@@ -279,15 +285,15 @@ class Blueprint:
         path = norm_path(f'{"" if path.startswith("data") else "data/"}{path}')
         if "." not in path:
             # add whole dir
-            if path not in self.extract_filter:
-                self.extract_filter.add(path)
+            if path not in self._extract_filter:
+                self._extract_filter.add(path)
                 self.log(f"+ dir ex: {path}")
         else:
             base, ext = path.split(".", maxsplit=1)
             if path in self.sc.p4k.NameToInfoLower:
                 if path not in self.p4k_files:
                     self.p4k_files.add(path)
-                    self.extract_filter.add(base)
+                    self._extract_filter.add(base)
                     self.log(f"+ file ex: {path}")
                     self._container_for_path[path] = self.current_container
                     if not no_process:

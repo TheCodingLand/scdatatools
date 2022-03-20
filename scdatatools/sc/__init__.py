@@ -228,6 +228,17 @@ class StarCitizen:
             self._is_loaded["p4k"] = True
         return self._p4k
 
+    @p4k.setter
+    def p4k(self, p4k_file):
+        if self.is_loaded("p4k"):
+            raise ValueError("Cannot assign a p4k file to an already loaded StarCitizen")
+
+        if not isinstance(p4k_file, P4KFile):
+            raise ValueError("p4k must be a P4KFile")
+
+        self._p4k = p4k_file
+        self._is_loaded["p4k"] = True
+
     @property
     def datacore(self):
         if self._datacore is None:

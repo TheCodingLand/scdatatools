@@ -8,7 +8,6 @@ from pathlib import Path
 
 from scdatatools import plugins
 
-
 logger = logging.getLogger(__name__)
 CGF_CONVERTER_MODEL_EXTS = ["cga", "cgf", "chr", "skin"]
 CGF_CONVERTER_TIMEOUT = 5 * 60  # assume cgf converter is stuck after this much time

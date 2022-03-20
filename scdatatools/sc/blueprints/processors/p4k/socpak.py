@@ -17,8 +17,10 @@ if typing.TYPE_CHECKING:
 
 SOC_ENTITY_CLASSES_TO_SKIP = [
     # TODO: all TBDs in here are entityclasses in soc cryxmlbs that havent been researched yet
+    "ActionArea",  # TODO: TBD
     "AreaBox",  # TODO: TBD
     "AreaShape",  # TODO: TBD
+    "AreaSphere",  # TODO: TBD
     "AudioAreaAmbience",  # TODO: TBD
     "AudioEnvironmentFeedbackPoint",  # TODO: TBD
     "AudioTriggerSpot",  # TODO: TBD
@@ -31,11 +33,16 @@ SOC_ENTITY_CLASSES_TO_SKIP = [
     "EditorCamera",  # TODO: TBD
     # "EnvironmentLight",  # TODO: TBD
     "FogVolume",  # TODO: TBD
+    "FlographEntity",  # TODO: TBD
+    "GravityArea",  # TODO: TBD
     "GravityBox",  # TODO: TBD
+    "GreenZone",  # TODO: TBD
+    "Hint",  # TODO: TBD
     "Hazard",  # TODO: TBD
     "Ladder",  # Does not seem to contain any relevant info
     "LandingArea",  # TODO: TBD
     "LedgeObject",  # TODO: TBD
+    "LocationManager",  # TODO: TBD
     # "Light",  # TODO: TBD
     # "LightBox",  # TODO: TBD
     # "LightGroup",  # TODO: TBD
@@ -48,6 +55,8 @@ SOC_ENTITY_CLASSES_TO_SKIP = [
     "Room",  # Audio # TODO: TBD
     "RoomConnector",  # TODO: TBD
     # "RotationSimple",  # Geometry that has rotation animation
+    "SafeTeleportPoint",
+    "SCShop",
     "SequenceObjectItem",  # TODO: TBD
     "SurfaceRaindropsTarget",  # TODO: TBD
     "TagPoint",  # TODO: TBD

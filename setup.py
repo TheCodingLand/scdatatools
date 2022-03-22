@@ -20,6 +20,7 @@ requirements = [
     "pyquaternion~=0.9.9",
     "pyrsi~=0.1.19",
     "python_nubia~=0.2b2",
+    "sentry-sdk==1.5.8",
     "tqdm~=4.62.3",
     "xxhash~=2.0.2",
     "zstandard~=0.12.0",

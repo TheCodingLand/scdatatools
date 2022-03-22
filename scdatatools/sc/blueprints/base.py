@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 from contextlib import contextmanager
 
+import sentry_sdk
 from pyquaternion import Quaternion
 
 from scdatatools.utils import SCJSONEncoder
@@ -596,10 +597,12 @@ class Blueprint:
         """Process any files/records that are waiting to be processed until the list is empty"""
         from .generators.object_containers import blueprint_from_socpak
 
+        sentry_sdk.set_context('blueprint', {'name': self.name})
         while self._entities_to_process or self._containers_to_process:
             if self._containers_to_process:
                 # if there are containers to process, process the next one
                 # TODO: this is a temporary migratory solution
+                #       ^ does anyone remember what this fool was talking about? - vent
                 container = next(iter(self._containers_to_process))
                 attrs = self._containers_to_process.pop(container)
                 if container not in self._processed_containers:
@@ -617,6 +620,10 @@ class Blueprint:
             )
             self._entities_to_process = set()
             for ent_type, entity in cur_entities_to_process:
+                sentry_sdk.set_context("blueprint.processing", {
+                    'entity_type': ent_type,
+                    'entity': entity
+                })
                 if ent_type == "record":
                     with self.set_current_container(self._container_for_record[entity]):
                         self._process_record(

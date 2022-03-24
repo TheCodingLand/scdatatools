@@ -2,6 +2,16 @@
 History
 =======
 
+1.0.2 (2022-03-23)
+------------------
+
+* Many shader, texture and material enhancements and fixes in Blender importer
+* Added sentry error reporting context generation. This is used by StarFab, scdatatools does not do sentry reporting
+  directly on it's own
+* Added `Model Asset Extractor` "converter" that will automatically select the associated `mtl` and textures for each
+  model in the extraction task. Not recommended while extracting the entire p4k as this will just increase the overhead
+
+
 1.0.1 (2022-02-02)
 ------------------
 

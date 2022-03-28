@@ -104,15 +104,15 @@ def extract_blueprint(
 
         converters = [CryXmlConverter]
         converter_options = dict(**kwargs)
-        converter_options.setdefault("convert_cryxml_fmt", convert_cryxml_fmt)
+        converter_options.setdefault("cryxml_converter_fmt", convert_cryxml_fmt)
 
         logger.debug(f"{auto_convert_textures = }")
         if auto_convert_textures:
             converters.append(DDSTextureConverter)
-            converter_options.setdefault("convert_dds_fmt", convert_dds_fmt)
-            converter_options.setdefault("convert_dds_converter", tex_converter)
-            converter_options.setdefault("convert_dds_converter_bin", tex_converter_bin)
-            converter_options.setdefault("convert_dds_replace", True)
+            converter_options.setdefault("ddstexture_converter_fmt", convert_dds_fmt)
+            converter_options.setdefault("ddstexture_converter_converter", tex_converter)
+            converter_options.setdefault("ddstexture_converter_converter_bin", tex_converter_bin)
+            converter_options.setdefault("ddstexture_converter_replace", True)
 
         logger.debug(f"{auto_convert_models = }")
         if auto_convert_models:

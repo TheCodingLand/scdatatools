@@ -294,16 +294,16 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
     ) -> typing.Tuple[typing.List["P4KInfo"], typing.List[Path]]:
 
         options = options or {}
-        output_fmt = options.get("convert_dds_fmt", "dds").casefold()
+        output_fmt = options.get("ddstexture_converter_fmt", "dds").casefold()
 
-        if output_fmt == 'dds' and not options.get('convert_dds_unsplit', False):
+        if output_fmt == 'dds' and not options.get('ddstexture_converter_unsplit', False):
             # output dds and unsplit not checked, do nothing
             return members, []
 
-        converter = ConverterUtility(options.get("convert_dds_converter", "default"))
-        converter_bin = options.get("convert_dds_converter_bin", "")
-        converter_cli_args = options.get("convert_dds_converter_cli_args", "")
-        replace = options.get("convert_dds_replace", False)
+        converter = ConverterUtility(options.get("ddstexture_converter_converter", "default"))
+        converter_bin = options.get("ddstexture_converter_converter_bin", "")
+        converter_cli_args = options.get("ddstexture_converter_converter_cli_args", "")
+        replace = options.get("ddstexture_converter_replace", False)
 
         unhandled_members = []
         extracted_paths = []

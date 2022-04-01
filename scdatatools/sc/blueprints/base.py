@@ -1,22 +1,20 @@
 import json
-import typing
 import logging
-from pathlib import Path
+import typing
 from contextlib import contextmanager
+from pathlib import Path
 
 import sentry_sdk
 from pyquaternion import Quaternion
 
+from scdatatools.engine.cryxml import dict_from_cryxml_file, CryXmlConversionFormat
+from scdatatools.engine.model_utils import Vector3D
+from scdatatools.forge.dco import DataCoreObject
+from scdatatools.forge.dftypes import Record, GUID
 from scdatatools.utils import SCJSONEncoder
 from scdatatools.utils import norm_path
-from scdatatools.engine.model_utils import Vector3D
-from scdatatools.forge.dftypes import Record, GUID
-from scdatatools.engine.cryxml import dict_from_cryxml_file, CryXmlConversionFormat
-from scdatatools.forge.dco import DataCoreObject
-
 from .extractor import extract_blueprint
 from .processors import process_p4kfile, process_datacore_object
-
 
 if typing.TYPE_CHECKING:
     from scdatatools.sc import StarCitizen
@@ -405,10 +403,11 @@ class Blueprint:
                     attachments = [
                         attachments
                     ]  # happens if there is only one attachment
+                # TODO: handle attachment points that don't have geometry (doesn't have a @Binding)
                 sub_geometry.update(
                     {
                         _["@Binding"]: {"attrs": {"bone_name": _["@AName"]}}
-                        for _ in attachments
+                        for _ in attachments if "@Binding" in _
                     }
                 )
             except KeyError:

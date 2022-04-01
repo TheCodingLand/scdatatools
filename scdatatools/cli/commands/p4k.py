@@ -80,6 +80,7 @@ def unp4k(
             if convert_cryxml:
                 convert_cryxml_fmt = convert_cryxml
                 convert_cryxml = True
+            # TODO: this needs to be updated to use the new converters
             p.extract_filter(
                 file_filter=file_filter,
                 path=str(output),

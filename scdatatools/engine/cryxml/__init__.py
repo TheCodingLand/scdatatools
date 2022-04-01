@@ -346,7 +346,7 @@ class CryXmlConverter(plugins.P4KConverterPlugin):
         options = options or {}
         unhandled_members = []
         extracted_paths = []
-        convert_cryxml_fmt = options.get("convert_cryxml_fmt", "xml").casefold()
+        convert_cryxml_fmt = options.get("cryxml_converter_fmt", "xml").casefold()
 
         if convert_cryxml_fmt == "cryxmlb":
             return members, extracted_paths

@@ -34,7 +34,7 @@ def chunk_class_from_header(
     """Returns the appropriate class for the given `chunk_header`"""
     chunk_versions = CHUNK_CLASSES.setdefault(chunk_header.type, {})
     if chunk_header.version not in chunk_versions:
-        logger.warning(f"Unhandled chunk {chunk_header}")
+        logger.debug(f"Unhandled chunk {chunk_header}")
         return fallback
     return chunk_versions[chunk_header.version]
 

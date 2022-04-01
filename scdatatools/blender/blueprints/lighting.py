@@ -123,7 +123,7 @@ def create_light(
     # light_obj.show_axis = True #for debugging. Remove before flight
 
     for key, val in light["EntityComponentLight"].items():
-        if not key.endswith("State"):
+        if not key.endswith("State") or key == "offState":
             continue
         light_obj["states"][key] = {
             "color": (

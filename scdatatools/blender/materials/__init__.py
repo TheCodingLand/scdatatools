@@ -1,24 +1,21 @@
 # -*- coding: utf-8 -*-
-import os
-import typing
 import logging
+import typing
 import xml.etree
-from distutils.util import strtobool
-
+from ast import literal_eval as make_tuple
 from copy import copy, deepcopy
 from pathlib import Path
-from ast import literal_eval as make_tuple
 from xml.etree import cElementTree as ElementTree
 
 import bpy
 import tqdm
+from bpy.props import StringProperty, BoolProperty, CollectionProperty
 from bpy.types import Operator
 from bpy_extras.io_utils import ImportHelper
-from bpy.props import StringProperty, BoolProperty, CollectionProperty
 
 from scdatatools.engine.cryxml import is_cryxmlb_file, etree_from_cryxml_file
+from scdatatools.engine.materials.mat_utils import normalize_material_name
 from scdatatools.utils import search_for_data_dir_in_path
-
 from .utils import ensure_node_groups_loaded, image_for_texture
 
 logger = logging.getLogger(__name__)
@@ -118,6 +115,7 @@ class MTLLoader:
         self.data_dir = Path(data_dir) if data_dir else data_dir
         self.created_materials = []
         self.tinted_materials = []
+        self.loaded_materials = []
 
     def _load_sub_material(
         self, mtl_path: typing.Union[Path, str]
@@ -179,6 +177,9 @@ class MTLLoader:
         else:
             mtl_path = Path(mtl.name)
 
+        if mtl_path in self.loaded_materials:
+            return self.created_materials
+
         if not self.data_dir:
             # Try to find the Base Dir as a parent of xml_path
             self.data_dir = search_for_data_dir_in_path(mtl_path)
@@ -212,14 +213,14 @@ class MTLLoader:
                 attrs[subelement.tag] = subelement
 
             # Convert the name to match the exported prefixed-material names
-            attrs["Name"] = f'{mtl_path.name.lower().replace(".", "_")}_{attrs["Name"]}'
+            attrs["Name"] = normalize_material_name(f'{mtl_path.name.replace(".", "_")}_{attrs["Name"]}')
 
             shader_type = attrs.get("Shader", "").lower()
             # shader_type = "simple"
 
             try:
                 new_mat = None
-                if attrs["Name"].endswith("proxy"):
+                if attrs["Name"].casefold().endswith("proxy"):
                     new_mat = self.create_proxy_material(attrs)
                 elif shader_type == "hardsurface":
                     new_mat = self.create_hard_surface(attrs)
@@ -255,6 +256,7 @@ class MTLLoader:
                     self.created_materials.append(new_mat)
             except Exception as e:
                 logger.exception(f'Error creating material {attrs["Name"]}', exc_info=e)
+        self.loaded_materials.append(mtl_path)
         return self.created_materials
 
     def create_illum_surface(self, mtl_attrs):

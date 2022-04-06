@@ -1,21 +1,19 @@
 import os
-from pathlib import Path
-from itertools import chain
-
 import time
-import humanize
 from datetime import timedelta
+from itertools import chain
+from pathlib import Path
 
+import humanize
+
+from scdatatools.engine.materials.mtl import MaterialLibrary
 from scdatatools.p4k import P4KInfo, P4KExtFile, P4KFile
-from scdatatools.engine.materials import MaterialLibrary
 from scdatatools.utils import search_for_data_dir_in_path, generate_free_key
-
-from .chunks import *
 from .chcr import *
-from .ivo import *
-
+from .chunks import *
 from .chunks.defs import ChunkType
 from .chunks.geometry.nodes import Node
+from .ivo import *
 
 logger = logging.getLogger(__name__)
 GEOMETRY_EXTENSIONS = [

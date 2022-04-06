@@ -1,16 +1,15 @@
 import json
 import logging
 import typing
-from pathlib import Path
 from datetime import datetime
-
-import tqdm
+from pathlib import Path
 
 import bpy
 import mathutils
-from bpy_extras.io_utils import ImportHelper
+import tqdm
 from bpy.props import StringProperty, BoolProperty, CollectionProperty, EnumProperty
 from bpy.types import Operator, OperatorFileListElement
+from bpy_extras.io_utils import ImportHelper
 
 from scdatatools.blender import materials
 from scdatatools.blender.blueprints import utilities as bp_utils
@@ -25,19 +24,19 @@ from scdatatools.blender.blueprints.ui import (
     SCImportEntityImportedContainersPanel,
     SCImportEntityAvailableContainersPanel,
 )
+from scdatatools.blender.logging import use_log_file
+from scdatatools.blender.materials import load_tint_palette
+from scdatatools.blender.materials.utils import tint_palette_node_group_for_entity
 from scdatatools.blender.utils import (
     remove_proxy_meshes,
     deselect_all,
     copy_rotation,
-    normalize_material_name,
     hashed_path_key,
     move_obj_to_collection,
 )
-from scdatatools.utils import log_time
+from scdatatools.engine.materials.mat_utils import normalize_material_name
 from scdatatools.plugins import register_hook, plugin_manager
-from scdatatools.blender.logging import use_log_file
-from scdatatools.blender.materials import load_tint_palette
-from scdatatools.blender.materials.utils import tint_palette_node_group_for_entity
+from scdatatools.utils import log_time
 
 logger = logging.getLogger(__name__)
 

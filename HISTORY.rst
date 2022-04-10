@@ -2,6 +2,18 @@
 History
 =======
 
+1.0.3 (2022-04-09)
+------------------
+
+* Export converter options naming standardization
+* New material name normalization. All material names in `mtl` have spaces converted to underscores as the Blender
+  DAE importer does not handle material names with spaces. This happens during any export as long as cryxml 
+  conversion is enabled
+* Fix cdf/chr files that have attachment points without geometry
+* Improvements and fixes to the hardsurface normals and emissions
+* Improved action map exports
+* 3.17 lighting fixes
+
 1.0.2 (2022-03-23)
 ------------------
 

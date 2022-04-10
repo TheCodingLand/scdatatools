@@ -19,18 +19,17 @@ __all__ = [
     "is_cryxmlb_file",
 ]
 
-import re
-import json
 import enum
-import typing
+import json
 import logging
-from pathlib import Path
+import re
+import typing
 from ctypes import sizeof
+from pathlib import Path
 from xml.etree import ElementTree
 from xml.etree.ElementTree import TreeBuilder, ParseError, XMLParser
 
 from scdatatools import plugins
-from scdatatools.engine.cryxml.utils import pprint_xml_tree
 from scdatatools.engine.cryxml.defs import (
     CryXMLBHeader,
     CryXMLBNodeIndex,
@@ -38,9 +37,10 @@ from scdatatools.engine.cryxml.defs import (
     CryXMLBAttribute,
     CRYXML_NO_PARENT,
 )
-from scdatatools.utils import etree_to_dict
+from scdatatools.engine.cryxml.utils import pprint_xml_tree
+from scdatatools.engine.materials.mat_utils import normalize_material_name
 from scdatatools.p4k import monitor_msg_from_info, P4KInfo
-
+from scdatatools.utils import etree_to_dict
 
 logger = logging.getLogger(__name__)
 CRYXMLB_SIGNATURE = b"CryXmlB"
@@ -347,6 +347,7 @@ class CryXmlConverter(plugins.P4KConverterPlugin):
         unhandled_members = []
         extracted_paths = []
         convert_cryxml_fmt = options.get("cryxml_converter_fmt", "xml").casefold()
+        mtl_fix_name = options.get("cryxml_converter_mtl_fix_names", False)
 
         if convert_cryxml_fmt == "cryxmlb":
             return members, extracted_paths
@@ -365,19 +366,23 @@ class CryXmlConverter(plugins.P4KConverterPlugin):
                         with member.open("rb") as member_file:
                             if is_cryxmlb_file(member_file):
                                 outpath.parent.mkdir(exist_ok=True, parents=True)
+                                et = etree_from_cryxml_file(member_file)
+
+                                if ext == 'mtl' and mtl_fix_name:
+                                    # Blender DAE importer does not support spaces in material names. Material names
+                                    # are derived from the associated `mtl` of a model, therefore we've added this "fix"
+                                    # to normalize names of materials so the generated collada files have acceptable
+                                    # names
+                                    for e in et.findall('.//Material'):
+                                        if 'Name' not in e.attrib:
+                                            continue
+                                        e.attrib['Name'] = normalize_material_name(e.attrib['Name'])
+
                                 with outpath.open("w") as outfile:
                                     if convert_cryxml_fmt == "xml":
-                                        outfile.write(
-                                            pprint_xml_tree(
-                                                etree_from_cryxml_file(member_file)
-                                            )
-                                        )
+                                        outfile.write(pprint_xml_tree(et))
                                     else:
-                                        json.dump(
-                                            dict_from_cryxml_file(member_file),
-                                            outfile,
-                                            indent=2,
-                                        )
+                                        json.dump(etree_to_dict(et), outfile, indent=2)
                                 if monitor is not None:
                                     monitor(monitor_msg_from_info(member))
                             else:

@@ -1,18 +1,17 @@
+import concurrent.futures
+import hashlib
+import logging
 import os
+import shutil
+import subprocess
 import sys
 import typing
-import shutil
-import logging
-import hashlib
-import subprocess
-import concurrent.futures
 from itertools import chain
 from pathlib import Path
-from packaging.version import Version
-from packaging.specifiers import SpecifierSet
-
 
 import tqdm
+from packaging.specifiers import SpecifierSet
+from packaging.version import Version
 
 try:
     import bpy
@@ -200,22 +199,6 @@ def remove_sc_physics_proxies() -> bool:
     except Exception as e:
         print(f"Failed to remove sc physics proxies: {repr(e)}")
         return False
-
-
-def normalize_material_name(mat_name):
-    if "_mtl_" in mat_name:
-        # normalize mtl library name
-        mtl_file, mtl = mat_name.split("_mtl_")
-        norm_mat_name = f"{mtl_file.lower()}_mtl_{mtl}"
-    else:
-        norm_mat_name = mat_name
-
-    if "." in norm_mat_name:
-        # remove .NNN
-        base_mat_name, _ = norm_mat_name.rsplit(".", maxsplit=1)
-        norm_mat_name = base_mat_name if _.isdigit() else norm_mat_name
-
-    return norm_mat_name
 
 
 def import_cleanup(context, option_offsetdecals=False):

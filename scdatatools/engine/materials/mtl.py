@@ -1,16 +1,15 @@
-import typing
 import logging
+import typing
 from pathlib import Path
 from xml.etree import ElementTree
 
-from scdatatools.p4k import P4KInfo
-from scdatatools.utils import search_for_data_dir_in_path
 from scdatatools.engine.cryxml import (
     etree_from_cryxml_file,
-    etree_from_cryxml_string,
     is_cryxmlb_file,
 )
-
+from scdatatools.p4k import P4KInfo
+from scdatatools.utils import search_for_data_dir_in_path
+from .mat_utils import normalize_material_name
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +21,7 @@ class MaterialLibrary:
 
         :param mtl: The mtl path or `file`.
         """
+
         self._p4k = None
         self.data_dir = data_dir
 
@@ -62,6 +62,7 @@ class MaterialLibrary:
             if "Name" not in attrs:
                 attrs["Name"] = self.mtl_path.stem
             attrs["PrefixedName"] = f'{self.mtl_path.stem}_mtl_{attrs["Name"]}'
+            attrs["NormalizedName"] = normalize_material_name(attrs["PrefixedName"])
             for subelement in mat:
                 attrs[subelement.tag] = subelement
             self.materials.append(attrs)

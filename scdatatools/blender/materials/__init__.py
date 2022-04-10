@@ -233,7 +233,7 @@ class MTLLoader:
                     new_mat = self.create_layer_node(attrs)
                 elif shader_type in ("hologram", "hologramcig"):
                     new_mat = self.create_hologram_surface(attrs)
-                elif shader_type in ("monitor", "displayscreen", "uiplane", "RTT_Text_To_Decal"):
+                elif shader_type in ("monitor", "displayscreen", "uiplane"):
                     new_mat = self.create_proxy_material(attrs)
                 elif shader_type == "nodraw":
                     new_mat = self.create_proxy_material(attrs)
@@ -284,6 +284,9 @@ class MTLLoader:
         elif "DECAL" in mtl_attrs["StringGenMask"]: # or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             viewport_trans = True
+        elif "rtt_text_to_decal" in matname.lower():
+            shadergroup.inputs["diff Alpha"].default_value = 0
+            viewport_trans = True            
         else:
             shadergroup.node_tree = bpy.data.node_groups["_Illum"]
         set_viewport(mat, mtl_attrs, viewport_trans)
@@ -349,6 +352,7 @@ class MTLLoader:
         if mtl_attrs.get("AlphaTest"):
             try:
                 shadergroup.inputs["UseAlpha"].default_value = 1
+                set_viewport(mat, mtl_attrs, True)
             except:
                 pass
 
@@ -898,7 +902,7 @@ class MTLLoader:
                 logger.warning(f"missing texture for mat %s: %s", mat.name, filename)
                 continue
 
-            if "diff" in img.name:
+            if "diff" in img.name or 'spec' in img.name :
                 img.colorspace_settings.name = "sRGB"
             else:
                 img.colorspace_settings.name = "Non-Color"
@@ -1010,6 +1014,7 @@ class MTLLoader:
                 except:
                     pass
             elif tex.get("Map") in ["TexSlot4", "Specular"]:
+                texnode.image.colorspace_settings.name = "sRGB"
                 try:
                     mat.node_tree.links.new(
                         texnode.outputs["Color"], shadergroup.inputs["spec Color"]

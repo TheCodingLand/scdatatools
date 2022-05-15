@@ -371,9 +371,14 @@ def create_geom_instance(
                     helper["rotation"]["z"],
                 )
         if parent is not None and bone_name.lower() in parent.get("item_ports", {}):
-            new_instance.parent = bpy.data.objects[
-                parent["item_ports"][bone_name.lower()]
-            ]
+            try:
+                new_instance.parent = bpy.data.objects[
+                    parent["item_ports"][bone_name.lower()]
+                ]
+            except KeyError:
+                logger.error(f'Could not find object for bone_name {bone_name}, '
+                             f'expected {parent["item_ports"][bone_name.lower()]}. Assigning to parent')
+                new_instance.parent = parent
 
     new_instance.location = location
     new_instance.scale = scale

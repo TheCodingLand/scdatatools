@@ -263,6 +263,7 @@ class MTLLoader:
         """Setup a material as an _Illum shader from `mtl_attrs` dict definition"""
         mat, created = self.get_or_create_shader_material(mtl_attrs["Name"])
         if not created:
+            #mat.node_tree.nodes.clear()
             return
 
         shaderout = mat.node_tree.nodes[SN_OUT]
@@ -350,6 +351,15 @@ class MTLLoader:
             )
         except:
             pass
+        try:
+            shadergroup.inputs["HeightBias"].default_value = (
+                float(mtl_attrs["PublicParams"].get("HeightBias", 0.5))
+            )
+            shadergroup.inputs["PomDisplacement"].default_value = (
+                float(mtl_attrs["PublicParams"].get("PomDisplacement", 0))
+            )
+        except:
+            pass
 
         if mtl_attrs.get("AlphaTest"):
             try:
@@ -427,6 +437,7 @@ class MTLLoader:
 
         mat, created = self.get_or_create_shader_material(mat_name)
         if not created:
+            #mat.node_tree.nodes.clear()
             return  # mtl has already been loaded
 
         set_viewport(mat, mtl_attrs)

@@ -184,7 +184,7 @@ def create_light(
         #eevee
         light_data.use_shadow = False
         #cycles
-        light_data.cycles.cast_shadow = False
+        #light_data.cycles.cast_shadow = False
     else:
         #eevee
         light_data.use_shadow = True

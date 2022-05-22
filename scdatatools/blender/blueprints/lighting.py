@@ -106,7 +106,7 @@ def create_light(
         light_data = bpy.data.lights.new(name=light_group_collection.name, type="SPOT")
         light_data.spot_size = math.radians(fov)
         light_data.spot_blend = bulbRadius
-        light_data.shadow_soft_size = bulbRadius * 0 # set to zero for hard IES light edges, increase for softness
+        light_data.shadow_soft_size = bulbRadius * 0.01 # set to zero for hard IES light edges, increase for softness
         # light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
         # light_data.spread = math.radians(fov)
         # light_data.size = bulbRadius
@@ -184,20 +184,19 @@ def create_light(
         #eevee
         light_data.use_shadow = False
         #cycles
-        light_data.cycles.cast_shadow = False
+        #light_data.cycles.cast_shadow = False
     else:
         #eevee
         light_data.use_shadow = True
         light_data.use_contact_shadow = True
         #cycles
-        #light_data.cycles.cast_shadow = True
+        light_data.cycles.cast_shadow = True
 
     if maxDistance: 
         light_data.use_custom_distance = True
         light_data.cutoff_distance = maxDistance
     if projectorNearPlane: 
         light_data.shadow_buffer_clip_start = projectorNearPlane
-
 
     location = str_to_tuple(light["@Pos"], float)
     rotation_quaternion = Quaternion((1, 0, 0, 0))  # initial rotation X+

@@ -93,6 +93,9 @@ class ObjectContainerInstance:
         self.label = self._attrs.get('label', self.entdata.get('@Name', Path(self.name).stem))
         self.position = vector_from_csv(self._attrs.get('position', '0,0,0'))
         self.rotation = quaternion_from_csv(self._attrs.get('rotation', '1,0,0,0'))
+        if 'entity_name' not in self._attrs:
+            self._attrs['entity_name'] = ''
+            self.entity_name = ''
 
         if isinstance(parent, ObjectContainerInstance):
             self.global_position = parent.global_position + self.position
@@ -175,8 +178,8 @@ class ObjectContainer:
         self.socpak = socpak
 
         self.instances = {}
-        self.children = {}
-        self.children_by_id = {}
+        self.children: typing.Dict[str, ObjectContainerInstance] = {}
+        self.children_by_id: typing.Dict[str, ObjectContainerInstance] = {}
         self.socs = {}
 
         self._p4k_path = Path(self.socpak.filename)

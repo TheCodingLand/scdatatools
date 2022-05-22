@@ -1,21 +1,20 @@
-import sys
 import json
+import sys
 from pathlib import Path
 
+from rsi.launcher import LauncherAPI
 from tqdm import tqdm
 
-from rsi.launcher import LauncherAPI
-from scdatatools.p4k import P4KFile
+from scdatatools.engine.prefabs import PrefabManager
 from scdatatools.forge import DataCoreBinary
 from scdatatools.forge.tags import TagDatabase
+from scdatatools.p4k import P4KFile
 from scdatatools.utils import get_size, xxhash32, xxhash32_file
 from scdatatools.wwise import WwiseManager
-from scdatatools.engine.prefabs import PrefabManager
-
 from .config import Profile
-from ..plugins import plugin_manager
 from .localization import SCLocalization
 from .object_container import ObjectContainerManager
+from ..plugins import plugin_manager
 
 # Files that we will NOT skip the hash for when generating inventory with skip_data_hash
 P4K_ALWAYS_HASH_DATA_FILES = [
@@ -50,6 +49,8 @@ class StarCitizen:
         self._p4k_load_monitor = p4k_load_monitor
 
         self.game_folder = Path(game_folder).absolute()
+        if self.game_folder.is_file() and self.game_folder.name.casefold() == p4k_file.casefold():
+            self.game_folder = self.game_folder.parent
         if not self.game_folder.is_dir():
             raise ValueError(f"{self.game_folder} is not a directory")
 

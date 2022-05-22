@@ -136,7 +136,11 @@ def get_or_create_geometry(
         # Already loaded, return the collection
         gc = geometry_collection.children[geom_key]
         if gc["filename"].lower() != geom_file.as_posix().lower():
-            raise ValueError(f"geom_key collision! {geom_key}")
+            if geom_file.suffix == '.chr' or Path(gc["filename"]).suffix == '.chr':
+                return gc, False   # if the collision is a chr, accept using the other model  # TODO: handle this better
+            raise ValueError(f"geom_key collision! {geom_key} - "
+                             f"gc_filename: {gc['filename'].lower()} "
+                             f"geom_file: {geom_file.as_posix().lower()}")
         return gc, False
 
     try:

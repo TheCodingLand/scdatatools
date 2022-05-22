@@ -1,16 +1,11 @@
-import typing
 import logging
+import typing
 from pathlib import Path
 
-from pyquaternion import Quaternion
-
 from scdatatools.p4k import P4KInfo
-from scdatatools.utils import norm_path
 from scdatatools.sc.blueprints.base import Blueprint
-from scdatatools.engine.chunkfile import chunks
-from scdatatools.sc.blueprints.processors.lighting import process_light_object
 from scdatatools.sc.blueprints.processors.p4k.socpak import process_soc
-from scdatatools.engine.model_utils import vector_from_csv, quaternion_from_csv
+from scdatatools.utils import norm_path
 
 logger = logging.getLogger(__name__)
 
@@ -77,17 +72,13 @@ def blueprint_from_socpak(
             try:
                 blueprint_from_socpak(
                     sc,
-                    socpak=child["name"],
-                    container_name=child.get("entityName", ""),
+                    socpak=child.name,
+                    container_name=child.entity_name,
                     bp=bp,
                     bone_name=bone_name,
                     attrs={
-                        "pos": vector_from_csv(
-                            child["pos"]
-                            if "pos" in child
-                            else child["entdata"].get("@Pos", child.get("pos", "0,0,0"))
-                        ),
-                        "rotation": quaternion_from_csv(child.get("rot", "1,0,0,0")),
+                        "pos": child.position,
+                        "rotation": child.rotation,
                     },
                 )
             except Exception as e:

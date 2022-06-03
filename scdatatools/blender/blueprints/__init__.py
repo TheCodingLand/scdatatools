@@ -6,11 +6,11 @@ from pathlib import Path
 
 import bpy
 import mathutils
-import tqdm
 from bpy.props import StringProperty, BoolProperty, CollectionProperty, EnumProperty
 from bpy.types import Operator, OperatorFileListElement
 from bpy_extras.io_utils import ImportHelper
 
+from scdatatools.cli.utils import track
 from scdatatools.blender import materials
 from scdatatools.blender.blueprints import utilities as bp_utils
 from scdatatools.blender.blueprints.hooks import (
@@ -521,8 +521,8 @@ class SCBlueprintImporter:
                 if obj_name.split(".")[-1].lower().startswith("$physics_proxy")
             ]
             if proxy_objs:
-                for obj_name in tqdm.tqdm(
-                    proxy_objs, desc="Removing SC physics proxy objects"
+                for obj_name in track(
+                    proxy_objs, description="Removing SC physics proxy objects"
                 ):
                     bpy.data.objects.remove(bpy.data.objects[obj_name], do_unlink=True)
 
@@ -739,13 +739,7 @@ class SCBlueprintImporter:
                         return geom
 
                     container_geom = _walk_geom(container)
-                    for geom_name in tqdm.tqdm(
-                        container_geom,
-                        desc=f"Importing {name} geometry",
-                        postfix="",
-                        total=len(container_geom),
-                        unit="g",
-                    ):
+                    for geom_name in track(container_geom, description=f"Importing {name} geometry", unit="g"):
                         if (entity := self.bp["geometry"].get(geom_name)) is None:
                             logger.error(f'Unknown geometry "{geom_name}"')
                             return None
@@ -766,11 +760,10 @@ class SCBlueprintImporter:
                 if not geom_only:
                     # TODO: this is a quick fix to load the new bp `socs` - reorganize this to handle things better
                     def _load_instances(cont_name, cont):
-                        for geom_name, instances in tqdm.tqdm(
+                        for geom_name, instances in track(
                             cont["instances"].items(),
-                            desc=f"Instancing {cont_name} geometry",
-                            postfix="",
                             total=len(cont["instances"]),
+                            description=f"Instancing {cont_name} geometry",
                             unit="g",
                         ):
                             for i_name, inst in instances.items():
@@ -784,11 +777,10 @@ class SCBlueprintImporter:
 
                         if self.import_lighting:
                             lights = cont.get("lights", {})
-                            for light_group_name, lights in tqdm.tqdm(
+                            for light_group_name, lights in track(
                                 lights.items(),
                                 total=len(lights),
-                                desc=f"Creating Lights",
-                                postfix="",
+                                description=f"Creating Lights",
                                 unit="l",
                             ):
                                 if (

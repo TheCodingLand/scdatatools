@@ -349,26 +349,6 @@ class SCJSONEncoder(json.JSONEncoder):
             return str(obj)
 
 
-@contextlib.contextmanager
-def redirect_to_tqdm():
-    class DummyFile(object):
-        def __init__(self, file):
-            self.file = file
-
-        def write(self, x):
-            tqdm.tqdm.write(x, end="", file=self.file)
-
-        def __eq__(self, other):
-            return other is self.file
-
-    old_stdout = sys.stdout
-    try:
-        sys.stdout = DummyFile(old_stdout)
-        yield
-    finally:
-        sys.stdout = old_stdout
-
-
 @contextmanager
 def log_time(msg: str = "", handler: typing.Callable = print):
     """Context manager that will log the time it took to run the inner context via the callable `handler`

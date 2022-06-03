@@ -1,8 +1,7 @@
-import tqdm
-
 import bpy
 from bpy.types import Operator
 
+from scdatatools.cli.utils import track
 from scdatatools.blender.utils import (
     remove_proxy_meshes,
     deselect_all,
@@ -116,11 +115,7 @@ class MakeInstanceReal(Operator):
     bl_label = "Make Instance Real"
 
     def execute(self, context):
-        for obj in tqdm.tqdm(
-            list(context.selected_objects),
-            total=len(context.selected_objects),
-            desc="Making instances real",
-        ):
+        for obj in track(list(context.selected_objects), description="Making instances real"):
             if (
                 obj.instance_type == "COLLECTION"
                 and obj.instance_collection is not None
@@ -154,9 +149,7 @@ class MakeInstanceHierarchyReal(Operator):
                 if obj.instance_type == "COLLECTION":
                     instances.add(obj)
 
-        for inst in tqdm.tqdm(
-            instances, desc="Making instances real", total=len(instances)
-        ):
+        for inst in track(instances, description="Making instances real"):
             deselect_all()
             inst.select_set(True)
             bpy.ops.object.duplicates_make_real(

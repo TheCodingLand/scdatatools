@@ -9,9 +9,10 @@ import typing
 from itertools import chain
 from pathlib import Path
 
-import tqdm
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
+
+from scdatatools.cli.utils import track
 
 try:
     import bpy
@@ -193,7 +194,7 @@ def remove_sc_physics_proxies() -> bool:
             for obj in bpy.data.objects
             if obj.name.lower().startswith("$physics_proxy")
         ]
-        for obj in tqdm.tqdm(proxy_objs, desc="Removing SC physics proxy objects"):
+        for obj in track(proxy_objs, description="Removing SC physics proxy objects"):
             bpy.data.objects.remove(obj, do_unlink=True)
         return True
     except Exception as e:
@@ -203,7 +204,7 @@ def remove_sc_physics_proxies() -> bool:
 
 def import_cleanup(context, option_offsetdecals=False):
     objects = list(context.selected_objects)
-    for obj in tqdm.tqdm(objects, total=len(objects), desc="Cleaning up objects"):
+    for obj in track(objects, description="Cleaning up objects"):
         obj.name = obj.name.replace("_out", "")
 
         if obj.type == "MESH":

@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 from rsi.launcher import LauncherAPI
-from tqdm import tqdm
+from rich import progress
 
 from scdatatools.engine.prefabs import PrefabManager
 from scdatatools.forge import DataCoreBinary
@@ -15,6 +15,7 @@ from .config import Profile
 from .localization import SCLocalization
 from .object_container import ObjectContainerManager
 from ..plugins import plugin_manager
+from scdatatools.cli.utils import track
 
 # Files that we will NOT skip the hash for when generating inventory with skip_data_hash
 P4K_ALWAYS_HASH_DATA_FILES = [
@@ -117,12 +118,13 @@ class StarCitizen:
         inv = {}
         p4k_path = Path("Data.p4k")
 
+        prog = progress.Progress
+
         if not skip_local:
-            for f in tqdm(
+            for f in track(
                 self.game_folder.rglob("*"),
-                desc="Collecting Local Files",
+                description="Collecting Local Files",
                 unit="files",
-                ncols=120,
                 unit_scale=True,
             ):
                 path = f.relative_to(self.game_folder).as_posix()
@@ -145,12 +147,10 @@ class StarCitizen:
                 filenames = self.p4k.search(p4k_filters)
             else:
                 filenames = list(self.p4k.NameToInfo.keys())
-            for f in tqdm(
+            for f in track(
                 filenames,
-                desc="      Reading Data.p4k",
-                total=len(filenames),
+                description="      Reading Data.p4k",
                 unit="files",
-                ncols=120,
                 unit_scale=True,
             ):
                 f = self.p4k.NameToInfo[f]
@@ -170,12 +170,11 @@ class StarCitizen:
 
         print("      Opening Datacore", end="\r")
         dcb_path = p4k_path / "Data" / "Game.dcb"
-        for r in tqdm(
+        for r in track(
             self.datacore.records,
-            desc="      Reading Datacore",
+            description="      Reading Datacore",
             total=len(self.datacore.records),
             unit="recs",
-            ncols=120,
             unit_scale=True,
         ):
 

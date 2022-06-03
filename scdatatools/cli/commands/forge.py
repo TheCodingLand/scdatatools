@@ -1,13 +1,13 @@
 import sys
-import shutil
 import typing
-import tempfile
 from pathlib import Path
+import concurrent.futures
 
+from tqdm import tqdm
 from nubia import command, argument
 
 from scdatatools import forge
-from scdatatools import p4k
+from scdatatools.sc import StarCitizen
 
 
 def _dump_record(dcb, record, output, guid, guid_if_exists, xml, quiet):
@@ -66,7 +66,6 @@ def _dump_record(dcb, record, output, guid, guid_if_exists, xml, quiet):
     "Defaults to current directory. Use '-' to output a single file to the stdout",
     aliases=["-o"],
 )
-@argument("quiet", description="Don't output progress.", aliases=["-q"])
 @argument(
     "file_filter",
     description="Posix style file filter of which files to extract",
@@ -81,8 +80,10 @@ def unforge(
     xml: bool = True,
     json: bool = False,
     single: bool = False,
-    quiet: bool = False,
+    quiet: bool = True,
 ):
+    """ Extracts DataCore records and converts them to a given format (xml/json). Use the `--file-filter` argument to
+    down-select which records to extract, by default it will extract all of them to the `--output` directory."""
     forge_file = Path(forge_file)
     output = Path(output).absolute() if output != "-" else output
     file_filter = file_filter.strip("'").strip('"')
@@ -91,18 +92,10 @@ def unforge(
         sys.stderr.write(f"Could not open DataForge file from {forge_file}\n")
         sys.exit(1)
 
-    if forge_file.suffix == ".p4k":
-        print(f"Opening {forge_file}")
-        p = p4k.P4KFile(forge_file)
-        dcb = p.search("*Game.dcb")
-        if len(dcb) != 1:
-            raise ValueError("Could not determine the location of the datacore")
-        with p.open(dcb[0]) as f:
-            print(f"Opening DataForge file from: {forge_file}")
-            _datacore_tmp = tempfile.TemporaryFile()
-            shutil.copyfileobj(f, _datacore_tmp)
-            _datacore_tmp.seek(0)
-            dcb = forge.DataCoreBinary(forge.DataCoreBinaryMMap(_datacore_tmp))
+    if forge_file.suffix.casefold() == ".p4k":
+        print(f"Opening DataCore from {forge_file}")
+        sc = StarCitizen(forge_file)
+        dcb = sc.datacore
     else:
         print(f"Opening DataForge file: {forge_file}")
         dcb = forge.DataCoreBinary(str(forge_file))
@@ -120,7 +113,8 @@ def unforge(
     else:
         print(f"Extracting files into {output} with filter '{file_filter}'")
         print("=" * 120)
-        for record in dcb.search_filename(file_filter):
-            _dump_record(
-                dcb, record, output, guid, guid_if_exists, not json, quiet=quiet
-            )
+        try:
+            for record in tqdm(dcb.search_filename(file_filter), desc="Extracting records", unit_scale=True, unit='r'):
+                _dump_record(dcb, record, output, guid, guid_if_exists, not json, quiet=quiet)
+        except KeyboardInterrupt:
+            pass

@@ -76,17 +76,17 @@ def unp4k(
         print("=" * 80)
         output.mkdir(parents=True, exist_ok=True)
         try:
-            convert_cryxml_fmt = ""
+            converters = []
+            converter_options = dict()
             if convert_cryxml:
-                convert_cryxml_fmt = convert_cryxml
-                convert_cryxml = True
+                converter_options.update({"cryxml_converter_fmt": convert_cryxml})
+                converters.append("cryxml_converter")
             # TODO: this needs to be updated to use the new converters
             p.extract_filter(
                 file_filter=file_filter,
                 path=str(output),
-                convert_cryxml=convert_cryxml,
-                convert_cryxml_fmt=convert_cryxml_fmt,
-                quiet=quiet,
+                converters=converters,
+                converter_options=converter_options,
             )
         except KeyboardInterrupt:
             pass

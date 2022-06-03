@@ -50,11 +50,9 @@ class DataCoreBinary:
             self.raw_data = filename_or_data
         elif isinstance(filename_or_data, str):
             filename = Path(filename_or_data)
-            if not filename_or_data.is_file():
-                raise ValueError(f"Expected bytes or filename,"
-                                 f"not: {filename_or_data}")
+            if not filename.is_file():
+                raise ValueError(f"Expected bytes or filename, not: {filename_or_data}")
             self.raw_data = bytearray(filename.open("rb").read())
-        # if isinstance scdatatools.forge.DataCoreBinaryMMap
         else:
             self.raw_data = bytearray(filename_or_data.read())
 

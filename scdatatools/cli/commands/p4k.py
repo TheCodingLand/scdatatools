@@ -51,6 +51,13 @@ def unp4k(
     except KeyboardInterrupt:
         sys.exit(1)
 
+    converters = []
+    converter_options = dict()
+    if convert_cryxml:
+        converter_options.update({"cryxml_converter_fmt": convert_cryxml})
+        converters.append("cryxml_converter")
+    # TODO: this needs to be updated to use the new converters
+
     if single:
         print(f"Extracting first match for filter '{file_filter}' to {output}")
         print("=" * 80)
@@ -69,19 +76,13 @@ def unp4k(
                 shutil.copyfileobj(source, target)
         else:
             output.mkdir(parents=True, exist_ok=True)
-            p.extract(extract_file, path=str(output), convert_cryxml=convert_cryxml)
+            p.extract(extract_file, path=str(output), converters=converters)
 
     else:
         print(f"Extracting files into {output} with filter '{file_filter}'")
         print("=" * 80)
         output.mkdir(parents=True, exist_ok=True)
         try:
-            converters = []
-            converter_options = dict()
-            if convert_cryxml:
-                converter_options.update({"cryxml_converter_fmt": convert_cryxml})
-                converters.append("cryxml_converter")
-            # TODO: this needs to be updated to use the new converters
             p.extract_filter(
                 file_filter=file_filter,
                 path=str(output),

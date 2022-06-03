@@ -22,10 +22,10 @@ from . import ui_utils, validation
 
 
 logger = logging.getLogger(__name__)
-
+SUPPORTED_PYTHON_VERSIONS = ">=3.10.2,<3.11"
 
 def available_blender_installations(
-    include_paths: typing.List[Path] = None, compatible_only=False, supported_versions=">=3.9.2,<3.10",
+    include_paths: typing.List[Path] = None, compatible_only=False, supported_versions=SUPPORTED_PYTHON_VERSIONS,
 ) -> dict:
     """Return a dictionary of discovered Blender Installations where each value is the `Path` to the installation and
     a `bool` of whether the version's Python is compatible with scdatatools.
@@ -34,7 +34,7 @@ def available_blender_installations(
     ... code-block:: python
 
         available_blender_installations()
-        {'WindowsPath('C:/Program Files/Blender Foundation/Blender 2.93/blender.exe'): {'version': '2.93', 'compatible': True}}
+        {'WindowsPath('C:/Program Files/Blender Foundation/Blender 3.1/blender.exe'): {'version': '3.1', 'compatible': True}}
 
     :param include_paths: Additional Blender directories to check
     :param compatible_only: If `True` only return compatible versions of Blender
@@ -284,7 +284,7 @@ def hashed_path_key(path: Path) -> str:
     if isinstance(path, str):
         path = Path(path)
     h = f'{hashlib.shake_128(path.parent.as_posix().lower().encode("utf-8")).hexdigest(3)}'
-    name = f"{path.stem.lower()}".replace("{", "").replace("}", "").replace("/", "_")
+    name = f"{path.name.lower()}".replace("{", "").replace("}", "").replace("/", "_")
     key = f"{h}_{name}"
     if len(key) >= 64:
         key = f"{h}__{name[len(key) - 62:]}"  # f'{h}__{key.split("_", maxsplit=1)[1][64 - (len(key) - len(h)-2):]}'

@@ -16,6 +16,7 @@ requirements = [
     "hexdump~=3.3",
     "humanize~=3.13.1",
     "numpy~=1.21.5",
+    "packaging~=21.3",
     "pycryptodome~=3.12.0",
     "pyquaternion~=0.9.9",
     "pyrsi~=0.1.19",

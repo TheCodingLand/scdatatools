@@ -8,7 +8,6 @@ from pathlib import Path
 from xml.etree import cElementTree as ElementTree
 
 import bpy
-import tqdm
 from bpy.props import StringProperty, BoolProperty, CollectionProperty
 from bpy.types import Operator
 from bpy_extras.io_utils import ImportHelper
@@ -16,6 +15,8 @@ from bpy_extras.io_utils import ImportHelper
 from scdatatools.engine.cryxml import is_cryxmlb_file, etree_from_cryxml_file
 from scdatatools.engine.materials.mat_utils import normalize_material_name
 from scdatatools.utils import search_for_data_dir_in_path
+from scdatatools.cli.utils import track
+
 from .utils import ensure_node_groups_loaded, image_for_texture
 
 logger = logging.getLogger(__name__)
@@ -1098,7 +1099,7 @@ def load_materials(materials, data_dir, tint_palette_node_group=None):
     loader = MTLLoader(
         data_dir=data_dir, tint_palette_node_group=tint_palette_node_group
     )
-    for mat in tqdm.tqdm(materials, desc="Loading materials", unit="mats"):
+    for mat in track(materials, desc="Loading materials", unit="mats"):
         if not mat:
             continue
         if not Path(mat).is_file():

@@ -14,8 +14,34 @@ from scdatatools import p4k
 @argument(
     "convert_cryxml",
     description="Automatically convert CryXmlB files to specified format.",
-    choices=["", "xml", "json"],
+    choices=["xml", "json"],
     aliases=["-c"],
+)
+@argument(
+    "extract_model_assets",
+    description="Automatically select and extract assets (materials and textures) for model files that are being "
+                "extracted, in addition to the search filter",
+    aliases=["-A"]
+)
+@argument(
+    "unsplit_textures",
+    description="Automatically recombine split .dds texture files",
+    aliases=["-T"]
+)
+@argument(
+    "convert_textures",
+    description="Convert textures to the given image format. This also enables unsplit_textures.",
+    choices=["png", "tif", "tga"]
+)
+@argument(
+    "convert_models",
+    description="Automatically convert 3d models to COLLADA.",
+    aliases=["-m"]
+)
+@argument(
+    "no_overwrite",
+    description="Do not overwrite existing files.",
+    aliases=["-O"]
 )
 @argument(
     "output",
@@ -34,7 +60,12 @@ def unp4k(
     output: typing.Text = ".",
     file_filter: typing.Text = "*",
     convert_cryxml: typing.Text = "",
+    extract_model_assets: bool = False,
+    unsplit_textures: bool = False,
+    convert_textures: str = "",
+    convert_models: bool = False,
     single: bool = False,
+    no_overwrite: bool = False,
     quiet: bool = False,
 ):
     output = Path(output).absolute()
@@ -51,12 +82,27 @@ def unp4k(
     except KeyboardInterrupt:
         sys.exit(1)
 
+    unsplit_textures = unsplit_textures or convert_textures != ""
+
     converters = []
     converter_options = dict()
     if convert_cryxml:
         converter_options.update({"cryxml_converter_fmt": convert_cryxml})
         converters.append("cryxml_converter")
-    # TODO: this needs to be updated to use the new converters
+    if unsplit_textures:
+        converters.append('ddstexture_converter')
+        converter_options.update({
+            "ddstexture_converter_unsplit": True,
+            "ddstexture_converter_replace": not no_overwrite,
+        })
+        if convert_textures:
+            converter_options["ddstexture_converter_fmt"] = convert_textures
+        else:
+            converter_options["ddstexture_converter_fmt"] = "dds"
+    if convert_models:
+        converters.append("cgf_converter")
+        # convert spaces in material names for dae conversion
+        converter_options["cryxml_converter_mtl_fix_names"] = True
 
     if single:
         print(f"Extracting first match for filter '{file_filter}' to {output}")
@@ -88,6 +134,7 @@ def unp4k(
                 path=str(output),
                 converters=converters,
                 converter_options=converter_options,
+                overwrite=not no_overwrite,
             )
         except KeyboardInterrupt:
             pass

@@ -1,21 +1,20 @@
 import sys
 import typing
 from pathlib import Path
-import concurrent.futures
 
-from tqdm import tqdm
 from nubia import command, argument
 
 from scdatatools import forge
 from scdatatools.sc import StarCitizen
+from ..utils import track
 
 
 def _dump_record(dcb, record, output, guid, guid_if_exists, xml, quiet):
     if output == "-":
         if xml:
-            sys.stdout.write(dcb.dump_record_xml(record))
+            sys.stdout.write(dcb.dump_record_xml(record) + '\n')
         else:
-            sys.stdout.write(dcb.dump_record_json(record))
+            sys.stdout.write(dcb.dump_record_json(record) + '\n')
     else:
         if output.is_dir():
             output = output / Path(record.filename)
@@ -114,7 +113,13 @@ def unforge(
         print(f"Extracting files into {output} with filter '{file_filter}'")
         print("=" * 120)
         try:
-            for record in tqdm(dcb.search_filename(file_filter), desc="Extracting records", unit_scale=True, unit='r'):
-                _dump_record(dcb, record, output, guid, guid_if_exists, not json, quiet=quiet)
+            records = dcb.search_filename(file_filter)
+            if output == '-':
+                # don't output the progress bar if we're dumping to the console
+                for record in records:
+                    _dump_record(dcb, record, output, guid, guid_if_exists, not json, quiet=quiet)
+            else:
+                for record in track(records, description="Extracting records"):
+                    _dump_record(dcb, record, output, guid, guid_if_exists, not json, quiet=quiet)
         except KeyboardInterrupt:
             pass

@@ -1099,7 +1099,7 @@ def load_materials(materials, data_dir, tint_palette_node_group=None):
     loader = MTLLoader(
         data_dir=data_dir, tint_palette_node_group=tint_palette_node_group
     )
-    for mat in track(materials, desc="Loading materials", unit="mats"):
+    for mat in track(materials, description="Loading materials", unit="mats"):
         if not mat:
             continue
         if not Path(mat).is_file():

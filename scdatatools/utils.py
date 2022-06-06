@@ -350,15 +350,17 @@ class SCJSONEncoder(json.JSONEncoder):
 
 
 @contextmanager
-def log_time(msg: str = "", handler: typing.Callable = print):
+def log_time(msg: str = "", handler: typing.Callable = print, threshold=0):
     """Context manager that will log the time it took to run the inner context via the callable `handler`
     (Defaults to `print`)
     """
-    if msg:
+    if msg and threshold == 0:
         handler(msg)
     start_time = datetime.now()
     yield
-    handler(f'Finished {msg}{" " if msg else ""}in {datetime.now() - start_time}')
+    t = datetime.now() - start_time
+    if threshold == 0 or t.total_seconds() >= threshold:
+        handler(f'Finished {msg}{" " if msg else ""}in {datetime.now() - start_time}')
 
 
 def search_for_data_dir_in_path(path):

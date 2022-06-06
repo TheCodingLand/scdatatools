@@ -17,11 +17,13 @@ DCB_NO_PARENT = 0xFFFFFFFF
 class DataCoreBase(LittleEndianStructure):
     @property
     def dcb(self):
-        return getattr(self, "_dcb", getattr(self._b_base_, "_dcb", None))
+        if self._b_base_ is not None:
+            return getattr(self._b_base_, '_dcb')
+        return getattr(self, '_dcb')
 
 
 class DataCoreNamed(DataCoreBase):
-    @cached_property
+    @property
     def name(self):
         return self.dcb.string_for_offset(self.name_offset)
 
@@ -92,24 +94,16 @@ class StructureDefinition(DataCoreNamed):
             else self.dcb.structure_definitions[self.parent_index]
         )
 
-    @cached_property
+    @property
     def properties(self):
-        if not hasattr(self, "_props"):
-            props = [
-                self.dcb.property_definitions[_]
-                for _ in range(
-                    self.first_property_index,
-                    self.first_property_index + self.property_count,
-                )
-            ]
-            if self.parent_index != DCB_NO_PARENT:
-                props = (
-                    self.dcb.structure_definitions[self.parent_index].properties + props
-                )
-            setattr(self, "_props", props)
-        return getattr(self, "_props", [])
+        props = self.dcb.property_definitions[self.first_property_index:self.first_property_index + self.property_count]
+        if self.parent_index != DCB_NO_PARENT:
+            props = (
+                self.dcb.structure_definitions[self.parent_index].properties + props
+            )
+        return props
 
-    @cached_property
+    @property
     def calculated_data_size(self):
         size = 0
         for prop in self.properties:
@@ -141,13 +135,13 @@ class PropertyDefinition(DataCoreNamed):
             f"type:{DataTypes(self.data_type).name}_conv:{ConversionTypes(self.conversion_type).name}"
         )
 
-    @cached_property
+    @property
     def calculated_data_size(self):
         if self.data_type == DataTypes.Class:
             return self.type_def.calculated_data_size
         return ctypes.sizeof(self.type_def)
 
-    @cached_property
+    @property
     def type_def(self):
         if self.data_type in DATA_TYPE_LOOKUP:
             return DATA_TYPE_LOOKUP[self.data_type]
@@ -163,7 +157,7 @@ class EnumDefinition(DataCoreNamed):
         ("first_value_index", ctypes.c_uint16),
     ]
 
-    @cached_property
+    @property
     def enum(self):
         return enum.Enum(
             self.name,
@@ -217,7 +211,7 @@ class DataMappingDefinition32(DataCoreBase):
 class GUID(DataCoreBase):
     _fields_ = [("raw_guid", ctypes.c_byte * 16)]
 
-    @cached_property
+    @property
     def value(self):
         c, b, a, k, j, i, h, g, f, e, d = struct.unpack("<HHI8B", self.raw_guid)
         return f"{a:08x}-{b:04x}-{c:04x}-{d:02x}{e:02x}-{f:02x}{g:02x}{h:02x}{i:02x}{j:02x}{k:02x}"
@@ -230,97 +224,86 @@ class GUID(DataCoreBase):
 
 
 class StructureInstance:
-    def __init__(self, dcb=None, raw_data=None, structure_definition=None):
+    def __init__(self, dcb=None, dcb_offset=None, structure_definition=None):
         self.dcb = dcb
-        self.raw_data = raw_data
+        self.dcb_offset = dcb_offset
         self.structure_definition = structure_definition
+        self.name = self.structure_definition.name
+        self.type = self.name
 
-    def read_property(self, offset: int, property_definition: PropertyDefinition):
+    def _read_property(self, offset: int, property_definition: PropertyDefinition):
         conv_type = property_definition.conversion_type
         data_type = property_definition.data_type
-
-        def _clean_class_reference(cls_ref):
-            cls_ref._dcb = self.dcb
-            cls_ref = None if cls_ref.reference is None else cls_ref
-            return cls_ref
 
         if conv_type == ConversionTypes.Attribute:
             if data_type in [DataTypes.StrongPointer, DataTypes.WeakPointer]:
                 end_offset = offset + ctypes.sizeof(ClassReference)
-                return (
-                    _clean_class_reference(
-                        ClassReference.from_buffer(
-                            bytearray(self.raw_data[offset:end_offset])
-                        )
-                    ),
-                    end_offset,
-                )
+                # cls_ref = ClassReference.from_buffer(bytearray(self.dcb.raw_data[offset:end_offset]))
+                cls_ref = ClassReference.from_buffer(self.dcb.raw_data, offset)
+                cls_ref._dcb = self.dcb
+                cls_ref = None if cls_ref.reference is None else cls_ref
+                return cls_ref, end_offset
             elif data_type == DataTypes.Class:
                 end_offset = offset + property_definition.type_def.calculated_data_size
                 return (
-                    StructureInstance(
-                        self.dcb,
-                        memoryview(self.raw_data[offset:end_offset]),
-                        property_definition.type_def,
+                    self.dcb.get_structure_instance_from_offset(
+                        property_definition.structure_index, offset
                     ),
-                    end_offset,
+                    end_offset
                 )
 
             end_offset = offset + property_definition.calculated_data_size
-            buf = bytearray(self.raw_data[offset:end_offset])
-            prop = property_definition.type_def.from_buffer(buf)
+            # buf = bytearray(self.dcb.raw_data[offset:end_offset])
+            prop = property_definition.type_def.from_buffer(self.dcb.raw_data, offset)
             prop._dcb = self.dcb
 
             if data_type == DataTypes.EnumChoice:
-                prop._enum_definition = self.dcb.enum_definitions[
-                    property_definition.structure_index
-                ]
-
+                prop._enum_definition = self.dcb.enum_definitions[property_definition.structure_index]
             return prop.value, end_offset
-        elif conv_type in [_.value for _ in ConversionTypes]:
-            end_offset = offset + 8
-            buf = bytearray(
-                self.raw_data[offset:end_offset]
-            )  # 8 == sizeof(int32 + int32)
-            count, first_index = (ctypes.c_uint32 * 2).from_buffer(buf)
-            if data_type == DataTypes.Class:
-                clss = []
-                for _ in range(count):
-                    clss.append(
-                        _clean_class_reference(
-                            ClassReference(
-                                structure_index=property_definition.structure_index,
-                                instance_index=first_index + _,
-                            )
+        else:
+            try:
+                ConversionTypes(conv_type)   # will throw value error if this is not a valid type
+                end_offset = offset + 8
+                # buf = bytearray(
+                #     self.dcb.raw_data[offset:end_offset]
+                # )  # 8 == sizeof(int32 + int32)
+                count, first_index = (ctypes.c_uint32 * 2).from_buffer(self.dcb.raw_data, offset)
+                if data_type == DataTypes.Class:
+                    clss = []
+                    for _ in range(count):
+                        cls_ref = ClassReference(
+                            structure_index=property_definition.structure_index,
+                            instance_index=first_index + _
                         )
+                        cls_ref._dcb = self.dcb
+                        cls_ref = None if cls_ref.reference is None else cls_ref
+                        clss.append(cls_ref)
+                        # clss.append(
+                        #     _clean_class_reference(
+                        #         ClassReference(
+                        #             structure_index=property_definition.structure_index,
+                        #             instance_index=first_index + _
+                        #         )
+                        #     )
+                        # )
+                    return clss, end_offset
+                elif data_type in self.dcb.values:
+                    return (
+                        self.dcb.values[property_definition.data_type][first_index:first_index + count],
+                        end_offset,
                     )
-                return clss, end_offset
-            elif data_type in self.dcb.values:
-                return (
-                    [
-                        self.dcb.values[property_definition.data_type][first_index + _]
-                        for _ in range(count)
-                    ],
-                    end_offset,
-                )
+            except ValueError:
+                pass
         raise NotImplementedError(
             f"Property has not been implemented: {property_definition}"
         )
 
     @property
-    def name(self):
-        return self.structure_definition.name
-
-    @property
-    def type(self):
-        return self.structure_definition.name
-
-    @cached_property
     def properties(self):
-        props = {}
-        offset = 0
+        props = AttrDict()
+        offset = self.dcb_offset
         for prop_def in self.structure_definition.properties:
-            props[prop_def.name], offset = self.read_property(offset, prop_def)
+            props[prop_def.name], offset = self._read_property(offset, prop_def)
         return AttrDict(sorted(props.items(), key=lambda _: str.casefold(_[0])))
 
     def __repr__(self):
@@ -333,7 +316,7 @@ class StructureInstance:
 class StringReference(DataCoreBase):
     _fields_ = [("string_offset", ctypes.c_uint32)]
 
-    @cached_property
+    @property
     def value(self):
         return self.dcb.string_for_offset(self.string_offset)
 
@@ -363,7 +346,7 @@ class Pointer:
     def type(self):
         return self.reference.name if self.reference is not None else ""
 
-    @property
+    @cached_property
     def reference(self):
         if (
             self.structure_index == DCB_NO_PARENT
@@ -460,7 +443,10 @@ class Record(Pointer, DataCoreNamed):
         ("other_index", ctypes.c_uint16),
     ]
 
-    @cached_property
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @property
     def name(self):
         return self.dcb.string_for_offset(self.name_offset).replace(
             f"{self.type}.", "", 1

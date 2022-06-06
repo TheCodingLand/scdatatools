@@ -1,5 +1,6 @@
-import json
 import sys
+import json
+import logging
 from pathlib import Path
 
 from rsi.launcher import LauncherAPI
@@ -39,8 +40,11 @@ TRY_VERSION_FILES = [
 ]
 
 
+logger = logging.getLogger(__name__)
+
+
 class StarCitizen:
-    def __init__(self, game_folder, p4k_file="Data.p4k", p4k_load_monitor=None):
+    def __init__(self, game_folder, p4k_file="Data.p4k", p4k_load_monitor=None, cache_dir=None):
         plugin_manager.setup()  # make sure the plugin manager is setup
 
         self.branch = self.build_time_stamp = self.config = self.version = None
@@ -92,6 +96,14 @@ class StarCitizen:
                 self.version = possible_ver
             sys.stderr.write(f"Warning: Unable to determine version of StarCitizen\n")
 
+        self.cache_dir = None
+        if cache_dir:
+            if str(cache_dir).endswith(self.version_label):
+                self.cache_dir = Path(cache_dir)
+            else:
+                self.cache_dir = Path(cache_dir) / self.version_label
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+
     def is_loaded(self, module=None):
         if module is None:
             return self._is_loaded and all(self._is_loaded.values())
@@ -108,11 +120,11 @@ class StarCitizen:
         assert self.oc_manager is not None
 
     def generate_inventory(
-        self,
-        p4k_filters: list = None,
-        skip_local=False,
-        skip_p4k=False,
-        skip_data_hash=False,
+            self,
+            p4k_filters: list = None,
+            skip_local=False,
+            skip_p4k=False,
+            skip_data_hash=False,
     ):
         p4k_filters = p4k_filters or []
         inv = {}
@@ -122,10 +134,10 @@ class StarCitizen:
 
         if not skip_local:
             for f in track(
-                self.game_folder.rglob("*"),
-                description="Collecting Local Files",
-                unit="files",
-                unit_scale=True,
+                    self.game_folder.rglob("*"),
+                    description="Collecting Local Files",
+                    unit="files",
+                    unit_scale=True,
             ):
                 path = f.relative_to(self.game_folder).as_posix()
                 if path in inv:
@@ -148,10 +160,10 @@ class StarCitizen:
             else:
                 filenames = list(self.p4k.NameToInfo.keys())
             for f in track(
-                filenames,
-                description="      Reading Data.p4k",
-                unit="files",
-                unit_scale=True,
+                    filenames,
+                    description="      Reading Data.p4k",
+                    unit="files",
+                    unit_scale=True,
             ):
                 f = self.p4k.NameToInfo[f]
                 path = (p4k_path / f.filename).as_posix()
@@ -159,8 +171,8 @@ class StarCitizen:
                     print(f"Error duplicate path: {path}")
                 elif not f.is_dir():
                     if (
-                        not skip_data_hash
-                        or Path(f.filename).suffix in P4K_ALWAYS_HASH_DATA_FILES
+                            not skip_data_hash
+                            or Path(f.filename).suffix in P4K_ALWAYS_HASH_DATA_FILES
                     ):
                         fp = self.p4k.open(f, "r")
                         inv[path] = (f.file_size, xxhash32_file(fp))
@@ -171,11 +183,11 @@ class StarCitizen:
         print("      Opening Datacore", end="\r")
         dcb_path = p4k_path / "Data" / "Game.dcb"
         for r in track(
-            self.datacore.records,
-            description="      Reading Datacore",
-            total=len(self.datacore.records),
-            unit="recs",
-            unit_scale=True,
+                self.datacore.records,
+                description="      Reading Datacore",
+                total=len(self.datacore.records),
+                unit="recs",
+                unit_scale=True,
         ):
 
             path = (
@@ -197,7 +209,7 @@ class StarCitizen:
     @property
     def localization(self):
         if self._localization is None:
-            self._localization = SCLocalization(self.p4k)
+            self._localization = SCLocalization(self.p4k, cache_dir=self.cache_dir)
             self._is_loaded["localization"] = True
         return self._localization
 
@@ -239,11 +251,22 @@ class StarCitizen:
         self._p4k = p4k_file
         self._is_loaded["p4k"] = True
 
+    def _get_cached_file(self, name):
+        if self.cache_dir is not None:
+            if (cache_file := self.cache_dir / name).is_file():
+                logger.debug(f'Using cached file for {name}: {cache_file}')
+                return cache_file
+        return None
+
     @property
     def datacore(self):
         if self._datacore is None:
-            dcb = self.p4k.getinfo("Data/Game.dcb")
-            with dcb.open() as f:
+            if (dcb := self._get_cached_file('Game.dcb')) is None:
+                dcb = self.p4k.getinfo("Data/Game.dcb")
+                if self.cache_dir:
+                    logger.debug(f'Saving datacore cache to {self.cache_dir}')
+                    self.p4k.extract(dcb, path=self.cache_dir, save_to=True, monitor=None)
+            with dcb.open('rb') as f:
                 self._datacore = DataCoreBinary(f.read())
                 self._is_loaded["datacore"] = True
         return self._datacore

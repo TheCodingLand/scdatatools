@@ -141,23 +141,16 @@ class DataCoreBinary:
         offset += self.header.text_length
 
         self.structure_instances = {}
+        self.structure_instances_by_offset = {}
         for mapping in self.data_mapping_definitions:
             struct_def = self.structure_definitions[mapping.structure_index]
             struct_size = struct_def.calculated_data_size
             for i in range(mapping.structure_count):
-                # TODO: This adds a significant amount of time (~3150%) to processing the dataforge. Either significantly
-                #       increase this, or delay loading
-                self.structure_instances.setdefault(mapping.structure_index, []).append(
-                    (offset, struct_size)
-                    # dftypes.StructureInstance(
-                    #     self,
-                    #     self.raw_data[offset: offset + struct_size],
-                    #     struct_def,
-                    # )
-                )
+                self.structure_instances.setdefault(mapping.structure_index, []).append(offset)
                 offset += struct_size
         assert offset == len(self.raw_data)
 
+        self._string_cache = {}
         self.records_by_guid = {}
         self.record_types = set()
         self.entities = {}
@@ -168,37 +161,50 @@ class DataCoreBinary:
             self.record_types.add(r.type)
         # self._records_by_path = benedict(keypath_separator='/')
 
+    def get_structure_instance_from_offset(self, structure_index, offset):
+        if offset not in self.structure_instances_by_offset.setdefault(structure_index, {}):
+            struct_def = self.structure_definitions[structure_index]
+            self.structure_instances_by_offset[structure_index][offset] = dftypes.StructureInstance(
+                self, offset, struct_def
+            )
+        return self.structure_instances_by_offset[structure_index][offset]
+
     def get_structure_instance(self, structure_index, instance):
         if not isinstance(
-            self.structure_instances[structure_index][instance],
-            dftypes.StructureInstance,
+                self.structure_instances[structure_index][instance],
+                dftypes.StructureInstance,
         ):
-            offset, size = self.structure_instances[structure_index][instance]
-            self.structure_instances[structure_index][
-                instance
-            ] = dftypes.StructureInstance(
-                self,
-                self.raw_data[offset : offset + size],
-                self.structure_definitions[structure_index],
+            offset = self.structure_instances[structure_index][instance]
+            self.structure_instances[structure_index][instance] = self.get_structure_instance_from_offset(
+                structure_index, offset
             )
+            # self.structure_instances[structure_index][
+            #     instance
+            # ] = dftypes.StructureInstance(
+            #     self,
+            #     self.raw_data[offset: offset + size],
+            #     self.structure_definitions[structure_index],
+            # )
         return self.structure_instances[structure_index][instance]
 
     def string_for_offset(self, offset: int, encoding="UTF-8") -> str:
-        try:
-            if offset >= self.header.text_length:
-                raise IndexError(f'Text offset "{offset}" is out of range')
+        if offset not in self._string_cache:
+            try:
+                if offset >= self.header.text_length:
+                    raise IndexError(f'Text offset "{offset}" is out of range')
 
-            end = self.raw_data.obj.index(
-                0x00,
-                self.text_offset + offset,
-                self.text_offset + self.header.text_length,
-            )
-            return bytes(self.raw_data[self.text_offset + offset : end]).decode(
-                encoding
-            )
-        except ValueError:
-            sys.stderr.write(f"Invalid string offset: {offset}")
-            return ""
+                end = self.raw_data.obj.index(
+                    0x00,
+                    self.text_offset + offset,
+                    self.text_offset + self.header.text_length,
+                )
+                self._string_cache[offset] = bytes(self.raw_data[self.text_offset + offset: end]).decode(
+                    encoding
+                )
+            except ValueError:
+                sys.stderr.write(f"Invalid string offset: {offset}")
+                return ""
+        return self._string_cache[offset]
 
     def record_to_dict(self, record, depth=100):
         d = {}
@@ -223,20 +229,20 @@ class DataCoreBinary:
                 refd.add(rid)
             for name, prop in r.properties.items():
                 if (
-                    isinstance(prop, dftypes.Reference)
-                    and prop.value.value in self.records_by_guid
+                        isinstance(prop, dftypes.Reference)
+                        and prop.value.value in self.records_by_guid
                 ):
                     prop = self.records_by_guid[prop.value.value]
 
                 def _handle_prop(p, pname=""):
                     if isinstance(
-                        p,
-                        (
-                            dftypes.StructureInstance,
-                            dftypes.ClassReference,
-                            dftypes.Record,
-                            dftypes.StrongPointer,
-                        ),
+                            p,
+                            (
+                                    dftypes.StructureInstance,
+                                    dftypes.ClassReference,
+                                    dftypes.Record,
+                                    dftypes.StrongPointer,
+                            ),
                     ):
                         b = {}
                         pid = ""
@@ -245,10 +251,10 @@ class DataCoreBinary:
                         elif hasattr(p, "instance_index"):
                             pid = f"{p.name}:{p.instance_index}"
                         if (
-                            cur_depth > 0
+                                cur_depth > 0
                         ):  # NextState/parent tends to lead to infinite loops
                             if pname.lower() in ["nextstate", "parent"] or (
-                                pid and pid in refd
+                                    pid and pid in refd
                             ):
                                 nextdepth = 0
                             else:
@@ -297,7 +303,7 @@ class DataCoreBinary:
         )
 
     def search_filename(
-        self, file_filter, ignore_case=True, mode="fnmatch"
+            self, file_filter, ignore_case=True, mode="fnmatch"
     ) -> typing.List[dftypes.Record]:
         """
         Search the datacore for objects by filename.

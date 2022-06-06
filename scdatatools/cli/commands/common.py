@@ -23,7 +23,7 @@ def open_sc_dir(sc_dir: typing.Union[str, Path]) -> StarCitizen:
     program if it fails to open the given `sc_dir`.
     """
     ctx = get_context()
-    sc_dir = Path(sc_dir)
+    sc_dir = Path(sc_dir).expanduser()
     if sc_dir.is_file():
         if sc_dir.suffix == '.p4k':
             sc_dir = sc_dir.parent

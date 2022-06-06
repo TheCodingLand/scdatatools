@@ -6,7 +6,6 @@ from pathlib import Path
 from nubia import command, argument
 
 from . import common
-from scdatatools import p4k
 
 
 @command(aliases=['bp'])

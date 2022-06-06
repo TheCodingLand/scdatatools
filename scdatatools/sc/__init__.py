@@ -209,7 +209,7 @@ class StarCitizen:
     @property
     def localization(self):
         if self._localization is None:
-            self._localization = SCLocalization(self.p4k, cache_dir=self.cache_dir)
+            self._localization = SCLocalization(self, cache_dir=self.cache_dir)
             self._is_loaded["localization"] = True
         return self._localization
 

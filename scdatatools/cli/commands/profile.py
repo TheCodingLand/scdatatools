@@ -4,17 +4,17 @@ from pathlib import Path
 
 from nubia import command, argument
 
-from scdatatools.sc import StarCitizen
+from . import common
 
 
 @command(help="Dumps the default profile action map (keybinds) as JSON")
-@argument("scdir", description="StarCitizen Game Folder")
+@common.sc_dir_argument
 @argument("csv", description="Output as a CSV instead", aliases=["-c"])
 def actionmap(
-    scdir: Path,
+    sc_dir: Path,
     csv: bool = False,
 ):
-    sc = StarCitizen(scdir)
+    sc = common.open_sc_dir(sc_dir)
     am = sc.default_profile.actionmap()
 
     if csv:

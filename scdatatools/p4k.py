@@ -229,57 +229,65 @@ class P4KFile(zipfile.ZipFile):
         # TODO: this doubles the time of opening a pack, so add some logic to delay expansion and add functionality to
         #       expand on the fly
         # open up sub-archives and add them to the file list
-        for filename in self.subarchives.keys():
-            if self.subarchives[filename] is not None:
-                continue  # already been opened
-            file_ext = f"{filename.split('.', maxsplit=1)[-1]}"
-            info = self.NameToInfo[filename]
-            self.subarchives[filename] = SUB_ARCHIVES[file_ext](self.open(info))
-            info.subarchive = self.subarchives[filename]
+        # for filename in self.subarchives.keys():
 
-            base_p4k_path = Path(filename[: -1 * len(file_ext) - 1])
-            archive_name = base_p4k_path.name
-            for si in info.subarchive.filelist:
-                # Create ZipInfo instance to store file information
-                # parent extension gets removed
-                # e.g. `100i_interior.socpak` -> `100i_interior`
-                sub_path = Path(si.filename)
-                if sub_path.parts[0] == archive_name:
-                    # Paths in socpaks are referenced slightly strangely.
-                    sub_path = Path(*sub_path.parts[1:])
-                x = P4KInfo(
-                    str(base_p4k_path / sub_path),
-                    p4k=self,
-                    subinfo=si,
-                    archive=self.subarchives[filename],
-                )
-                x.extra = si.extra
-                x.comment = si.comment
-                x.header_offset = si.header_offset
-                x.volume, x.internal_attr, x.external_attr = (
-                    si.volume,
-                    si.internal_attr,
-                    si.external_attr,
-                )
-                x._raw_time = si._raw_time
-                x.date_time = si.date_time
-                x.create_version = si.create_version
-                x.create_system = si.create_system
-                x.extract_version = si.extract_version
-                x.reserved = si.reserved
-                x.flag_bits = si.flag_bits
-                x.compress_type = si.compress_type
-                x.CRC = si.CRC
-                x.compress_size = si.compress_size
-                x.file_size = si.file_size
+    def expand_subarchives(self):
+        """ Ensures all sub-archives have been expanded """
+        for filename, info in self.subarchives.items():
+            if info is None:
+                self._expand_subarchive(filename)
 
-                info.filelist.append(x)
-                self.filelist.append(x)
-                self.NameToInfo[x.filename] = x
-                self.NameToInfoLower[x.filename.lower()] = x
-                self.BaseNameToInfo.setdefault(
-                    x.filename.split(".", maxsplit=1)[0].lower(), []
-                ).append(x)
+    def _expand_subarchive(self, filename):
+        if self.subarchives[filename] is not None:
+            return  # already been opened
+        file_ext = f"{filename.split('.', maxsplit=1)[-1]}"
+        info = self.NameToInfo[filename]
+        self.subarchives[filename] = SUB_ARCHIVES[file_ext](self.open(info))
+        info.subarchive = self.subarchives[filename]
+
+        base_p4k_path = Path(filename[: -1 * len(file_ext) - 1])
+        archive_name = base_p4k_path.name
+        for si in info.subarchive.filelist:
+            # Create ZipInfo instance to store file information
+            # parent extension gets removed
+            # e.g. `100i_interior.socpak` -> `100i_interior`
+            sub_path = Path(si.filename)
+            if sub_path.parts[0] == archive_name:
+                # Paths in socpaks are referenced slightly strangely.
+                sub_path = Path(*sub_path.parts[1:])
+            x = P4KInfo(
+                str(base_p4k_path / sub_path),
+                p4k=self,
+                subinfo=si,
+                archive=self.subarchives[filename],
+            )
+            x.extra = si.extra
+            x.comment = si.comment
+            x.header_offset = si.header_offset
+            x.volume, x.internal_attr, x.external_attr = (
+                si.volume,
+                si.internal_attr,
+                si.external_attr,
+            )
+            x._raw_time = si._raw_time
+            x.date_time = si.date_time
+            x.create_version = si.create_version
+            x.create_system = si.create_system
+            x.extract_version = si.extract_version
+            x.reserved = si.reserved
+            x.flag_bits = si.flag_bits
+            x.compress_type = si.compress_type
+            x.CRC = si.CRC
+            x.compress_size = si.compress_size
+            x.file_size = si.file_size
+
+            info.filelist.append(x)
+            self.filelist.append(x)
+            self.NameToInfo[x.filename] = x
+            self.NameToInfoLower[x.filename.casefold()] = x
+            self.BaseNameToInfo.setdefault(
+                x.filename.split(".", maxsplit=1)[0].casefold(), []
+            ).append(x)
 
     def _RealGetContents(self):
         """Read in the table of contents for the ZIP file."""
@@ -362,14 +370,14 @@ class P4KFile(zipfile.ZipFile):
             x.header_offset = x.header_offset + concat
             self.filelist.append(x)
             self.NameToInfo[x.filename] = x
-            self.NameToInfoLower[x.filename.lower()] = x
+            self.NameToInfoLower[x.filename.casefold()] = x
             self.BaseNameToInfo.setdefault(
-                x.filename.split(".", maxsplit=1)[0].lower(), []
+                x.filename.split(".", maxsplit=1)[0].casefold(), []
             ).append(x)
 
             # Add sub-archives to be opened later (.pak/.sockpak,etc)
             file_ext = x.filename.split(".", maxsplit=1)[-1]
-            if file_ext.lower() in SUB_ARCHIVES:
+            if file_ext.casefold() in SUB_ARCHIVES:
                 if x.filename not in self.subarchives:
                     self.subarchives[x.filename] = None
 
@@ -488,7 +496,7 @@ class P4KFile(zipfile.ZipFile):
         except KeyError:
             if not case_insensitive:
                 raise
-            info = self.NameToInfoLower.get(name.lower())
+            info = self.NameToInfoLower.get(name.casefold())
             if info is None:
                 raise KeyError("There is no item named %r in the archive" % name)
         return info
@@ -498,6 +506,7 @@ class P4KFile(zipfile.ZipFile):
         file_filters: typing.Union[list, tuple, set, str],
         exclude: typing.List[str] = None,
         ignore_case: bool = True,
+        expand_subarchives: bool = False,
         mode: str = "re",
     ) -> typing.List[P4KInfo]:
         """
@@ -505,6 +514,7 @@ class P4KFile(zipfile.ZipFile):
 
         :param file_filters:
         :param ignore_case: Match string case or not
+        :param expand_subarchives: Automatically expand sub-archives and search them as well.
         :param exclude: List of filenames that should be excluded from the results.
             This must be an exact match (although honors ignore_case).
         :param mode: Method of performing a match. Valid values are:
@@ -523,14 +533,26 @@ class P4KFile(zipfile.ZipFile):
         exclude = exclude or []
 
         if ignore_case:
-            file_filters = [_.lower() for _ in file_filters]
-            exclude = [_.lower() for _ in exclude]
+            file_filters = [_.casefold() for _ in file_filters]
+            exclude = [_.casefold() for _ in exclude]
+
+        def walk_items():
+            nonlocal ignore_case, expand_subarchives
+            i = 0
+            while i < len(self.filelist):
+                f = self.filelist[i]
+                if f.filename in self.subarchives and expand_subarchives:
+                    self._expand_subarchive(f.filename)
+                if ignore_case:
+                    yield f.filename.casefold(), f
+                else:
+                    yield f.filename, f
+                i += 1
 
         if mode == "re":
-
             def in_exclude(f):
                 nonlocal ignore_case, exclude
-                return f.lower() in exclude if ignore_case else f in exclude
+                return f.casefold() in exclude if ignore_case else f in exclude
 
             r = re.compile(
                 "|".join(f"({fnmatch.translate(_)})" for _ in file_filters),
@@ -538,63 +560,34 @@ class P4KFile(zipfile.ZipFile):
             )
             return [
                 info
-                for fn, info in self.NameToInfo.items()
+                for fn, info in walk_items()
                 if r.match(fn) and not in_exclude(fn)
             ]
         elif mode == "startswith":
-            if ignore_case:
-                return [
-                    info
-                    for fn, info in self.NameToInfoLower.items()
-                    if any(fn.startswith(_) for _ in file_filters) and fn not in exclude
-                ]
-            else:
-                return [
-                    info
-                    for fn, info in self.NameToInfo.items()
-                    if any(fn.startswith(_) for _ in file_filters) and fn not in exclude
-                ]
+            return [
+                info
+                for fn, info in walk_items()
+                if any(fn.startswith(_) for _ in file_filters) and fn not in exclude
+            ]
         elif mode == "endswith":
-            if ignore_case:
-                return [
-                    info
-                    for fn, info in self.NameToInfoLower.items()
-                    if any(fn.endswith(_) for _ in file_filters) and fn not in exclude
-                ]
-            else:
-                return [
-                    info
-                    for fn, info in self.NameToInfo.items()
-                    if any(fn.endswith(_) for _ in file_filters) and fn not in exclude
-                ]
+            return [
+                info
+                for fn, info in walk_items()
+                if any(fn.endswith(_) for _ in file_filters) and fn not in exclude
+            ]
         elif mode == "in":
-            if ignore_case:
-                return [
-                    info
-                    for fn, info in self.NameToInfoLower.items()
-                    if fn in file_filters and fn not in exclude
-                ]
-            else:
-                return [
-                    info
-                    for fn, info in self.NameToInfo.items()
-                    if fn in file_filters and fn not in exclude
-                ]
+            return [
+                info
+                for fn, info in walk_items()
+                if fn in file_filters and fn not in exclude
+            ]
         elif mode == "in_strip":
-            if ignore_case:
-                return [
-                    info
-                    for fn, info in self.NameToInfoLower.items()
-                    if fn.split(".", maxsplit=1)[0] in file_filters
-                    and fn not in exclude
-                ]
-            else:
-                return [
-                    info
-                    for fn, info in self.NameToInfo.items()
-                    if fn.split(".", maxsplit=1)[0] in file_filters
-                    and fn not in exclude
-                ]
+            return [
+                info
+                for fn, info in walk_items()
+                if fn.split(".", maxsplit=1)[0] in file_filters
+                and fn not in exclude
+            ]
 
         raise AttributeError(f"Invalid search mode: {mode}")
 

@@ -1,8 +1,8 @@
 import sys
+import logging
 
-from nubia import Nubia, Options
+from nubia import Nubia, Options, context
 
-from scdatatools import __version__
 from scdatatools.cli import commands
 from scdatatools.plugins import plugin_manager
 
@@ -17,7 +17,5 @@ def main():
         command_pkgs=commands,
         options=Options(persistent_history=False),
     )
-    args = sys.argv
-    if "-s" not in args:
-        args.insert(1, "-s")
-    sys.exit(shell.run(args))
+
+    sys.exit(shell.run())

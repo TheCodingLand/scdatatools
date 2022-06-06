@@ -164,6 +164,8 @@ class Blueprint:
         self.containers = {"base": self._empty_container()}
         self.current_container = self.containers["base"]
 
+        self.sc.p4k.expand_subarchives()  # ensure all the subarchives are expanded/available
+
     @property
     def extract_filter(self) -> set:
         self._process()

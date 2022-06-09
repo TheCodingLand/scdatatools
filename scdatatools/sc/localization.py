@@ -21,32 +21,32 @@ class SCLocalization:
             return p4k_or_sc.p4k
 
         if cache_dir is not None:
-            logger.debug(f'Using localization cache {cache_dir}')
+            logger.debug(f"Using localization cache {cache_dir}")
             if not (lcache := Path(cache_dir) / "localization").is_dir():
-                logger.debug(f'Building localization cache')
+                logger.debug(f"Building localization cache")
                 p4k = _get_p4k()
                 lcache.mkdir(parents=True)
-                p4k.extractall(members=p4k.search("Data/Localization/*/global.ini"), path=lcache, monitor=None)
-            localization_files = lcache.rglob('**/global.ini')
+                p4k.extractall(
+                    members=p4k.search("Data/Localization/*/global.ini"), path=lcache, monitor=None
+                )
+            localization_files = lcache.rglob("**/global.ini")
         else:
             p4k = _get_p4k()
             localization_files = p4k.search("Data/Localization/*/global.ini")
 
         for l in localization_files:
-            logging.debug(f'processing {l}')
-            with l.open('rb') as f:
+            logging.debug(f"processing {l}")
+            with l.open("rb") as f:
                 lang = Path(f.name).parts[-2]
                 self.languages.append(lang)
                 self.translations[lang] = dict(
-                    _.split("=", 1)
-                    for _ in f.read().decode("utf-8").split("\r\n")
-                    if "=" in _
+                    _.split("=", 1) for _ in f.read().decode("utf-8").split("\r\n") if "=" in _
                 )
                 self.keys.update(self.translations[lang].keys())
         self.keys = sorted(self.keys)
 
     def gettext(self, key, language=None, default_response=None) -> str:
-        """ Get the translation for `key` from the given language (or the default language if `None`).
+        """Get the translation for `key` from the given language (or the default language if `None`).
 
         :param key: The key to lookup
         :param language: The language to get the translation from. Uses `default_language` if None

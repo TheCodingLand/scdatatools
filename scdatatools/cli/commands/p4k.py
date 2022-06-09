@@ -11,14 +11,14 @@ from . import common
 logger = logging.getLogger(__name__)
 
 
-@command(help='Utilities for interacting with p4k files.')
+@command(help="Utilities for interacting with p4k files.")
 class p4k:
-    @command(help="Extract files from a P4K file", aliases=['x'])
+    @command(help="Extract files from a P4K file", aliases=["x"])
     @argument("single", description="Extract first matching file only", aliases=["-1"])
     @argument(
         "output",
         description="The output directory to extract files into or the output path if --single. "
-                    "Defaults to current directory",
+        "Defaults to current directory",
         aliases=["-o"],
     )
     @argument(
@@ -27,19 +27,20 @@ class p4k:
         aliases=["-f"],
     )
     @common.sc_dir_argument
-    @common.extraction_args(exclude=['output'])
-    def extract(self,
-                sc_dir: str,
-                output: str = ".",
-                file_filter: str = "*",
-                convert_cryxml: str = "",
-                extract_model_assets: bool = False,
-                unsplit_textures: bool = False,
-                convert_textures: str = "",
-                convert_models: bool = False,
-                single: bool = False,
-                no_overwrite: bool = False,
-                ):
+    @common.extraction_args(exclude=["output"])
+    def extract(
+        self,
+        sc_dir: str,
+        output: str = ".",
+        file_filter: str = "*",
+        convert_cryxml: str = "",
+        extract_model_assets: bool = False,
+        unsplit_textures: bool = False,
+        convert_textures: str = "",
+        convert_models: bool = False,
+        single: bool = False,
+        no_overwrite: bool = False,
+    ):
         output = Path(output).absolute()
         sc = common.open_sc_dir(sc_dir)
         file_filter = file_filter.strip("'").strip('"')
@@ -59,11 +60,13 @@ class p4k:
         if extract_model_assets:
             converters.append("model_assets_extractor")
         if unsplit_textures:
-            converters.append('ddstexture_converter')
-            converter_options.update({
-                "ddstexture_converter_unsplit": True,
-                "ddstexture_converter_replace": not no_overwrite,
-            })
+            converters.append("ddstexture_converter")
+            converter_options.update(
+                {
+                    "ddstexture_converter_unsplit": True,
+                    "ddstexture_converter_replace": not no_overwrite,
+                }
+            )
             if convert_textures:
                 converter_options["ddstexture_converter_fmt"] = convert_textures
             else:

@@ -59,9 +59,7 @@ class DIDXHeader(ctypes.LittleEndianStructure):
         num_wems = didx.length // ctypes.sizeof(DIDXWemRecord)
         for i in range(num_wems):
             didx.wem_hdrs.append(
-                DIDXWemRecord.from_buffer(
-                    source, offset + 8 + (i * ctypes.sizeof(DIDXWemRecord))
-                )
+                DIDXWemRecord.from_buffer(source, offset + 8 + (i * ctypes.sizeof(DIDXWemRecord)))
             )
         return didx
 

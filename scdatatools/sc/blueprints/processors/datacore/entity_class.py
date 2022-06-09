@@ -1,15 +1,13 @@
-import typing
 import logging
+import typing
 
 from pyquaternion import Quaternion
 
-from scdatatools.utils import norm_path, dict_search
 from scdatatools.engine.cryxml import dict_from_cryxml_file
 from scdatatools.engine.model_utils import Vector3D, ang3_to_quaternion
-from scdatatools.sc.blueprints.processors import process_datacore_object
-from scdatatools.sc.blueprints.processors.p4k.socpak import process_socpak
-
 from scdatatools.sc.blueprints.processors import datacore_type_processor
+from scdatatools.sc.blueprints.processors import process_datacore_object
+from scdatatools.utils import norm_path, dict_search
 
 if typing.TYPE_CHECKING:
     from scdatatools.forge.dco.entities import Entity
@@ -78,9 +76,9 @@ def process_geometry_resource_params(
                 )
 
             if geom is not None:
-                bp.record_geometry.setdefault(str(record.id), {}).setdefault(
-                    tags, set()
-                ).add(geom["name"])
+                bp.record_geometry.setdefault(str(record.id), {}).setdefault(tags, set()).add(
+                    geom["name"]
+                )
             else:
                 bp.log(f'Could not create geom "{geom_path}', logging.ERROR)
 
@@ -90,9 +88,7 @@ def process_geometry_resource_params(
                     palette = bp.sc.datacore.records_by_guid[tint_id]
                     geom["tint_palettes"].add(norm_path(palette.filename))
                     bp.add_record_to_extract(tint_id)
-                    bp.add_file_to_extract(
-                        palette.properties["root"].properties["decalTexture"]
-                    )
+                    bp.add_file_to_extract(palette.properties["root"].properties["decalTexture"])
             except Exception as e:
                 bp.log(f'could not dump tint for "{geom_path}"', exc_info=e)
 
@@ -109,9 +105,7 @@ def process_geometry_resource_params(
                 bp, sg, record=record, tags=component.properties.get("Tags", "")
             )
     if "Material" in component.properties:
-        process_geometry_resource_params(
-            bp, component.properties["Material"], record=record
-        )
+        process_geometry_resource_params(bp, component.properties["Material"], record=record)
     if "path" in component.properties:
         bp.add_file_to_extract(component.properties["path"])
 
@@ -236,9 +230,7 @@ def process_item_port_component_params(
     "AudioPassByComponentParams",
     "EntityPhysicalAudioParams",
 )
-def process_audio_component(
-    bp: "Blueprint", component, record: "Record", *args, **kwargs
-) -> bool:
+def process_audio_component(bp: "Blueprint", component, record: "Record", *args, **kwargs) -> bool:
     # TODO: handle this
     _search_record(bp, component)
     return True
@@ -299,9 +291,7 @@ def _handle_vehicle_definition(bp, rec, def_p4k_path):
                 continue
             child_part = parts.pop(child_part_name)
             child_geom, _ = bp.get_or_create_geom(child_part)
-            ip = bp.get_or_create_item_port(
-                child_part_name, parent=parent_part_geom["loadout"]
-            )
+            ip = bp.get_or_create_item_port(child_part_name, parent=parent_part_geom["loadout"])
             ip["geometry"].add(child_geom["name"])
             bp.bone_names.add(child_part_name)
 
@@ -382,9 +372,7 @@ def process_animation_controller_params(
 
 
 @datacore_type_processor("VehicleLandingGearSystem")
-def process_vehicle_landing_gear(
-    bp: "Blueprint", record: "Record", *args, **kwargs
-) -> bool:
+def process_vehicle_landing_gear(bp: "Blueprint", record: "Record", *args, **kwargs) -> bool:
     parent_geom = bp.geometry_for_record(bp.entity, base=True)
     parent_geom, _ = bp.get_or_create_geom(parent_geom)
     for gear in record.properties["gears"]:
@@ -392,9 +380,7 @@ def process_vehicle_landing_gear(
         geom, _ = bp.get_or_create_geom(gear.properties["geometry"].properties["path"])
         if geom is None:
             continue
-        ip = bp.get_or_create_item_port(
-            gear.properties["bone"], parent=parent_geom["loadout"]
-        )
+        ip = bp.get_or_create_item_port(gear.properties["bone"], parent=parent_geom["loadout"])
         ip["geometry"].add(geom["name"])
         bp.bone_names.add(gear.properties["bone"].lower())
     return True

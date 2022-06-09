@@ -1,14 +1,13 @@
+import fnmatch
 import io
-import re
+import logging
 import os
-import sys
-import json
+import re
 import shutil
 import struct
+import sys
 import typing
 import zipfile
-import fnmatch
-import logging
 from pathlib import Path
 
 import zstandard as zstd
@@ -16,7 +15,6 @@ from Crypto.Cipher import AES
 
 from scdatatools import plugins
 from scdatatools.utils import norm_path
-
 
 logger = logging.getLogger(__name__)
 ZIP_ZSTD = 100
@@ -32,9 +30,7 @@ def monitor_msg_from_info(info):
     return f'{compressor_names[info.compress_type]} | {"Crypt" if info.is_encrypted else "Plain"} | {info.filename}'
 
 
-def _p4k_extract_monitor(
-    msg="", progress=None, total=None, level=logging.INFO, exc_info=None
-):
+def _p4k_extract_monitor(msg="", progress=None, total=None, level=logging.INFO, exc_info=None):
     """Default monitor for P4KFiles extract methods"""
     print(msg)
 
@@ -140,12 +136,8 @@ class P4KInfo(zipfile.ZipInfo):
         else:
             # Assume everything else is unix-y
             self.create_system = 3  # System which created ZIP archive
-        self.create_version = (
-            zipfile.DEFAULT_VERSION
-        )  # Version which created ZIP archive
-        self.extract_version = (
-            zipfile.DEFAULT_VERSION
-        )  # Version needed to extract archive
+        self.create_version = zipfile.DEFAULT_VERSION  # Version which created ZIP archive
+        self.extract_version = zipfile.DEFAULT_VERSION  # Version needed to extract archive
         self.reserved = 0  # Must be zero
         self.flag_bits = 0  # ZIP flag bits
         self.volume = 0  # Volume number of file header
@@ -188,9 +180,7 @@ class P4KInfo(zipfile.ZipInfo):
                 elif ln == 0:
                     counts = ()
                 else:
-                    raise zipfile.BadZipFile(
-                        "Corrupt extra field %04x (size=%d)" % (tp, ln)
-                    )
+                    raise zipfile.BadZipFile("Corrupt extra field %04x (size=%d)" % (tp, ln))
 
                 idx = 0
                 # ZIP64 extension (large files and/or large archives)
@@ -232,7 +222,7 @@ class P4KFile(zipfile.ZipFile):
         # for filename in self.subarchives.keys():
 
     def expand_subarchives(self):
-        """ Ensures all sub-archives have been expanded """
+        """Ensures all sub-archives have been expanded"""
         for filename, info in self.subarchives.items():
             if info is None:
                 self._expand_subarchive(filename)
@@ -351,9 +341,7 @@ class P4KFile(zipfile.ZipFile):
                 x.file_size,
             ) = centdir[1:12]
             if x.extract_version > zipfile.MAX_EXTRACT_VERSION:
-                raise NotImplementedError(
-                    "zip file version %.1f" % (x.extract_version / 10)
-                )
+                raise NotImplementedError("zip file version %.1f" % (x.extract_version / 10))
             # x.volume, x.internal_attr, x.external_attr = centdir[15:18]
             # Convert date/time code to (year, month, day, hour, min, sec)
             x._raw_time = t
@@ -421,9 +409,7 @@ class P4KFile(zipfile.ZipFile):
 
         # if file is in a sub-archive, let that archive handle it
         if zinfo.subinfo is not None:
-            return zinfo.archive.open(
-                zinfo.subinfo, mode=mode, pwd=pwd, force_zip64=force_zip64
-            )
+            return zinfo.archive.open(zinfo.subinfo, mode=mode, pwd=pwd, force_zip64=force_zip64)
 
         if mode == "w":
             return self._open_to_write(zinfo, force_zip64=force_zip64)
@@ -476,8 +462,7 @@ class P4KFile(zipfile.ZipFile):
 
             if fname_str != zinfo.orig_filename:
                 raise zipfile.BadZipFile(
-                    "File name in directory %r and header %r differ."
-                    % (zinfo.orig_filename, fname)
+                    "File name in directory %r and header %r differ." % (zinfo.orig_filename, fname)
                 )
 
             zd = None
@@ -550,6 +535,7 @@ class P4KFile(zipfile.ZipFile):
                 i += 1
 
         if mode == "re":
+
             def in_exclude(f):
                 nonlocal ignore_case, exclude
                 return f.casefold() in exclude if ignore_case else f in exclude
@@ -558,11 +544,7 @@ class P4KFile(zipfile.ZipFile):
                 "|".join(f"({fnmatch.translate(_)})" for _ in file_filters),
                 flags=re.IGNORECASE if ignore_case else 0,
             )
-            return [
-                info
-                for fn, info in walk_items()
-                if r.match(fn) and not in_exclude(fn)
-            ]
+            return [info for fn, info in walk_items() if r.match(fn) and not in_exclude(fn)]
         elif mode == "startswith":
             return [
                 info
@@ -576,24 +558,17 @@ class P4KFile(zipfile.ZipFile):
                 if any(fn.endswith(_) for _ in file_filters) and fn not in exclude
             ]
         elif mode == "in":
-            return [
-                info
-                for fn, info in walk_items()
-                if fn in file_filters and fn not in exclude
-            ]
+            return [info for fn, info in walk_items() if fn in file_filters and fn not in exclude]
         elif mode == "in_strip":
             return [
                 info
                 for fn, info in walk_items()
-                if fn.split(".", maxsplit=1)[0] in file_filters
-                and fn not in exclude
+                if fn.split(".", maxsplit=1)[0] in file_filters and fn not in exclude
             ]
 
         raise AttributeError(f"Invalid search mode: {mode}")
 
-    def extract_filter(
-        self, file_filter, *args, ignore_case=True, search_mode="re", **kwargs
-    ):
+    def extract_filter(self, file_filter, *args, ignore_case=True, search_mode="re", **kwargs):
         return self.extractall(
             members=self.search(file_filter, ignore_case=ignore_case, mode=search_mode),
             *args,
@@ -662,9 +637,7 @@ class P4KFile(zipfile.ZipFile):
             converters = {
                 k: v
                 for k, v in converter_handlers.items()
-                if k in converters
-                or v["handler"].name in converters
-                or v["handler"] in converters
+                if k in converters or v["handler"].name in converters or v["handler"] in converters
             }
         else:
             converters = {}
@@ -691,24 +664,18 @@ class P4KFile(zipfile.ZipFile):
                 extracted_files.extend(ext)
             except Exception as e:
                 if ignore_converter_errors:
-                    logger.exception(
-                        f"There was an error running the {name} converter", exc_info=e
-                    )
+                    logger.exception(f"There was an error running the {name} converter", exc_info=e)
                 else:
                     raise
 
         for i, info in enumerate(members):
-            if ext_path := self._extract_member(
-                info, path, save_to=save_to, overwrite=overwrite
-            ):
+            if ext_path := self._extract_member(info, path, save_to=save_to, overwrite=overwrite):
                 if monitor is not None:
                     monitor(msg=monitor_msg_from_info(info), progress=i, total=total)
                 extracted_files.append(ext_path)
         return extracted_files
 
-    def _extract_member(
-        self, member, targetpath, pwd=None, save_to=False, overwrite=True
-    ):
+    def _extract_member(self, member, targetpath, pwd=None, save_to=False, overwrite=True):
         """Extract the ZipInfo object 'member' to a physical file on the path targetpath."""
         if not isinstance(member, P4KInfo):
             member = self.getinfo(member)
@@ -802,8 +769,7 @@ class _ZipFileWithFlexibleFilenames(zipfile.ZipFile):
                     pwd = self.pwd
                 if not pwd:
                     raise RuntimeError(
-                        "File %r is encrypted, password "
-                        "required for extraction" % name
+                        "File %r is encrypted, password " "required for extraction" % name
                     )
             else:
                 pwd = None

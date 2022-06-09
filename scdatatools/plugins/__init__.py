@@ -1,6 +1,6 @@
-import pkgutil
-import logging
 import importlib
+import logging
+import pkgutil
 import typing
 from pathlib import Path
 
@@ -34,7 +34,9 @@ class P4KConverterPlugin(DataToolsPlugin):
 
     def register(self):
         super().register()
-        plugin_manager.register_hook(P4KConverterPlugin.CONVERTER_HOOK, self.__class__, **self.converter_hook_kwargs)
+        plugin_manager.register_hook(
+            P4KConverterPlugin.CONVERTER_HOOK, self.__class__, **self.converter_hook_kwargs
+        )
 
     @classmethod
     def converters(cls):
@@ -86,16 +88,12 @@ class PluginManager:
     def setup(self):
         if not self._setup:
             # Ensure scdatatools "plugins" are also loaded here
-            from scdatatools.engine.cryxml import CryXmlConverter
-            from scdatatools.engine.textures.converter import DDSTextureConverter
-            from scdatatools.engine.chunkfile.converter import CGFModelConverter
-            from scdatatools.engine.chunkfile.asset_extractor import ModelAssetsExtractor
 
             self.discover_plugins()
             self._setup = True
 
     def register_plugin(self, plugin: DataToolsPlugin):
-        plug = f'{plugin.__module__}.{plugin.__qualname__}'
+        plug = f"{plugin.__module__}.{plugin.__qualname__}"
         if not issubclass(plugin, self.PLUGIN_CLASS):
             raise ValueError(
                 f'Invalid plugin class type for "{plug}", must inherit from {self.PLUGIN_CLASS}'
@@ -107,16 +105,14 @@ class PluginManager:
         logger.info(f"Registered plugin {plug}")
 
     def unregister_plugin(self, plugin: DataToolsPlugin):
-        plug = f'{plugin.__module__}.{plugin.__qualname__}'
+        plug = f"{plugin.__module__}.{plugin.__qualname__}"
         if plug in self.plugins:
             raise KeyError(f"Plugin {plug} is not registered")
         self.plugins[plug].unregister()
         del self.plugins[plug]
         logger.info(f"Unregistered plugin {plug}")
 
-    def register_hook(
-        self, hook: str, handler: callable, name=None, priority=100, **kwargs
-    ):
+    def register_hook(self, hook: str, handler: callable, name=None, priority=100, **kwargs):
         """Registers `func` with the hook `hook`"""
         hook_name = f"{handler.__module__}{handler.__name__}" if name is None else name
         self._hooks.setdefault(hook, {})[hook_name] = {

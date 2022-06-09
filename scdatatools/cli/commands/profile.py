@@ -17,7 +17,7 @@ def actionmap(
     am = sc.default_profile.actionmap()
 
     if csv:
-        out = io.StringIO(newline='')
+        out = io.StringIO(newline="")
         sc.default_profile.dump_actionmap_csv(out)
         print(out.getvalue())
     else:

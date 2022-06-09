@@ -1,6 +1,6 @@
+import importlib
 import os
 import sys
-import importlib
 from pathlib import Path
 
 
@@ -37,8 +37,6 @@ def install_blender_addon(blender_ver, addon_name, addon_template) -> Path:
 
 def reload_scdt_blender_modules():
     # build up the list of modules first, otherwise sys.modules will change while you iterate through it
-    loaded_modules = [
-        m for n, m in sys.modules.items() if n.startswith("scdatatools.blender")
-    ]
+    loaded_modules = [m for n, m in sys.modules.items() if n.startswith("scdatatools.blender")]
     for module in loaded_modules:
         importlib.reload(module)

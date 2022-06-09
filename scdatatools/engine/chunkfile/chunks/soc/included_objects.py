@@ -1,15 +1,13 @@
 import ctypes
-import struct
 import logging
-import numpy as np
+import struct
 
 import hexdump
+import numpy as np
 
 from scdatatools.engine.model_utils import Vector3D
-
 from .. import defs
 from ..base import Chunk
-
 
 logger = logging.getLogger(__name__)
 CHUNK_STR_LEN = 256
@@ -85,9 +83,7 @@ class IncludedObjectType1(IncludedObjectType):
 
     def __str__(self):
         s = f"""[{self.id}] {self.filename}:\n\t\t"""
-        s += "\n\t\t".join(
-            f"{a}: {getattr(self, a)}" for a in ["pos", "scale", "rotation"]
-        )
+        s += "\n\t\t".join(f"{a}: {getattr(self, a)}" for a in ["pos", "scale", "rotation"])
         return s
 
     def __repr__(self):
@@ -118,9 +114,7 @@ class IncludedObjects(Chunk):
         # read cgfs
         num_cgfs = struct.unpack("<I", self.chunk_data.read(4))[0]
         for i in range(num_cgfs):
-            self.cgfs.append(
-                self.chunk_data.read(CHUNK_STR_LEN).strip(b"\x00").decode("utf-8")
-            )
+            self.cgfs.append(self.chunk_data.read(CHUNK_STR_LEN).strip(b"\x00").decode("utf-8"))
 
         # read mtls/palettes
         num_mtls, num_palettes = struct.unpack("<HH", self.chunk_data.read(4))
@@ -163,9 +157,7 @@ class IncludedObjects(Chunk):
                     )
                     _last_known = 0
                 self.objects.append(
-                    obj_class.from_buffer(
-                        self.chunk_data.data, self.chunk_data.tell(), self
-                    )
+                    obj_class.from_buffer(self.chunk_data.data, self.chunk_data.tell(), self)
                 )
                 obj_size = ctypes.sizeof(self.objects[-1])
                 self.chunk_data.seek(obj_size)

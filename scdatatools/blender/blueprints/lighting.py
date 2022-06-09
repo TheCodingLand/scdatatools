@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-import math
 import logging
-
-import scdatatools.blender.materials
+import math
 from math import sin
 from pathlib import Path
 
@@ -10,8 +8,8 @@ import bpy
 import bpy_extras
 from mathutils import Quaternion
 
-from scdatatools.blender.utils import str_to_tuple
 from scdatatools.blender.materials.utils import create_light_texture
+from scdatatools.blender.utils import str_to_tuple
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +21,17 @@ def set_light_state(light_obj, state):
 
     light_obj.data.color = light_obj["states"][state]["color"]
     # adjust intensity by +4EV; make this a user settings later
-    light_obj.data.energy = light_obj["states"][state]["intensity"] * pow(2, 4) #+4ev? +6ev? I can't decide
+    light_obj.data.energy = light_obj["states"][state]["intensity"] * pow(
+        2, 4
+    )  # +4ev? +6ev? I can't decide
     if light_obj["use_temperature"]:
         if temp_node := light_obj.data.node_tree.nodes.get("Temperature"):
-            temp_node.inputs[0].default_value = light_obj["states"][state][
-                "temperature"
-            ]
+            temp_node.inputs[0].default_value = light_obj["states"][state]["temperature"]
 
 
 def set_linked_light(obj_name, color, temp=None, source=None):
     for obj in find_obj_by_name(obj_name, True):
-        #if obj.type != "MESH":
+        # if obj.type != "MESH":
         #    continue
         obj["light_link"] = [0, 0, 0]
         if temp:
@@ -50,7 +48,7 @@ def set_linked_light(obj_name, color, temp=None, source=None):
             "description": "node_outline_prop",
         }
         obj["light_link"] = [color[0], color[1], color[2]]  # RGB
-        obj['light_link_source'] = source
+        obj["light_link_source"] = source
     return
 
 
@@ -76,27 +74,17 @@ def create_light(
     data_dir: Path = None,
 ):
     lightType = light["EntityComponentLight"]["@lightType"]
-    bulbRadius = float(
-        light["EntityComponentLight"]["sizeParams"].get("@bulbRadius", 0.01)
-    )
-    lightRadius = float(
-        light["EntityComponentLight"]["sizeParams"].get("@lightRadius", 1)
-    )
+    bulbRadius = float(light["EntityComponentLight"]["sizeParams"].get("@bulbRadius", 0.01))
+    lightRadius = float(light["EntityComponentLight"]["sizeParams"].get("@lightRadius", 1))
     use_temperature = bool(int(light["EntityComponentLight"].get("@useTemperature", 1)))
     texture = light["EntityComponentLight"]["projectorParams"].get("@texture", "")
     fov = float(light["EntityComponentLight"]["projectorParams"].get("@FOV", 179))
-    focusedBeam = float(
-        light["EntityComponentLight"]["projectorParams"].get("@focusedBeam", 1)
-    )
-    shadowCasting = float(
-        light["EntityComponentLight"]["shadowParams"].get("@shadowCasting", 1)
-    )
+    focusedBeam = float(light["EntityComponentLight"]["projectorParams"].get("@focusedBeam", 1))
+    shadowCasting = float(light["EntityComponentLight"]["shadowParams"].get("@shadowCasting", 1))
     projectorNearPlane = float(
         light["EntityComponentLight"]["shadowParams"].get("@projectorNearPlane", None)
     )
-    maxDistance = float(
-        light["EntityComponentLight"]["fadeParams"].get("@maxDistance", None)
-    )
+    maxDistance = float(light["EntityComponentLight"]["fadeParams"].get("@maxDistance", None))
 
     # TODO: EntityComponentLight.defaultState.lightStyle?
     # TODO: use shadowParams.@shadowCasting?
@@ -106,7 +94,9 @@ def create_light(
         light_data = bpy.data.lights.new(name=light_group_collection.name, type="SPOT")
         light_data.spot_size = math.radians(fov)
         light_data.spot_blend = bulbRadius
-        light_data.shadow_soft_size = bulbRadius * 0.01 # set to zero for hard IES light edges, increase for softness
+        light_data.shadow_soft_size = (
+            bulbRadius * 0.01
+        )  # set to zero for hard IES light edges, increase for softness
         # light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
         # light_data.spread = math.radians(fov)
         # light_data.size = bulbRadius
@@ -162,9 +152,7 @@ def create_light(
                 )
                 temp_node = ies_group
                 if light_data.type == "SPOT":
-                    spot_size = (
-                        sin(light_data.spot_size) / 2
-                    )  # convert radians to normal
+                    spot_size = sin(light_data.spot_size) / 2  # convert radians to normal
                     ies_group.inputs["Scale"].default_value = (
                         spot_size,
                         spot_size,
@@ -175,27 +163,25 @@ def create_light(
         bb_node = light_obj.data.node_tree.nodes.new(type="ShaderNodeBlackbody")
         bb_node.name = "Temperature"
         bb_node.inputs[0].default_value = 3500  #
-        light_obj.data.node_tree.links.new(
-            bb_node.outputs["Color"], temp_node.inputs["Color"]
-        )
+        light_obj.data.node_tree.links.new(bb_node.outputs["Color"], temp_node.inputs["Color"])
         # light_obj.data.color = (1,1,1)
 
     if shadowCasting == 0:
-        #eevee
+        # eevee
         light_data.use_shadow = False
-        #cycles
-        #light_data.cycles.cast_shadow = False
+        # cycles
+        # light_data.cycles.cast_shadow = False
     else:
-        #eevee
+        # eevee
         light_data.use_shadow = True
         light_data.use_contact_shadow = True
-        #cycles
+        # cycles
         light_data.cycles.cast_shadow = True
 
-    if maxDistance: 
+    if maxDistance:
         light_data.use_custom_distance = True
         light_data.cutoff_distance = maxDistance
-    if projectorNearPlane: 
+    if projectorNearPlane:
         light_data.shadow_buffer_clip_start = projectorNearPlane
 
     location = str_to_tuple(light["@Pos"], float)
@@ -229,9 +215,7 @@ def create_light(
                         helper["rotation"]["z"],
                     )
         if bone_name.lower() in parent.get("item_ports", {}):
-            light_obj.parent = bpy.data.objects.get(
-                parent["item_ports"][bone_name.lower()]
-            )
+            light_obj.parent = bpy.data.objects.get(parent["item_ports"][bone_name.lower()])
         else:
             light_obj.parent = parent
 
@@ -239,15 +223,11 @@ def create_light(
         sum(_)
         for _ in zip(
             location,
-            str_to_tuple(
-                light.get("RelativeXForm", {}).get("@translation", "0,0,0"), float
-            ),
+            str_to_tuple(light.get("RelativeXForm", {}).get("@translation", "0,0,0"), float),
         )
     ]
 
-    q = Quaternion(
-        str_to_tuple(light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float)
-    )
+    q = Quaternion(str_to_tuple(light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float))
     rotation_quaternion = rotation_quaternion.cross(Quaternion((q)))
 
     initial_matrix = bpy_extras.io_utils.axis_conversion(
@@ -265,11 +245,7 @@ def create_light(
         ).to_quaternion()
     )
     light_obj.rotation_quaternion.rotate(
-        Quaternion(
-            str_to_tuple(
-                light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float
-            )
-        )
+        Quaternion(str_to_tuple(light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float))
     )
 
     light_obj.scale = (0.01, 0.01, 0.01)

@@ -1,7 +1,6 @@
 import bpy
 from bpy.types import Operator
 
-from scdatatools.cli.utils import track
 from scdatatools.blender.utils import (
     remove_proxy_meshes,
     deselect_all,
@@ -9,6 +8,7 @@ from scdatatools.blender.utils import (
     collapse_outliner,
     select_children,
 )
+from scdatatools.cli.utils import track
 
 ISOLATED_COLLECTION_NAME = "SC Isolated Source"
 
@@ -67,9 +67,7 @@ class IsolateSourceCollection(Operator):
 
     def execute(self, context):
         try:
-            inst = next(
-                _ for _ in context.selected_objects if _.instance_collection is not None
-            )
+            inst = next(_ for _ in context.selected_objects if _.instance_collection is not None)
             entity_collection = bpy.data.collections.get(inst.get("entity_collection"))
             if entity_collection is None:
                 return {"CANCELLED"}  # not what we were expecting
@@ -90,16 +88,12 @@ class IsolateSourceCollection(Operator):
 
             geom_col["isolated"] = True
 
-            ecl = bpy.context.window.view_layer.layer_collection.children[
-                entity_collection.name
-            ]
+            ecl = bpy.context.window.view_layer.layer_collection.children[entity_collection.name]
             ecl.hide_viewport = True
 
             collapse_outliner()
             ctx = context.copy()
-            ctx["area"] = next(
-                a for a in bpy.context.screen.areas if a.type == "OUTLINER"
-            )
+            ctx["area"] = next(a for a in bpy.context.screen.areas if a.type == "OUTLINER")
             ctx["selected_objects"] = geom_col.objects[0]
             bpy.ops.outliner.show_active(ctx)
             ctx["area"].tag_redraw()
@@ -116,15 +110,10 @@ class MakeInstanceReal(Operator):
 
     def execute(self, context):
         for obj in track(list(context.selected_objects), description="Making instances real"):
-            if (
-                obj.instance_type == "COLLECTION"
-                and obj.instance_collection is not None
-            ):
+            if obj.instance_type == "COLLECTION" and obj.instance_collection is not None:
                 deselect_all()
                 obj.select_set(True)
-                bpy.ops.object.duplicates_make_real(
-                    use_base_parent=True, use_hierarchy=True
-                )
+                bpy.ops.object.duplicates_make_real(use_base_parent=True, use_hierarchy=True)
         return {"FINISHED"}
 
 
@@ -135,9 +124,7 @@ class MakeInstanceHierarchyReal(Operator):
     bl_label = "Make Instance Hierarchy Real"
 
     def execute(self, context):
-        roots = [
-            _ for _ in context.selected_objects if _.instance_collection is not None
-        ]
+        roots = [_ for _ in context.selected_objects if _.instance_collection is not None]
         instances = set()
         for root in roots:
             if root.instance_collection is None:
@@ -152,9 +139,7 @@ class MakeInstanceHierarchyReal(Operator):
         for inst in track(instances, description="Making instances real"):
             deselect_all()
             inst.select_set(True)
-            bpy.ops.object.duplicates_make_real(
-                use_base_parent=True, use_hierarchy=True
-            )
+            bpy.ops.object.duplicates_make_real(use_base_parent=True, use_hierarchy=True)
         return {"FINISHED"}
 
 

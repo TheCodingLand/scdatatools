@@ -1,21 +1,18 @@
+import ctypes
 import io
+import json
 import sys
 import typing
 import zlib
-import json
-import ctypes
-import contextlib
-from pathlib import Path
-from datetime import datetime
-from xml.etree import ElementTree
 from collections import defaultdict
-from distutils.util import strtobool
 from contextlib import contextmanager
+from datetime import datetime
+from distutils.util import strtobool
+from pathlib import Path
+from xml.etree import ElementTree
 
-import xxhash
-
-import tqdm
 import numpy
+import xxhash
 from pyquaternion import Quaternion
 
 from scdatatools.engine.model_utils import quaternion_to_dict
@@ -118,9 +115,7 @@ def version_from_id_file(id_file) -> (dict, str):
     return version_data, version_label
 
 
-def etree_to_dict(
-    t: typing.Union[ElementTree.ElementTree, ElementTree.Element]
-) -> dict:
+def etree_to_dict(t: typing.Union[ElementTree.ElementTree, ElementTree.Element]) -> dict:
     """Convert the given ElementTree `t` to an dict following the following XML to JSON specification:
     https://www.xml.com/pub/a/2006/05/31/converting-between-xml-and-json.html
 
@@ -218,9 +213,7 @@ def dict_search(obj: dict, keys: typing.Union[str, list], ignore_case=False):
     return values
 
 
-def dict_contains_value(
-    obj: dict, values_to_check: typing.Union[str, list], ignore_case=False
-):
+def dict_contains_value(obj: dict, values_to_check: typing.Union[str, list], ignore_case=False):
     """returns the unique values of every key `key` within nested dict objects"""
     if not isinstance(values_to_check, list):
         values_to_check = [values_to_check]
@@ -268,9 +261,7 @@ class StructureWithEnums:
                 except ValueError:
                     pass
             else:
-                sys.stderr.write(
-                    f'\n{value} is not valid for any of the types "{repr(classes)}"\n'
-                )
+                sys.stderr.write(f'\n{value} is not valid for any of the types "{repr(classes)}"\n')
         return value
 
     def __str__(self):
@@ -279,9 +270,7 @@ class StructureWithEnums:
             attr, attr_type = field
             if attr in self._map:
                 attr_type = (
-                    repr(self._map[attr])
-                    if len(self._map[attr]) > 1
-                    else self._map[attr].__name__
+                    repr(self._map[attr]) if len(self._map[attr]) > 1 else self._map[attr].__name__
                 )
             else:
                 attr_type = attr_type.__name__
@@ -367,9 +356,7 @@ def search_for_data_dir_in_path(path):
     try:
         if not isinstance(path, Path):
             path = Path(path)
-        return Path(
-            *path.parts[: tuple(_.lower() for _ in path.parts).index("data") + 1]
-        )
+        return Path(*path.parts[: tuple(_.lower() for _ in path.parts).index("data") + 1])
     except ValueError:
         return ""
 

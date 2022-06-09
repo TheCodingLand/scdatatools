@@ -1,19 +1,18 @@
-import typing
 import logging
+import typing
 from typing import TYPE_CHECKING
 
-from scdatatools.p4k import P4KInfo
-from scdatatools.utils import norm_path
-from scdatatools.sc.blueprints import Blueprint
-from scdatatools.sc.blueprints.generators.prefab import blueprint_from_prefab_library
-
-from ..cryxml import dict_from_cryxml_file, camel_attr_to_snake
 from scdatatools.engine.model_utils import (
     Vector3D,
     Quaternion,
     vector_from_csv,
     quaternion_from_csv,
 )
+from scdatatools.p4k import P4KInfo
+from scdatatools.sc.blueprints import Blueprint
+from scdatatools.sc.blueprints.generators.prefab import blueprint_from_prefab_library
+from scdatatools.utils import norm_path
+from ..cryxml import dict_from_cryxml_file, camel_attr_to_snake
 
 if TYPE_CHECKING:
     from scdatatools.sc import StarCitizen
@@ -119,17 +118,12 @@ class Prefab:
             for obj in objects:
                 if (ot := obj["type"]) in PREFAB_OBJECT_TYPES_TO_PROCESS:
                     if ot == "Prefab":
-                        prefab_library = obj.get("prefab_name", "").split(
-                            ".", maxsplit=1
-                        )[0]
+                        prefab_library = obj.get("prefab_name", "").split(".", maxsplit=1)[0]
                         if (
-                            prefab := self.manager.prefab_for_id(
-                                obj["prefab_guid"], prefab_library
-                            )
+                            prefab := self.manager.prefab_for_id(obj["prefab_guid"], prefab_library)
                         ) is not None:
                             yield from prefab.objects_with_geometry(
-                                pos_offset=pos_off
-                                + vector_from_csv(obj.get("pos", "0,0,0")),
+                                pos_offset=pos_off + vector_from_csv(obj.get("pos", "0,0,0")),
                                 rotation_offset=rot_off
                                 * quaternion_from_csv(obj.get("rotate", "1,0,0,0")),
                             )
@@ -171,9 +165,7 @@ class Prefab:
             footprint=prefab_dict.get("@Footprint", ""),
         )
 
-        if isinstance(
-            objects := prefab_dict.get("Objects", {}).get("Object", []), dict
-        ):
+        if isinstance(objects := prefab_dict.get("Objects", {}).get("Object", []), dict):
             objects = [objects]  # only one object in prefab
 
         for obj in objects:
@@ -234,15 +226,11 @@ class PrefabLibrary:
         if "PrefabsLibrary" not in prefab_data:
             return None
 
-        if isinstance(
-            prefabs := prefab_data.get("PrefabsLibrary", {}).get("Prefab", []), dict
-        ):
+        if isinstance(prefabs := prefab_data.get("PrefabsLibrary", {}).get("Prefab", []), dict):
             prefabs = [prefabs]
 
         lib = PrefabLibrary(prefab_data["PrefabsLibrary"]["@Name"], manager)
-        lib.prefabs = {
-            prefab.name: prefab for _ in prefabs if (prefab := Prefab.from_dict(lib, _))
-        }
+        lib.prefabs = {prefab.name: prefab for _ in prefabs if (prefab := Prefab.from_dict(lib, _))}
         lib.prefabs_by_id = {prefab.guid: prefab for prefab in lib.prefabs.values()}
 
         return lib
@@ -282,15 +270,11 @@ class PrefabManager:
         if name in self.libraries:
             return self.libraries[name]
         try:
-            return self.load_prefab_library(
-                self.sc.p4k.getinfo(f"Data/Prefabs/{name}.xml")
-            )
+            return self.load_prefab_library(self.sc.p4k.getinfo(f"Data/Prefabs/{name}.xml"))
         except KeyError:
             return None
 
-    def load_prefab_library(
-        self, prefab: typing.Union["P4KInfo", str]
-    ) -> PrefabLibrary:
+    def load_prefab_library(self, prefab: typing.Union["P4KInfo", str]) -> PrefabLibrary:
         """
         Load the given `prefab` from the Data.p4k.
         :param prefab:

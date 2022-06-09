@@ -26,7 +26,8 @@ class FractionColumn(progress.ProgressColumn):
         precision = 0 if unit == 1 else 1
         return progress.Text(
             f"{completed / unit:,.{precision}f}/{total / unit:,.{precision}f} {suffix}",
-            style="progress.download")
+            style="progress.download",
+        )
 
 
 class RateColumn(progress.ProgressColumn):
@@ -52,27 +53,29 @@ class RateColumn(progress.ProgressColumn):
         else:
             unit, suffix = progress.filesize.pick_unit_and_suffix(speed, [""], 1)
         precision = 0 if unit == 1 else 1
-        return progress.Text(f"{speed / unit:,.{precision}f} {suffix}{self.unit}/s", style="progress.data.speed")
+        return progress.Text(
+            f"{speed / unit:,.{precision}f} {suffix}{self.unit}/s", style="progress.data.speed"
+        )
 
 
 def track(
-        sequence: Union[Sequence[progress.ProgressType], Iterable[progress.ProgressType]],
-        description: str = "Working...",
-        total: Optional[float] = None,
-        auto_refresh: bool = True,
-        console: Optional[progress.Console] = None,
-        transient: bool = False,
-        get_time: Optional[Callable[[], float]] = None,
-        refresh_per_second: float = 10,
-        style: progress.StyleType = "bar.back",
-        complete_style: progress.StyleType = "bar.complete",
-        finished_style: progress.StyleType = "bar.finished",
-        pulse_style: progress.StyleType = "bar.pulse",
-        update_period: float = 0.1,
-        disable: bool = False,
-        show_speed: bool = True,
-        unit: str = 'i',
-        unit_scale: bool = True,
+    sequence: Union[Sequence[progress.ProgressType], Iterable[progress.ProgressType]],
+    description: str = "Working...",
+    total: Optional[float] = None,
+    auto_refresh: bool = True,
+    console: Optional[progress.Console] = None,
+    transient: bool = False,
+    get_time: Optional[Callable[[], float]] = None,
+    refresh_per_second: float = 10,
+    style: progress.StyleType = "bar.back",
+    complete_style: progress.StyleType = "bar.complete",
+    finished_style: progress.StyleType = "bar.finished",
+    pulse_style: progress.StyleType = "bar.pulse",
+    update_period: float = 0.1,
+    disable: bool = False,
+    show_speed: bool = True,
+    unit: str = "i",
+    unit_scale: bool = True,
 ) -> Iterable[progress.ProgressType]:
     """Track progress by iterating over a sequence.
 
@@ -113,8 +116,7 @@ def track(
             ),
             progress.MofNCompleteColumn(),
             progress.TaskProgressColumn(
-                text_format="[progress.percentage]{task.percentage:>3.0f}%",
-                show_speed=show_speed
+                text_format="[progress.percentage]{task.percentage:>3.0f}%", show_speed=show_speed
             ),
             RateColumn(unit=unit, unit_scale=unit_scale),
             progress.TimeRemainingColumn(),

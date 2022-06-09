@@ -1,8 +1,8 @@
+import ctypes
 import enum
 import struct
-import ctypes
-from functools import cached_property
 from ctypes import LittleEndianStructure
+from functools import cached_property
 
 from .enums import *
 from .utils import AttrDict
@@ -18,8 +18,8 @@ class DataCoreBase(LittleEndianStructure):
     @property
     def dcb(self):
         if self._b_base_ is not None:
-            return getattr(self._b_base_, '_dcb')
-        return getattr(self, '_dcb')
+            return getattr(self._b_base_, "_dcb")
+        return getattr(self, "_dcb")
 
 
 class DataCoreNamed(DataCoreBase):
@@ -96,11 +96,11 @@ class StructureDefinition(DataCoreNamed):
 
     @property
     def properties(self):
-        props = self.dcb.property_definitions[self.first_property_index:self.first_property_index + self.property_count]
+        props = self.dcb.property_definitions[
+            self.first_property_index : self.first_property_index + self.property_count
+        ]
         if self.parent_index != DCB_NO_PARENT:
-            props = (
-                self.dcb.structure_definitions[self.parent_index].properties + props
-            )
+            props = self.dcb.structure_definitions[self.parent_index].properties + props
         return props
 
     @property
@@ -163,9 +163,7 @@ class EnumDefinition(DataCoreNamed):
             self.name,
             [
                 self.dcb.values[DataTypes.EnumValueName][_].value
-                for _ in range(
-                    self.first_value_index, self.first_value_index + self.value_count
-                )
+                for _ in range(self.first_value_index, self.first_value_index + self.value_count)
             ],
         )
 
@@ -185,9 +183,7 @@ class DataMappingDefinition16(DataCoreBase):
     ]
 
     def __repr__(self):
-        return (
-            f"<DataMap structure:{self.structure_index} count:{self.structure_count}>"
-        )
+        return f"<DataMap structure:{self.structure_index} count:{self.structure_count}>"
 
     def __str__(self):
         return f"dataMap:{self.structure_index}_count:{self.structure_count}"
@@ -200,9 +196,7 @@ class DataMappingDefinition32(DataCoreBase):
     ]
 
     def __repr__(self):
-        return (
-            f"<DataMap structure:{self.structure_index} count:{self.structure_count}>"
-        )
+        return f"<DataMap structure:{self.structure_index} count:{self.structure_count}>"
 
     def __str__(self):
         return f"dataMap:{self.structure_index}_count:{self.structure_count}"
@@ -249,7 +243,7 @@ class StructureInstance:
                     self.dcb.get_structure_instance_from_offset(
                         property_definition.structure_index, offset
                     ),
-                    end_offset
+                    end_offset,
                 )
 
             end_offset = offset + property_definition.calculated_data_size
@@ -258,11 +252,13 @@ class StructureInstance:
             prop._dcb = self.dcb
 
             if data_type == DataTypes.EnumChoice:
-                prop._enum_definition = self.dcb.enum_definitions[property_definition.structure_index]
+                prop._enum_definition = self.dcb.enum_definitions[
+                    property_definition.structure_index
+                ]
             return prop.value, end_offset
         else:
             try:
-                ConversionTypes(conv_type)   # will throw value error if this is not a valid type
+                ConversionTypes(conv_type)  # will throw value error if this is not a valid type
                 end_offset = offset + 8
                 # buf = bytearray(
                 #     self.dcb.raw_data[offset:end_offset]
@@ -273,7 +269,7 @@ class StructureInstance:
                     for _ in range(count):
                         cls_ref = ClassReference(
                             structure_index=property_definition.structure_index,
-                            instance_index=first_index + _
+                            instance_index=first_index + _,
                         )
                         cls_ref._dcb = self.dcb
                         cls_ref = None if cls_ref.reference is None else cls_ref
@@ -289,14 +285,14 @@ class StructureInstance:
                     return clss, end_offset
                 elif data_type in self.dcb.values:
                     return (
-                        self.dcb.values[property_definition.data_type][first_index:first_index + count],
+                        self.dcb.values[property_definition.data_type][
+                            first_index : first_index + count
+                        ],
                         end_offset,
                     )
             except ValueError:
                 pass
-        raise NotImplementedError(
-            f"Property has not been implemented: {property_definition}"
-        )
+        raise NotImplementedError(f"Property has not been implemented: {property_definition}")
 
     @property
     def properties(self):
@@ -348,15 +344,10 @@ class Pointer:
 
     @cached_property
     def reference(self):
-        if (
-            self.structure_index == DCB_NO_PARENT
-            or self.instance_index == DCB_NO_PARENT
-        ):
+        if self.structure_index == DCB_NO_PARENT or self.instance_index == DCB_NO_PARENT:
             return None
         # return self.dcb.structure_instances[self.structure_index][self.instance_index]
-        return self.dcb.get_structure_instance(
-            self.structure_index, self.instance_index
-        )
+        return self.dcb.get_structure_instance(self.structure_index, self.instance_index)
 
     @property
     def structure_definition(self):
@@ -374,9 +365,7 @@ class StrongPointer(Pointer, DataCoreBase):
     def __repr__(self):
         if self.structure_definition is not None:
             return f"<StrongPointer structure:{self.structure_definition.name} instance:{self.instance_index}>"
-        return (
-            f"<StrongPointer structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
-        )
+        return f"<StrongPointer structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
 
     def __str__(self):
         if self.structure_definition is not None:
@@ -388,9 +377,7 @@ class ClassReference(StrongPointer):
     def __repr__(self):
         if self.structure_definition is not None:
             return f"<ClassReference structure:{self.structure_definition.name} instance:{self.instance_index}>"
-        return (
-            f"<ClassReference structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
-        )
+        return f"<ClassReference structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
 
     def __str__(self):
         if self.structure_definition is not None:
@@ -448,9 +435,7 @@ class Record(Pointer, DataCoreNamed):
 
     @property
     def name(self):
-        return self.dcb.string_for_offset(self.name_offset).replace(
-            f"{self.type}.", "", 1
-        )
+        return self.dcb.string_for_offset(self.name_offset).replace(f"{self.type}.", "", 1)
 
     @property
     def filename(self):

@@ -1,4 +1,3 @@
-
 def normalize_material_name(mat_name):
     if "_mtl_" in mat_name:
         # normalize mtl library name
@@ -12,6 +11,6 @@ def normalize_material_name(mat_name):
         base_mat_name, _ = norm_mat_name.rsplit(".", maxsplit=1)
         norm_mat_name = base_mat_name if _.isdigit() else norm_mat_name
 
-    norm_mat_name = norm_mat_name.replace(' ', '_')
+    norm_mat_name = norm_mat_name.replace(" ", "_")
 
     return norm_mat_name

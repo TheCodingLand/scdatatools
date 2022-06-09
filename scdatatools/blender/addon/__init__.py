@@ -1,13 +1,11 @@
-import os
 import logging
+import os
 from pathlib import Path
 
 import sentry_sdk
 
-
 from .utils import install_blender_addon, reload_scdt_blender_modules
 from .. import logging as blender_logging
-
 
 try:
     import bpy
@@ -62,9 +60,9 @@ def register():
     reload_scdt_blender_modules()
 
     try:
-        sentry_sdk.set_tag('blender.version', bpy.app.version_string)
+        sentry_sdk.set_tag("blender.version", bpy.app.version_string)
     except (AttributeError, ValueError):
-        sentry_sdk.set_tag('blender.version', 'unknown')
+        sentry_sdk.set_tag("blender.version", "unknown")
 
     if (pycharm_debug_port := int(os.environ.get("SCDT_PYCHARM_DEBUG", 0))) > 0:
         try:

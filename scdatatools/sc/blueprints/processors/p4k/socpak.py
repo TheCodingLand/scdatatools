@@ -1,14 +1,13 @@
-import typing
 import logging
+import typing
+
 from pyquaternion import Quaternion
 
-
-from scdatatools.utils import norm_path
 from scdatatools.engine.chunkfile import chunks
-from scdatatools.sc.blueprints.processors.lighting import process_light_object
-from scdatatools.sc.blueprints.processors import filetype_processor
 from scdatatools.engine.model_utils import vector_from_csv, quaternion_from_csv
-
+from scdatatools.sc.blueprints.processors import filetype_processor
+from scdatatools.sc.blueprints.processors.lighting import process_light_object
+from scdatatools.utils import norm_path
 
 if typing.TYPE_CHECKING:
     from scdatatools.p4k import P4KInfo
@@ -116,24 +115,24 @@ def process_soc(bp: "Blueprint", soc, bone_name, geom_attrs):
                     continue  # TODO: handle these, see SOC_ENTITY_CLASSES_TO_SKIP
                 elif "EntityGeometryResource" in entity.get("PropertiesDataCore", {}):
                     geom, _ = bp.get_or_create_geom(
-                        entity["PropertiesDataCore"]["EntityGeometryResource"][
+                        entity["PropertiesDataCore"]["EntityGeometryResource"]["Geometry"][
                             "Geometry"
-                        ]["Geometry"]["Geometry"]["@path"]
+                        ]["Geometry"]["@path"]
                     )
                 elif entity.get("@EntityClass") == "TransitManager":
                     gateway_index = int(
-                        entity["SCTransitManager"]["CarriageSpawnLocations"][
-                            "SpawnLocation"
-                        ]["@gatewayIndex"]
+                        entity["SCTransitManager"]["CarriageSpawnLocations"]["SpawnLocation"][
+                            "@gatewayIndex"
+                        ]
                     )
-                    gateway = entity["SCTransitManager"]["TransitDestinations"][
-                        "Destination"
-                    ][gateway_index]
+                    gateway = entity["SCTransitManager"]["TransitDestinations"]["Destination"][
+                        gateway_index
+                    ]
                     blueprint_from_socpak(
                         bp.sc,
-                        socpak=entity["PropertiesDataCore"]["SCTransitManager"][
-                            "carriageInterior"
-                        ]["@path"],
+                        socpak=entity["PropertiesDataCore"]["SCTransitManager"]["carriageInterior"][
+                            "@path"
+                        ],
                         container_name=entity["@Name"],
                         bp=bp,
                         attrs={
@@ -143,9 +142,7 @@ def process_soc(bp: "Blueprint", soc, bone_name, geom_attrs):
                             ),
                             "rotation": (
                                 quaternion_from_csv(entity.get("@Rotate", "1,0,0,0"))
-                                * quaternion_from_csv(
-                                    gateway["Gateway"]["@gatewayQuat"]
-                                )
+                                * quaternion_from_csv(gateway["Gateway"]["@gatewayQuat"])
                             ),
                         },
                     )
@@ -159,9 +156,7 @@ def process_soc(bp: "Blueprint", soc, bone_name, geom_attrs):
                     )
                     geom, _ = bp.get_or_create_geom(base_geom_path)
                 if geom is not None:
-                    w, x, y, z = (
-                        float(_) for _ in entity.get("@Rotate", "1,0,0,0").split(",")
-                    )
+                    w, x, y, z = (float(_) for _ in entity.get("@Rotate", "1,0,0,0").split(","))
                     if "@Layer" in entity:
                         geom_attrs["layer"] = entity["@Layer"]
                     geom.add_instance(

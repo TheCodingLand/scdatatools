@@ -1,11 +1,12 @@
-import sys
 import json
 import logging
+import sys
 from pathlib import Path
 
-from rsi.launcher import LauncherAPI
 from rich import progress
+from rsi.launcher import LauncherAPI
 
+from scdatatools.cli.utils import track
 from scdatatools.engine.prefabs import PrefabManager
 from scdatatools.forge import DataCoreBinary
 from scdatatools.forge.tags import TagDatabase
@@ -16,7 +17,6 @@ from .config import Profile
 from .localization import SCLocalization
 from .object_container import ObjectContainerManager
 from ..plugins import plugin_manager
-from scdatatools.cli.utils import track
 
 # Files that we will NOT skip the hash for when generating inventory with skip_data_hash
 P4K_ALWAYS_HASH_DATA_FILES = [
@@ -83,9 +83,7 @@ class StarCitizen:
                         self.version = data.get("RequestedP4ChangeNum", None)
                         self.shelved_change = data.get("Shelved_Change", None)
                         self.tag = data.get("Tag", None)
-                        self.version_label = (
-                            f"{self.branch}-{self.version}"  # better than nothing
-                        )
+                        self.version_label = f"{self.branch}-{self.version}"  # better than nothing
                         break
                     except Exception as e:  # noqa
                         pass
@@ -120,11 +118,11 @@ class StarCitizen:
         assert self.oc_manager is not None
 
     def generate_inventory(
-            self,
-            p4k_filters: list = None,
-            skip_local=False,
-            skip_p4k=False,
-            skip_data_hash=False,
+        self,
+        p4k_filters: list = None,
+        skip_local=False,
+        skip_p4k=False,
+        skip_data_hash=False,
     ):
         p4k_filters = p4k_filters or []
         inv = {}
@@ -134,10 +132,10 @@ class StarCitizen:
 
         if not skip_local:
             for f in track(
-                    self.game_folder.rglob("*"),
-                    description="Collecting Local Files",
-                    unit="files",
-                    unit_scale=True,
+                self.game_folder.rglob("*"),
+                description="Collecting Local Files",
+                unit="files",
+                unit_scale=True,
             ):
                 path = f.relative_to(self.game_folder).as_posix()
                 if path in inv:
@@ -146,9 +144,7 @@ class StarCitizen:
                     if not skip_data_hash or f.suffix in P4K_ALWAYS_HASH_DATA_FILES:
                         inv[path] = (
                             f.stat().st_size,
-                            xxhash32_file(f)
-                            if f.is_file() and f.name != "Data.p4k"
-                            else None,
+                            xxhash32_file(f) if f.is_file() and f.name != "Data.p4k" else None,
                         )
                     else:
                         inv[path] = (f.stat().st_size, None)
@@ -160,20 +156,17 @@ class StarCitizen:
             else:
                 filenames = list(self.p4k.NameToInfo.keys())
             for f in track(
-                    filenames,
-                    description="      Reading Data.p4k",
-                    unit="files",
-                    unit_scale=True,
+                filenames,
+                description="      Reading Data.p4k",
+                unit="files",
+                unit_scale=True,
             ):
                 f = self.p4k.NameToInfo[f]
                 path = (p4k_path / f.filename).as_posix()
                 if path in inv:
                     print(f"Error duplicate path: {path}")
                 elif not f.is_dir():
-                    if (
-                            not skip_data_hash
-                            or Path(f.filename).suffix in P4K_ALWAYS_HASH_DATA_FILES
-                    ):
+                    if not skip_data_hash or Path(f.filename).suffix in P4K_ALWAYS_HASH_DATA_FILES:
                         fp = self.p4k.open(f, "r")
                         inv[path] = (f.file_size, xxhash32_file(fp))
                         fp.close()
@@ -183,16 +176,14 @@ class StarCitizen:
         print("      Opening Datacore", end="\r")
         dcb_path = p4k_path / "Data" / "Game.dcb"
         for r in track(
-                self.datacore.records,
-                description="      Reading Datacore",
-                total=len(self.datacore.records),
-                unit="recs",
-                unit_scale=True,
+            self.datacore.records,
+            description="      Reading Datacore",
+            total=len(self.datacore.records),
+            unit="recs",
+            unit_scale=True,
         ):
 
-            path = (
-                f'{(dcb_path / r.filename).with_suffix("").as_posix()}.{r.id.value}.xml'
-            )
+            path = f'{(dcb_path / r.filename).with_suffix("").as_posix()}.{r.id.value}.xml'
             try:
                 data = self.datacore.dump_record_json(r, indent=None).encode("utf-8")
             except Exception as e:
@@ -254,19 +245,19 @@ class StarCitizen:
     def _get_cached_file(self, name):
         if self.cache_dir is not None:
             if (cache_file := self.cache_dir / name).is_file():
-                logger.debug(f'Using cached file for {name}: {cache_file}')
+                logger.debug(f"Using cached file for {name}: {cache_file}")
                 return cache_file
         return None
 
     @property
     def datacore(self):
         if self._datacore is None:
-            if (dcb := self._get_cached_file('Game.dcb')) is None:
+            if (dcb := self._get_cached_file("Game.dcb")) is None:
                 dcb = self.p4k.getinfo("Data/Game.dcb")
                 if self.cache_dir:
-                    logger.debug(f'Saving datacore cache to {self.cache_dir}')
+                    logger.debug(f"Saving datacore cache to {self.cache_dir}")
                     self.p4k.extract(dcb, path=self.cache_dir, save_to=True, monitor=None)
-            with dcb.open('rb') as f:
+            with dcb.open("rb") as f:
                 self._datacore = DataCoreBinary(f.read())
                 self._is_loaded["datacore"] = True
         return self._datacore

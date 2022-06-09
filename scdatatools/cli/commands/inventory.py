@@ -18,9 +18,9 @@ def inventory(scdir: Path, outfile: Path):
     i = sc.generate_inventory()
 
     try:
-        with open(outfile, 'w') as o:
+        with open(outfile, "w") as o:
             # default=str will handle the datetime objects
             print(f"Writing {outfile.name}")
             json.dump(i, o, indent=2, default=str)
     except KeyboardInterrupt:
-        sys.stderr.write(f'\nExiting, the inventory file may not be complete...\n\n')
+        sys.stderr.write(f"\nExiting, the inventory file may not be complete...\n\n")

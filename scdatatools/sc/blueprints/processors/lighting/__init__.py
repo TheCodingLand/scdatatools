@@ -1,5 +1,5 @@
-import typing
 import logging
+import typing
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +34,7 @@ def process_light_object(bp: "Blueprint", soc, entity: dict, bone_name=""):
     elif eclass == "LightGroup":
         light_group = soc["lights"].setdefault(entity["@Name"], {})
         lights = (
-            entity.get("EntityComponentLightGroup", {})
-            .get("BakedInLights", {})
-            .get("Light", [])
+            entity.get("EntityComponentLightGroup", {}).get("BakedInLights", {}).get("Light", [])
         )
         if isinstance(lights, dict):
             lights = [lights]

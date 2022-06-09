@@ -106,7 +106,7 @@ class blueprint:
             def log(task, msg, progress=None, total=None, level=None, exc_info=None):
                 level = level or logging.INFO
                 logger.log(level, msg, exc_info=exc_info)
-                progbar.update(generating_bp, total=total, completed=progress)
+                progbar.update(task, total=total, completed=progress)
 
             output = Path(output)
             output.mkdir(parents=True, exist_ok=True)

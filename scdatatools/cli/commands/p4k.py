@@ -1,18 +1,17 @@
-import sys
+import logging
 import shutil
-import typing
+import sys
 from pathlib import Path
 
 from nubia import command, argument
-
-from scdatatools import p4k
+from rich.progress import Progress
 
 from . import common
 
+logger = logging.getLogger(__name__)
+
 
 @command(help='Utilities for interacting with p4k files.')
-@common.sc_dir_argument
-@common.extraction_args(exclude=['output'])
 class p4k:
     @command(help="Extract files from a P4K file", aliases=['x'])
     @argument("single", description="Extract first matching file only", aliases=["-1"])
@@ -27,6 +26,8 @@ class p4k:
         description="Posix style file filter of which files to extract. Defaults to '*'",
         aliases=["-f"],
     )
+    @common.sc_dir_argument
+    @common.extraction_args(exclude=['output'])
     def extract(self,
                 sc_dir: str,
                 output: str = ".",
@@ -97,12 +98,21 @@ class p4k:
             print("=" * 80)
             output.mkdir(parents=True, exist_ok=True)
             try:
-                p.extract_filter(
-                    file_filter=file_filter,
-                    path=str(output),
-                    converters=converters,
-                    converter_options=converter_options,
-                    overwrite=not no_overwrite,
-                )
+                with Progress() as progbar:
+                    extracting_task = progbar.add_task("Extracting files", total=None)
+
+                    def log(msg, progress=None, total=None, level=None, exc_info=None):
+                        level = level or logging.INFO
+                        logger.log(level, msg, exc_info=exc_info)
+                        progbar.update(extracting_task, total=total, completed=progress)
+
+                    p.extract_filter(
+                        file_filter=file_filter,
+                        path=str(output),
+                        converters=converters,
+                        converter_options=converter_options,
+                        overwrite=not no_overwrite,
+                        monitor=log,
+                    )
             except KeyboardInterrupt:
                 pass

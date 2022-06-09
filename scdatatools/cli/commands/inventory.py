@@ -1,5 +1,5 @@
-import sys
 import json
+import sys
 from pathlib import Path
 
 from nubia import command, argument
@@ -8,7 +8,7 @@ from scdatatools.sc import StarCitizen
 
 
 @command(
-    help="Dumps a JSON object of every file in the Star Citizen directory and archives (recursively). This is"
+    help="Dumps a JSON object of every file in the Star Citizen directory and archives (recursively). This can be "
     "used to compare different versions of Star Citizen"
 )
 @argument("scdir", description="StarCitizen Game Folder", positional=True)
@@ -19,7 +19,7 @@ def inventory(scdir: Path, outfile: Path):
 
     try:
         with open(outfile, 'w') as o:
-            # default=str will handle the datetimes
+            # default=str will handle the datetime objects
             print(f"Writing {outfile.name}")
             json.dump(i, o, indent=2, default=str)
     except KeyboardInterrupt:

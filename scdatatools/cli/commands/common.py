@@ -1,17 +1,20 @@
+import logging
 import sys
 import typing
-from pathlib import Path
-from fnmatch import fnmatch
 from collections import OrderedDict
-from functools import update_wrapper, partial
+from pathlib import Path
 
-from nubia import context, argument
+from nubia import context
 from nubia.internal.typing import _ArgDecoratorSpec, _init_attr
 
+from scdatatools.launcher import get_installed_sc_versions
 from scdatatools.sc import StarCitizen
 
 if typing.TYPE_CHECKING:
     from ..plugin import SCDTContext
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_context() -> "SCDTContext":
@@ -22,6 +25,11 @@ def open_sc_dir(sc_dir: typing.Union[str, Path]) -> StarCitizen:
     """ Processes the `sc_dir` CLI argument and returns a `StarCitizen` object. This function will error and exit the
     program if it fails to open the given `sc_dir`.
     """
+    installed_versions = get_installed_sc_versions()
+    if sc_dir.upper() in installed_versions and not Path(sc_dir).is_dir():
+        sc_dir = installed_versions[sc_dir.upper()]
+        logger.debug(f'Using installed version {sc_dir}')
+
     ctx = get_context()
     sc_dir = Path(sc_dir).expanduser()
     if sc_dir.is_file():
@@ -51,7 +59,8 @@ def sc_dir_argument(function):
     function.__arguments_decorator_specs['sc_dir'] = _ArgDecoratorSpec(
         arg='sc_dir',
         name='sc_dir',
-        description="Star Citizen installation directory or Data.p4k file.",
+        description="Star Citizen installation directory or Data.p4k file. You can also specify LIVE or PTU and scdt "
+                    "will attempt to find the installed versions of Star Citizen.",
         aliases=[],
         positional=True,
         choices=[]
@@ -79,6 +88,7 @@ EXTRACTION_ARGS = {
     },
     "convert_textures": {
         "type": str,
+        "aliases": ["-t"],
         "description": "Convert textures to the given image format. This also enables unsplit_textures.",
         "choices": ["png", "tif", "tga"]
     },

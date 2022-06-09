@@ -1,6 +1,5 @@
 import io
 import json
-from pathlib import Path
 
 from nubia import command, argument
 
@@ -11,7 +10,7 @@ from . import common
 @common.sc_dir_argument
 @argument("csv", description="Output as a CSV instead", aliases=["-c"])
 def actionmap(
-    sc_dir: Path,
+    sc_dir: str,
     csv: bool = False,
 ):
     sc = common.open_sc_dir(sc_dir)

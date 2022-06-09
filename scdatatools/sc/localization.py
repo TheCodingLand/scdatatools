@@ -1,6 +1,9 @@
+import logging
 from pathlib import Path
 
 from scdatatools.p4k import P4KFile
+
+logger = logging.getLogger(__name__)
 
 
 class SCLocalization:
@@ -18,7 +21,9 @@ class SCLocalization:
             return p4k_or_sc.p4k
 
         if cache_dir is not None:
+            logger.debug(f'Using localization cache {cache_dir}')
             if not (lcache := Path(cache_dir) / "localization").is_dir():
+                logger.debug(f'Building localization cache')
                 p4k = _get_p4k()
                 lcache.mkdir(parents=True)
                 p4k.extractall(members=p4k.search("Data/Localization/*/global.ini"), path=lcache, monitor=None)
@@ -28,8 +33,9 @@ class SCLocalization:
             localization_files = p4k.search("Data/Localization/*/global.ini")
 
         for l in localization_files:
+            logging.debug(f'processing {l}')
             with l.open('rb') as f:
-                lang = f.name.split("/")[-2]
+                lang = Path(f.name).parts[-2]
                 self.languages.append(lang)
                 self.translations[lang] = dict(
                     _.split("=", 1)

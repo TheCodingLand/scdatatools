@@ -21,16 +21,15 @@ except ImportError:
 
 from . import ui_utils, validation
 
-
 logger = logging.getLogger(__name__)
 SUPPORTED_PYTHON_VERSIONS = ">=3.10.2,<3.11"
 
+
 def available_blender_installations(
-    include_paths: typing.List[Path] = None, compatible_only=False, supported_versions=SUPPORTED_PYTHON_VERSIONS,
+        include_paths: typing.List[Path] = None, compatible_only=False, supported_versions=SUPPORTED_PYTHON_VERSIONS,
 ) -> dict:
     """Return a dictionary of discovered Blender Installations where each value is the `Path` to the installation and
     a `bool` of whether the version's Python is compatible with scdatatools.
-
 
     ... code-block:: python
 
@@ -92,9 +91,9 @@ def available_blender_installations(
                     "pyver": versions[0][1],
                 }
         except (
-            subprocess.CalledProcessError,
-            StopIteration,
-            subprocess.TimeoutExpired,
+                subprocess.CalledProcessError,
+                StopIteration,
+                subprocess.TimeoutExpired,
         ):
             pass
         return None
@@ -216,9 +215,9 @@ def import_cleanup(context, option_offsetdecals=False):
                         vg = obj.vertex_groups.new(name=slot.material.name)
                     vg.add(verts, 1.0, "ADD")
                 if (
-                    ("pom" in slot.material.name)
-                    or ("decal" in slot.material.name)
-                    and option_offsetdecals
+                        ("pom" in slot.material.name)
+                        or ("decal" in slot.material.name)
+                        and option_offsetdecals
                 ):
                     mod_name = slot.material.name + " tweak"
                     if not obj.modifiers.get(mod_name):

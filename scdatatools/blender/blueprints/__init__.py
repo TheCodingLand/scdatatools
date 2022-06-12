@@ -101,7 +101,7 @@ def get_or_create_geometry(
     helpers: dict = None,
     has_tints: bool = False,
     importer: callable = DEFAULT_MODEL_IMPORTER,
-) -> typing.Tuple[object, bool)]:
+) -> typing.Tuple[object, bool]:
     """
     Returns the `Collection` for the given `geom_file`. Imports the given geometry into `geometry_collection` if it has
     not already been imported.

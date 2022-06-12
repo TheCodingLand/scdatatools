@@ -83,9 +83,9 @@ class BlueprintGeometry(dict):
         if soc is not None:
             inst = soc.setdefault("instances", {}).setdefault(self["name"], {})
         else:
-            inst = self._blueprint.current_container.setdefault(
-                "instances", {}
-            ).setdefault(self["name"], {})
+            inst = self._blueprint.current_container.setdefault("instances", {}).setdefault(
+                self["name"], {}
+            )
         if not name:
             name = str(len(inst))
         self.add_materials(materials or [])
@@ -229,9 +229,7 @@ class Blueprint:
         if self.monitor is not None:
             if level != logging.INFO:
                 msg = f"{logging.getLevelName(level)}: {msg}"
-            self.monitor(
-                msg, progress=progress, total=total, level=level, exc_info=exc_info
-            )
+            self.monitor(msg, progress=progress, total=total, level=level, exc_info=exc_info)
         if exc_info is not None:
             logger.exception(msg, exc_info=exc_info)
         else:
@@ -335,15 +333,11 @@ class Blueprint:
 
         if guid not in self.records:
             record = self.sc.datacore.records_by_guid[guid]
-            self.log(
-                f"+ record: {Path(record.filename).relative_to(RECORDS_BASE_PATH).as_posix()}"
-            )
+            self.log(f"+ record: {Path(record.filename).relative_to(RECORDS_BASE_PATH).as_posix()}")
             self.records.add(guid)
             self._entities_to_process.add(("record", guid))
             self._container_for_record[guid] = self.current_container
-            outrec = (Path("Data") / record.filename).with_suffix(
-                f".{self.convert_cryxml_fmt}"
-            )
+            outrec = (Path("Data") / record.filename).with_suffix(f".{self.convert_cryxml_fmt}")
             if self.convert_cryxml_fmt == "xml":
                 self.converted_files[outrec] = record.dcb.dump_record_xml(record)
             else:
@@ -396,20 +390,17 @@ class Blueprint:
                     else geom_path
                 )
                 p4k_info = self.sc.p4k.NameToInfoLower[p4k_path.as_posix().lower()]
-                cdf = dict_from_cryxml_file(self.sc.p4k.open(p4k_info))[
-                    "CharacterDefinition"
-                ]
+                cdf = dict_from_cryxml_file(self.sc.p4k.open(p4k_info))["CharacterDefinition"]
                 geom_path = Path(cdf["Model"]["@File"])
                 attachments = cdf["AttachmentList"]["Attachment"]
                 if isinstance(attachments, dict):
-                    attachments = [
-                        attachments
-                    ]  # happens if there is only one attachment
+                    attachments = [attachments]  # happens if there is only one attachment
                 # TODO: handle attachment points that don't have geometry (doesn't have a @Binding)
                 sub_geometry.update(
                     {
                         _["@Binding"]: {"attrs": {"bone_name": _["@AName"]}}
-                        for _ in attachments if "@Binding" in _
+                        for _ in attachments
+                        if "@Binding" in _
                     }
                 )
             except KeyError:
@@ -419,14 +410,9 @@ class Blueprint:
         if geom_path.suffix.lower() == ".cgf":
             # check to see if there is a cga equivalent, and use that instead
             test_path = (
-                (Path("data") / geom_path)
-                if geom_path.parts[0].lower() != "data"
-                else geom_path
+                (Path("data") / geom_path) if geom_path.parts[0].lower() != "data" else geom_path
             )
-            if (
-                test_path.with_suffix(".cga").as_posix().lower()
-                in self.sc.p4k.NameToInfoLower
-            ):
+            if test_path.with_suffix(".cga").as_posix().lower() in self.sc.p4k.NameToInfoLower:
                 geom_path = geom_path.with_suffix(".cga")
 
         geom_name = geom_path.as_posix().lower()
@@ -435,9 +421,7 @@ class Blueprint:
             geom_path = Path(*geom_path.parts[1:])
 
         if parent is not None:
-            child_geom, _ = self.get_or_create_geom(
-                geom_path, create_params=create_params
-            )
+            child_geom, _ = self.get_or_create_geom(geom_path, create_params=create_params)
             parent.add_sub_geometry(child_geom, **create_params)
             return parent, True
 
@@ -545,9 +529,7 @@ class Blueprint:
         return cont.get("containers", {}).get(name)
 
     @contextmanager
-    def set_current_container(
-        self, container: typing.Union[str, dict], attrs: dict = None
-    ):
+    def set_current_container(self, container: typing.Union[str, dict], attrs: dict = None):
         """Context manager used to scope the `current_container` while building up the `Blueprint`
 
         with current_container('base.base_int_body_main'):
@@ -569,9 +551,9 @@ class Blueprint:
                         yield cont
                     return
 
-                self.current_container = previous_container.setdefault(
-                    "containers", {}
-                ).setdefault(container, self._empty_container(attrs))
+                self.current_container = previous_container.setdefault("containers", {}).setdefault(
+                    container, self._empty_container(attrs)
+                )
             else:
                 self.current_container = container
             yield self.current_container
@@ -598,7 +580,7 @@ class Blueprint:
         """Process any files/records that are waiting to be processed until the list is empty"""
         from .generators.object_containers import blueprint_from_socpak
 
-        sentry_sdk.set_context('blueprint', {'name': self.name})
+        sentry_sdk.set_context("blueprint", {"name": self.name})
         while self._entities_to_process or self._containers_to_process:
             if self._containers_to_process:
                 # if there are containers to process, process the next one
@@ -616,15 +598,12 @@ class Blueprint:
                             exc_info=e,
                         )
 
-            cur_entities_to_process = (
-                self._entities_to_process - self._processed_entities
-            )
+            cur_entities_to_process = self._entities_to_process - self._processed_entities
             self._entities_to_process = set()
             for ent_type, entity in cur_entities_to_process:
-                sentry_sdk.set_context("blueprint.processing", {
-                    'entity_type': ent_type,
-                    'entity': entity
-                })
+                sentry_sdk.set_context(
+                    "blueprint.processing", {"entity_type": ent_type, "entity": entity}
+                )
                 if ent_type == "record":
                     with self.set_current_container(self._container_for_record[entity]):
                         self._process_record(

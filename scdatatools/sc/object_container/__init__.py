@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class StreamingObjectContainer:
-    def __init__(
-            self, soc_info: P4KInfo, object_container: "ObjectContainer", attrs: dict = None
-    ):
+    def __init__(self, soc_info: P4KInfo, object_container: "ObjectContainer", attrs: dict = None):
         self.name = Path(soc_info.filename).name
         self.attrs = attrs or {}
         self.object_container = object_container
@@ -53,23 +51,33 @@ class StreamingObjectContainer:
     @cached_property
     def json_chunks(self):
         return {
-            cid: chunk
-            for cid, chunk in self.chunks.items()
-            if isinstance(chunk, chunks.JSONChunk)
+            cid: chunk for cid, chunk in self.chunks.items() if isinstance(chunk, chunks.JSONChunk)
         }
 
 
 class ObjectContainerInstance:
     __INSTANCE_ARGS__ = {
-        'external': 'external', 'entityName': 'entity_name', 'label': 'label',
-        'class': 'container_class', 'tags': 'tags',
-        'visible': 'visible', 'guid': 'guid', 'pos': 'position', 'rot': 'rotation',
-        'hasAdditionalData': 'has_additional_data'
+        "external": "external",
+        "entityName": "entity_name",
+        "label": "label",
+        "class": "container_class",
+        "tags": "tags",
+        "visible": "visible",
+        "guid": "guid",
+        "pos": "position",
+        "rot": "rotation",
+        "hasAdditionalData": "has_additional_data",
     }
 
-    def __init__(self, sc: "StarCitizen", name: str, root: "ObjectContainer",
-                 parent: typing.Union["ObjectContainer", "ObjectContainerInstance"],
-                 entdata: dict = None, **kwargs):
+    def __init__(
+        self,
+        sc: "StarCitizen",
+        name: str,
+        root: "ObjectContainer",
+        parent: typing.Union["ObjectContainer", "ObjectContainerInstance"],
+        entdata: dict = None,
+        **kwargs,
+    ):
         self._sc = sc
         self.name = name
         self.root = root
@@ -90,16 +98,18 @@ class ObjectContainerInstance:
                 self._attrs[v] = kwargs[v]  # from a duplicated instance
                 setattr(self, v, kwargs[v])
 
-        self.label = self._attrs.get('label', self.entdata.get('@Name', Path(self.name).stem))
-        self.position = vector_from_csv(self._attrs.get('position', '0,0,0'))
-        self.rotation = quaternion_from_csv(self._attrs.get('rotation', '1,0,0,0'))
-        if 'entity_name' not in self._attrs:
-            self._attrs['entity_name'] = ''
-            self.entity_name = ''
+        self.label = self._attrs.get("label", self.entdata.get("@Name", Path(self.name).stem))
+        self.position = vector_from_csv(self._attrs.get("position", "0,0,0"))
+        self.rotation = quaternion_from_csv(self._attrs.get("rotation", "1,0,0,0"))
+        if "entity_name" not in self._attrs:
+            self._attrs["entity_name"] = ""
+            self.entity_name = ""
 
         if isinstance(parent, ObjectContainerInstance):
             self.global_position = parent.global_position + self.position
-            self.global_rotation = parent.global_rotation * self.rotation  # TODO: is this actually a thing?
+            self.global_rotation = (
+                parent.global_rotation * self.rotation
+            )  # TODO: is this actually a thing?
         else:
             self.global_position = self.position
             self.global_rotation = self.rotation
@@ -122,7 +132,9 @@ class ObjectContainerInstance:
         return self.children[item]
 
     def duplicate(self, parent: typing.Union["ObjectContainer", "ObjectContainerInstance"]):
-        return ObjectContainerInstance(sc=self._sc, name=self.name, root=parent.root, parent=parent, **self._attrs)
+        return ObjectContainerInstance(
+            sc=self._sc, name=self.name, root=parent.root, parent=parent, **self._attrs
+        )
 
     def add_child(self, child_id, child):
         self._children_by_id[child_id] = child
@@ -133,7 +145,8 @@ class ObjectContainerInstance:
                 children_by_id = {}
             else:
                 children_by_id = {
-                    child_id: child.duplicate(self) for child_id, child in self.container.children_by_id.items()
+                    child_id: child.duplicate(self)
+                    for child_id, child in self.container.children_by_id.items()
                     if child_id not in self._children
                 }
             children_by_id.update(self._children_by_id)
@@ -153,20 +166,24 @@ class ObjectContainerInstance:
 
     def as_dict(self) -> dict:
         attrs = self._attrs.copy()
-        attrs.update({
-            'name': self.name,
-            'container': self.container,
-            'global_position': self.global_position,
-            'global_rotation': self.global_rotation,
-            'position': self.position,
-            'rotation': self.rotation,
-            'parent': self.parent,
-            'root': self.root,
-        })
+        attrs.update(
+            {
+                "name": self.name,
+                "container": self.container,
+                "global_position": self.global_position,
+                "global_rotation": self.global_rotation,
+                "position": self.position,
+                "rotation": self.rotation,
+                "parent": self.parent,
+                "root": self.root,
+            }
+        )
         return attrs
 
     def __repr__(self):
-        return f'<ObjectContainerInstance {self.name} parent:{self.parent.name} root:{self.root.name}>'
+        return (
+            f"<ObjectContainerInstance {self.name} parent:{self.parent.name} root:{self.root.name}>"
+        )
 
 
 class ObjectContainer:
@@ -189,11 +206,7 @@ class ObjectContainer:
         )
 
         base_soc_info = self._sc.p4k.getinfo(
-            (
-                    self._p4k_path.parent
-                    / self._p4k_path.stem
-                    / f"{self._p4k_path.stem}.soc"
-            ).as_posix()
+            (self._p4k_path.parent / self._p4k_path.stem / f"{self._p4k_path.stem}.soc").as_posix()
         )
         if base_soc_info:
             base_soc = StreamingObjectContainer(base_soc_info, self)
@@ -247,8 +260,9 @@ class ObjectContainer:
                 except KeyError:
                     child_attrs["entdata"] = {}
 
-                child = ObjectContainerInstance(self._sc, child_attrs.pop('name'), root=self,
-                                                parent=cur_parent, **child_attrs)
+                child = ObjectContainerInstance(
+                    self._sc, child_attrs.pop("name"), root=self, parent=cur_parent, **child_attrs
+                )
                 cur_parent.add_child(child_attrs["guid"], child)
                 _parse_children(child, child_elem.find("./ChildObjectContainers"))
 
@@ -259,7 +273,9 @@ class ObjectContainer:
 
     def _load_soc(self, soc_etree):
         attrs = dict(**soc_etree.attrib)
-        soc_path = f"{self._pak_base}/{norm_path(attrs['name']).lower().replace(f'{self._pak_name}/', '')}"
+        soc_path = (
+            f"{self._pak_base}/{norm_path(attrs['name']).lower().replace(f'{self._pak_name}/', '')}"
+        )
         try:
             soc_info = self._sc.p4k.getinfo(soc_path)
         except KeyError:
@@ -271,7 +287,7 @@ class ObjectContainer:
         self.socs[soc.name] = soc
 
     def __repr__(self):
-        return f'<ObjectContainer {self.name}>'
+        return f"<ObjectContainer {self.name}>"
 
 
 class ObjectContainerManager:
@@ -284,15 +300,11 @@ class ObjectContainerManager:
             try:
                 self.load_socpak(socpak_info)
             except Exception as e:
-                logger.exception(
-                    f"Could not load socpak {socpak_info.filename}", exc_info=e
-                )
+                logger.exception(f"Could not load socpak {socpak_info.filename}", exc_info=e)
 
     def load_socpak(self, socpak: typing.Union[P4KInfo, str]) -> ObjectContainer:
         if not isinstance(socpak, P4KInfo):
-            socpak = norm_path(
-                f'{"" if socpak.lower().startswith("data") else "data/"}{socpak}'
-            )
+            socpak = norm_path(f'{"" if socpak.lower().startswith("data") else "data/"}{socpak}')
             socpak = self.sc.p4k.getinfo(socpak)
 
         if socpak.filename in self.object_containers:

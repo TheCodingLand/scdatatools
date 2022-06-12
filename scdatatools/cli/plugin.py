@@ -1,13 +1,12 @@
-import os
-import sys
-import logging
 import argparse
+import logging
+import os
 import threading
-from termcolor import colored
 
+from nubia import PluginInterface, context
 from rich.console import Console
 from rich.logging import RichHandler
-from nubia import CompletionDataSource, PluginInterface, context
+from termcolor import colored
 
 from scdatatools import __version__
 
@@ -85,7 +84,7 @@ class SCDTNubiaPlugin(PluginInterface):
         ctx.cache_dir = args.cache_dir
         # ctx.set_verbose(args.verbose)
         if ctx.cache_dir is None:
-            ctx.cache_dir = os.environ.get('SCDT_CACHE_DIR', None)
+            ctx.cache_dir = os.environ.get("SCDT_CACHE_DIR", None)
 
     def get_opts_parser(self, add_help=True):
         """
@@ -109,7 +108,7 @@ class SCDTNubiaPlugin(PluginInterface):
             "-C",
             default=None,
             help="Set a cache directory for scdt to use for faster loading times for some commands. The cache directory"
-                 " can also be set with the SCDT_CACHE_DIR environment variable."
+            " can also be set with the SCDT_CACHE_DIR environment variable.",
         )
         return opts_parser
 
@@ -123,7 +122,9 @@ class SCDTNubiaPlugin(PluginInterface):
 
         # err_fmt = logging.Formatter(fmt="[%(asctime)-15s] [%(level)s] [%(name)s] %(thread)s%(message)s")
         err_console = Console(stderr=True)
-        err_handler = RichHandler(console=err_console, rich_tracebacks=True, tracebacks_show_locals=True)
+        err_handler = RichHandler(
+            console=err_console, rich_tracebacks=True, tracebacks_show_locals=True
+        )
         err_handler.addFilter(ErrorFilter())
         logging.root.addHandler(err_handler)
 

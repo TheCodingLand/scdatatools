@@ -1,10 +1,8 @@
 import logging
-from abc import ABC, abstractmethod
 from enum import IntEnum
 
 from .. import defs
 from ..base import Chunk, Chunk900
-
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +32,9 @@ class MtlNamePhysicsType(IntEnum):
     UNKNOWN = (0x00001100,)  # collision mesh?
     UNKNOWN1 = 0x1000  # found in 'data/objects/spaceships/ships/aegs/javelin/interior/set_tec/tec_ceiling_fan.cgf'
     UNKNOWN2 = 0x1001  # found in javelin.cga
-    UNKNOWN3 = 0x1002  # found in Data\Objects\planet\flora\tree\dendrosenecio\dendrosenecio_b_lod4.cgf
+    UNKNOWN3 = (
+        0x1002  # found in Data\Objects\planet\flora\tree\dendrosenecio\dendrosenecio_b_lod4.cgf
+    )
 
 
 class MtlName:
@@ -51,12 +51,8 @@ class MtlName800(MtlName, Chunk):
         self.name = self.chunk_data.unpack("128s").decode("utf-8").strip("\x00")
         self.physics_type = self.chunk_data.unpack("i")
         self.num_sub_materials = self.chunk_data.unpack("i")
-        self.sub_material_ids = [
-            self.chunk_data.unpack("i") for _ in range(self.num_sub_materials)
-        ]
-        self.mat_type = (
-            MtlNameType.Single if self.num_sub_materials == 0 else MtlNameType.Library
-        )
+        self.sub_material_ids = [self.chunk_data.unpack("i") for _ in range(self.num_sub_materials)]
+        self.mat_type = MtlNameType.Single if self.num_sub_materials == 0 else MtlNameType.Library
 
     def __str__(self):
         phys_types = "\n    ".join(str(_) for _ in self.physics_types)
@@ -79,9 +75,7 @@ class MtlName802(MtlName, Chunk):
 
         self.name = self.chunk_data.unpack("128s")[0].decode("utf-8").strip("\x00")
         self.num_sub_materials = self.chunk_data.unpack("i")
-        self.mat_type = (
-            MtlNameType.Single if self.num_sub_materials == 0 else MtlNameType.Library
-        )
+        self.mat_type = MtlNameType.Single if self.num_sub_materials == 0 else MtlNameType.Library
         self.sub_material_physics_types = []
         for _ in range(self.num_sub_materials):
             try:
@@ -115,4 +109,6 @@ class MaterialName900(MtlName, Chunk900):
         self.name = data.decode("utf-8").strip("\x00")
 
     def __repr__(self):
-        return f"<MaterialName900 name:{self.name} size:{self.size} offset:{self.chunk_header.offset}>"
+        return (
+            f"<MaterialName900 name:{self.name} size:{self.size} offset:{self.chunk_header.offset}>"
+        )

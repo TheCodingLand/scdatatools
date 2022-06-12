@@ -1,18 +1,18 @@
 import os
-import sys
 import shutil
+import sys
 import typing
 from pathlib import Path
 
 from nubia import command, argument
 
-from scdatatools.utils import NamedBytesIO
-from scdatatools.engine.textures.dds import is_glossmap
 from scdatatools.engine.textures import (
     collect_and_unsplit,
     tex_convert,
     ConverterUtility,
 )
+from scdatatools.engine.textures.dds import is_glossmap
+from scdatatools.utils import NamedBytesIO
 
 
 @command
@@ -53,13 +53,9 @@ class Tex:
             if ddsfile.is_dir():
                 for dds in ddsfile.rglob("*.dds.[0-9]*"):
                     if is_glossmap(dds):
-                        files_to_process.add(
-                            dds.parent / f'{dds.name.split(".")[0]}.dds.a'
-                        )
+                        files_to_process.add(dds.parent / f'{dds.name.split(".")[0]}.dds.a')
                     else:
-                        files_to_process.add(
-                            dds.parent / f'{dds.name.split(".")[0]}.dds'
-                        )
+                        files_to_process.add(dds.parent / f'{dds.name.split(".")[0]}.dds')
             else:
                 _ = Path(ddsfile)
                 if is_glossmap(ddsfile):
@@ -143,13 +139,9 @@ class Tex:
             if ddsfile.is_dir():
                 for dds in ddsfile.rglob("*.dds.[0-9]*"):
                     if is_glossmap(dds):
-                        files_to_process.add(
-                            dds.parent / f'{dds.name.split(".")[0]}.dds.a'
-                        )
+                        files_to_process.add(dds.parent / f'{dds.name.split(".")[0]}.dds.a')
                     else:
-                        files_to_process.add(
-                            dds.parent / f'{dds.name.split(".")[0]}.dds'
-                        )
+                        files_to_process.add(dds.parent / f'{dds.name.split(".")[0]}.dds')
             else:
                 _ = Path(ddsfile)
                 if is_glossmap(ddsfile):

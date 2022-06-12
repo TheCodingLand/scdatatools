@@ -1,5 +1,5 @@
-import sys
 import json
+import sys
 import typing
 from pathlib import Path
 
@@ -43,9 +43,7 @@ def _do_conversions(cryxml_file, replace, output, fmt):
     description="Output filename or '-' for stdout. Defaults to '-'. Ignored if --replace is set.",
     aliases=["-o"],
 )
-def cryxml_to_xml(
-    cryxml_file: typing.Text, replace: bool = False, output: typing.Text = "-"
-):
+def cryxml_to_xml(cryxml_file: typing.Text, replace: bool = False, output: typing.Text = "-"):
     _do_conversions(cryxml_file, replace, output, "xml")
 
 
@@ -61,8 +59,6 @@ def cryxml_to_xml(
     description="Output filename or '-' for stdout. Defaults to '-'",
     aliases=["-o"],
 )
-def cryxml_to_json(
-    cryxml_file: typing.Text, replace: bool = False, output: typing.Text = "-"
-):
+def cryxml_to_json(cryxml_file: typing.Text, replace: bool = False, output: typing.Text = "-"):
     if _do_conversions(cryxml_file, replace, output, "json") and replace:
         Path(cryxml_file).unlink(missing_ok=True)

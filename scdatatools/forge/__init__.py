@@ -1,23 +1,22 @@
 __all__ = ["DataCoreBinary"]
 
-import os
-import sys
-import json
-import mmap
 import ctypes
 import fnmatch
+import json
+import mmap
+import sys
 import typing
 from pathlib import Path
 
-# from benedict import benedict
-
-from scdatatools.forge import dftypes
-from scdatatools.forge.utils import read_and_seek
-from scdatatools.forge.dftypes.enums import DataTypes
-from scdatatools.utils import dict_to_etree
 from scdatatools.engine.cryxml.utils import pprint_xml_tree
-
+from scdatatools.forge import dftypes
+from scdatatools.forge.dftypes.enums import DataTypes
+from scdatatools.forge.utils import read_and_seek
+from scdatatools.utils import dict_to_etree
 from .dftypes import Record
+
+
+# from benedict import benedict
 
 
 class DataCoreBinaryMMap(mmap.mmap):
@@ -80,58 +79,36 @@ class DataCoreBinary:
         )
         if self.header.version >= 5:
             self.data_mapping_definitions = _read_and_seek(
-                dftypes.DataMappingDefinition32
-                * self.header.data_mapping_definition_count
+                dftypes.DataMappingDefinition32 * self.header.data_mapping_definition_count
             )
         else:
             self.data_mapping_definitions = _read_and_seek(
-                dftypes.DataMappingDefinition16
-                * self.header.data_mapping_definition_count
+                dftypes.DataMappingDefinition16 * self.header.data_mapping_definition_count
             )
-        self.records = _read_and_seek(
-            dftypes.Record * self.header.record_definition_count
-        )
+        self.records = _read_and_seek(dftypes.Record * self.header.record_definition_count)
         self.values = {
             DataTypes.Int8: _read_and_seek(ctypes.c_int8 * self.header.int8_count),
             DataTypes.Int16: _read_and_seek(ctypes.c_int16 * self.header.int16_count),
             DataTypes.Int32: _read_and_seek(ctypes.c_int32 * self.header.int32_count),
             DataTypes.Int64: _read_and_seek(ctypes.c_int64 * self.header.int64_count),
             DataTypes.UInt8: _read_and_seek(ctypes.c_uint8 * self.header.uint8_count),
-            DataTypes.UInt16: _read_and_seek(
-                ctypes.c_uint16 * self.header.uint16_count
-            ),
-            DataTypes.UInt32: _read_and_seek(
-                ctypes.c_uint32 * self.header.uint32_count
-            ),
-            DataTypes.UInt64: _read_and_seek(
-                ctypes.c_uint64 * self.header.uint64_count
-            ),
-            DataTypes.Boolean: _read_and_seek(
-                ctypes.c_bool * self.header.boolean_count
-            ),
+            DataTypes.UInt16: _read_and_seek(ctypes.c_uint16 * self.header.uint16_count),
+            DataTypes.UInt32: _read_and_seek(ctypes.c_uint32 * self.header.uint32_count),
+            DataTypes.UInt64: _read_and_seek(ctypes.c_uint64 * self.header.uint64_count),
+            DataTypes.Boolean: _read_and_seek(ctypes.c_bool * self.header.boolean_count),
             DataTypes.Float: _read_and_seek(ctypes.c_float * self.header.float_count),
-            DataTypes.Double: _read_and_seek(
-                ctypes.c_double * self.header.double_count
-            ),
+            DataTypes.Double: _read_and_seek(ctypes.c_double * self.header.double_count),
             DataTypes.GUID: _read_and_seek(dftypes.GUID * self.header.guid_count),
-            DataTypes.StringRef: _read_and_seek(
-                dftypes.StringReference * self.header.string_count
-            ),
-            DataTypes.Locale: _read_and_seek(
-                dftypes.LocaleReference * self.header.locale_count
-            ),
-            DataTypes.EnumChoice: _read_and_seek(
-                dftypes.EnumChoice * self.header.enum_count
-            ),
+            DataTypes.StringRef: _read_and_seek(dftypes.StringReference * self.header.string_count),
+            DataTypes.Locale: _read_and_seek(dftypes.LocaleReference * self.header.locale_count),
+            DataTypes.EnumChoice: _read_and_seek(dftypes.EnumChoice * self.header.enum_count),
             DataTypes.StrongPointer: _read_and_seek(
                 dftypes.StrongPointer * self.header.strong_value_count
             ),
             DataTypes.WeakPointer: _read_and_seek(
                 dftypes.WeakPointer * self.header.weak_value_count
             ),
-            DataTypes.Reference: _read_and_seek(
-                dftypes.Reference * self.header.reference_count
-            ),
+            DataTypes.Reference: _read_and_seek(dftypes.Reference * self.header.reference_count),
             DataTypes.EnumValueName: _read_and_seek(
                 dftypes.StringReference * self.header.enum_option_name_count
             ),
@@ -171,13 +148,13 @@ class DataCoreBinary:
 
     def get_structure_instance(self, structure_index, instance):
         if not isinstance(
-                self.structure_instances[structure_index][instance],
-                dftypes.StructureInstance,
+            self.structure_instances[structure_index][instance],
+            dftypes.StructureInstance,
         ):
             offset = self.structure_instances[structure_index][instance]
-            self.structure_instances[structure_index][instance] = self.get_structure_instance_from_offset(
-                structure_index, offset
-            )
+            self.structure_instances[structure_index][
+                instance
+            ] = self.get_structure_instance_from_offset(structure_index, offset)
             # self.structure_instances[structure_index][
             #     instance
             # ] = dftypes.StructureInstance(
@@ -198,9 +175,9 @@ class DataCoreBinary:
                     self.text_offset + offset,
                     self.text_offset + self.header.text_length,
                 )
-                self._string_cache[offset] = bytes(self.raw_data[self.text_offset + offset: end]).decode(
-                    encoding
-                )
+                self._string_cache[offset] = bytes(
+                    self.raw_data[self.text_offset + offset : end]
+                ).decode(encoding)
             except ValueError:
                 sys.stderr.write(f"Invalid string offset: {offset}")
                 return ""
@@ -228,21 +205,18 @@ class DataCoreBinary:
             if rid:
                 refd.add(rid)
             for name, prop in r.properties.items():
-                if (
-                        isinstance(prop, dftypes.Reference)
-                        and prop.value.value in self.records_by_guid
-                ):
+                if isinstance(prop, dftypes.Reference) and prop.value.value in self.records_by_guid:
                     prop = self.records_by_guid[prop.value.value]
 
                 def _handle_prop(p, pname=""):
                     if isinstance(
-                            p,
-                            (
-                                    dftypes.StructureInstance,
-                                    dftypes.ClassReference,
-                                    dftypes.Record,
-                                    dftypes.StrongPointer,
-                            ),
+                        p,
+                        (
+                            dftypes.StructureInstance,
+                            dftypes.ClassReference,
+                            dftypes.Record,
+                            dftypes.StrongPointer,
+                        ),
                     ):
                         b = {}
                         pid = ""
@@ -250,12 +224,8 @@ class DataCoreBinary:
                             pid = p.id.value
                         elif hasattr(p, "instance_index"):
                             pid = f"{p.name}:{p.instance_index}"
-                        if (
-                                cur_depth > 0
-                        ):  # NextState/parent tends to lead to infinite loops
-                            if pname.lower() in ["nextstate", "parent"] or (
-                                    pid and pid in refd
-                            ):
+                        if cur_depth > 0:  # NextState/parent tends to lead to infinite loops
+                            if pname.lower() in ["nextstate", "parent"] or (pid and pid in refd):
                                 nextdepth = 0
                             else:
                                 nextdepth = cur_depth - 1
@@ -264,20 +234,14 @@ class DataCoreBinary:
                             if hasattr(b, "properties"):
                                 b = [str(_) for _ in prop.properties]
                             else:
-                                b = (
-                                    [str(_) for _ in prop]
-                                    if isinstance(prop, list)
-                                    else str(prop)
-                                )
+                                b = [str(_) for _ in prop] if isinstance(prop, list) else str(prop)
                         return b
                     else:
                         return getattr(p, "value", p)
 
                 if isinstance(prop, list):
                     base[name] = [
-                        {p.name: _handle_prop(p, p.name)}
-                        if hasattr(p, "name")
-                        else _handle_prop(p)
+                        {p.name: _handle_prop(p, p.name)} if hasattr(p, "name") else _handle_prop(p)
                         for p in prop
                     ]
                 else:
@@ -287,9 +251,7 @@ class DataCoreBinary:
         return d
 
     def record_to_etree(self, record, depth=100):
-        return dict_to_etree(
-            {f"{record.type}.{record.name}": self.record_to_dict(record, depth)}
-        )
+        return dict_to_etree({f"{record.type}.{record.name}": self.record_to_dict(record, depth)})
 
     def dump_record_xml(self, record, indent=2, *args, **kwargs):
         return pprint_xml_tree(self.record_to_etree(record), indent)
@@ -303,7 +265,7 @@ class DataCoreBinary:
         )
 
     def search_filename(
-            self, file_filter, ignore_case=True, mode="fnmatch"
+        self, file_filter, ignore_case=True, mode="fnmatch"
     ) -> typing.List[dftypes.Record]:
         """
         Search the datacore for objects by filename.
@@ -325,28 +287,16 @@ class DataCoreBinary:
 
         if mode == "fnmatch":
             if ignore_case:
-                return [
-                    _
-                    for _ in self.records
-                    if fnmatch.fnmatch(_.filename.lower(), file_filter)
-                ]
-            return [
-                _ for _ in self.records if fnmatch.fnmatchcase(_.filename, file_filter)
-            ]
+                return [_ for _ in self.records if fnmatch.fnmatch(_.filename.lower(), file_filter)]
+            return [_ for _ in self.records if fnmatch.fnmatchcase(_.filename, file_filter)]
         elif mode == "startswith":
             if ignore_case:
-                return [
-                    _
-                    for _ in self.records
-                    if _.filename.lower().startswith(file_filter)
-                ]
+                return [_ for _ in self.records if _.filename.lower().startswith(file_filter)]
             else:
                 return [_ for _ in self.records if _.filename.startswith(file_filter)]
         elif mode == "endswith":
             if ignore_case:
-                return [
-                    _ for _ in self.records if _.filename.lower().endswith(file_filter)
-                ]
+                return [_ for _ in self.records if _.filename.lower().endswith(file_filter)]
             else:
                 return [_ for _ in self.records if _.filename.endswith(file_filter)]
         elif mode == "in":

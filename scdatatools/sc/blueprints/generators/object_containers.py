@@ -50,9 +50,7 @@ def blueprint_from_socpak(
         bp = Blueprint(name, sc, monitor=monitor)
 
     oc = bp.sc.oc_manager.load_socpak(f"{p4k_path.as_posix()}".lower())
-    added_path = bp.add_file_to_extract(
-        p4k_path, no_process=True
-    )  # extract the socpak itself
+    added_path = bp.add_file_to_extract(p4k_path, no_process=True)  # extract the socpak itself
     bp.add_file_to_extract([_.filename for _ in oc.socpak.filelist], no_process=True)
 
     bp.bone_names.add(bone_name.lower())

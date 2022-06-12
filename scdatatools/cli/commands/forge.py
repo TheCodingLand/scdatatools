@@ -1,24 +1,20 @@
+import logging
 import sys
 import typing
-import logging
 from collections import OrderedDict
-
-from nubia.internal.typing import _ArgDecoratorSpec, _init_attr
-
-from pathlib import Path
 from itertools import chain
+from pathlib import Path
 
+from nubia import command, argument
+from nubia.internal.typing import _ArgDecoratorSpec, _init_attr
 from rich import get_console, table
-from nubia import command, argument, context
 
 from scdatatools.forge import DataCoreBinary
-
 from . import common
 from ..utils import track
 
-
 if typing.TYPE_CHECKING:
-    from scdatatools.cli.plugin import SCDTContext
+    pass
 
 
 logger = logging.getLogger(__name__)
@@ -27,9 +23,9 @@ logger = logging.getLogger(__name__)
 def _dump_record(dcb, record, output, guid, guid_if_exists, xml):
     if output == "-":
         if xml:
-            sys.stdout.write(dcb.dump_record_xml(record) + '\n')
+            sys.stdout.write(dcb.dump_record_xml(record) + "\n")
         else:
-            sys.stdout.write(dcb.dump_record_json(record) + '\n')
+            sys.stdout.write(dcb.dump_record_json(record) + "\n")
     else:
         if output.is_dir():
             output = output / Path(record.filename)
@@ -53,14 +49,22 @@ def _dump_record(dcb, record, output, guid, guid_if_exists, xml):
 def forge_common_args(function):
     _init_attr(function, "__annotations__", OrderedDict())
     _init_attr(function, "__arguments_decorator_specs", {})
-    function.__annotations__.setdefault('forge_file', str)
-    function.__arguments_decorator_specs['forge_file'] = _ArgDecoratorSpec(
-        arg='forge_file', name='forge_file', aliases=[], positional=True, choices=[],
-        description="DataForge (.dcb) file to extract data from. (or Data.p4k or Star Citizen installation directory)"
+    function.__annotations__.setdefault("forge_file", str)
+    function.__arguments_decorator_specs["forge_file"] = _ArgDecoratorSpec(
+        arg="forge_file",
+        name="forge_file",
+        aliases=[],
+        positional=True,
+        choices=[],
+        description="DataForge (.dcb) file to extract data from. (or Data.p4k or Star Citizen installation directory)",
     )
-    function.__annotations__.setdefault('filter', typing.List[str])
-    function.__arguments_decorator_specs['filter'] = _ArgDecoratorSpec(
-        arg='filter', name='filter', choices=[], aliases=["-f"], positional=False,
+    function.__annotations__.setdefault("filter", typing.List[str])
+    function.__arguments_decorator_specs["filter"] = _ArgDecoratorSpec(
+        arg="filter",
+        name="filter",
+        choices=[],
+        aliases=["-f"],
+        positional=False,
         description="Posix style file filter of which files to extract",
     )
     return function
@@ -78,45 +82,38 @@ def parse_forge_args(forge_file, filter):
         dcb = DataCoreBinary(str(forge_file))
 
     # using the dict like this ends up removing duplicated but keeping the order of insertion
-    records = dict(chain(
-        (str(r.id), r)
-        for f in filters
-        for r in dcb.search_filename(f)
-    ))
+    records = dict(chain((str(r.id), r) for f in filters for r in dcb.search_filename(f)))
     return dcb, filters, records
 
 
 @command
 class forge:
-    """ Tools for interacting with the Dataforge database """
+    """Tools for interacting with the Dataforge database"""
 
     @command
     @forge_common_args
     def ls(self, forge_file: str, filter: typing.List[str] = ("*",)):
-        """ List records in the Data Core """
+        """List records in the Data Core"""
         dcb, filters, records = parse_forge_args(forge_file, filter)
-        logger.info(f'{filters = }')
+        logger.info(f"{filters = }")
 
         # TODO: add more ls type formatting flags
 
         t = table.Table(box=None)
-        t.add_column('GUID')
-        t.add_column('filename')
+        t.add_column("GUID")
+        t.add_column("filename")
         for r in records.values():
             t.add_row(str(r.id), r.filename)
         get_console().print(t)
 
-    @command(
-        exclusive_arguments=("xml", "json"),
-        aliases=['x']
-    )
+    @command(exclusive_arguments=("xml", "json"), aliases=["x"])
     @forge_common_args
     @argument("single", description="Extract first matching file only", aliases=["-1"])
     @argument(
         "guid",
         aliases=["-g"],
         description="Include the GUID in the filename (avoids overwriting from records with the same 'filename') "
-                    "(Default: False)",
+        "(Default: False)",
     )
     @argument(
         "guid_if_exists",
@@ -128,20 +125,21 @@ class forge:
     @argument(
         "output",
         description="The output directory to extract files into or the output path if --single. "
-                    "Defaults to current directory. Use '-' to output a single file to the stdout",
+        "Defaults to current directory. Use '-' to output a single file to the stdout",
         aliases=["-o"],
     )
-    def extract(self,
-                forge_file: typing.Text,
-                filter: typing.List[str] = ("*",),
-                output: typing.Text = ".",
-                guid: bool = False,
-                guid_if_exists: bool = True,
-                xml: bool = True,
-                json: bool = False,
-                single: bool = False,
-                ):
-        """ Extracts DataCore records and converts them to a given format (xml/json). Use the `--filter` argument
+    def extract(
+        self,
+        forge_file: typing.Text,
+        filter: typing.List[str] = ("*",),
+        output: typing.Text = ".",
+        guid: bool = False,
+        guid_if_exists: bool = True,
+        xml: bool = True,
+        json: bool = False,
+        single: bool = False,
+    ):
+        """Extracts DataCore records and converts them to a given format (xml/json). Use the `--filter` argument
         to down-select which records to extract, by default it will extract all of them to the `--output` directory."""
         dcb, filters, records = parse_forge_args(forge_file, filter)
         output = Path(output).absolute() if output != "-" else output
@@ -157,14 +155,16 @@ class forge:
             print(f"Extracting files into {output} with filter '{filters}'")
             print("=" * 120)
             try:
-                if output == '-':
+                if output == "-":
                     # don't output the progress bar if we're dumping to the console
                     for record in records.values():
                         _dump_record(dcb, record, output, guid, guid_if_exists, not json)
                 else:
                     output = Path(output)
                     output.mkdir(parents=True, exist_ok=True)
-                    for record in track(records.values(), description="Extracting records", unit="records"):
+                    for record in track(
+                        records.values(), description="Extracting records", unit="records"
+                    ):
                         _dump_record(dcb, record, output, guid, guid_if_exists, not json)
             except KeyboardInterrupt:
                 pass

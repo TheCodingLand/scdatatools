@@ -1,12 +1,9 @@
 import typing
-
 from pathlib import Path
 
 from scdatatools.engine.gfx import GFX
-from scdatatools.utils import norm_path
-
 from scdatatools.sc.blueprints.processors import filetype_processor
-
+from scdatatools.utils import norm_path
 
 if typing.TYPE_CHECKING:
     from scdatatools.p4k import P4KInfo
@@ -14,9 +11,7 @@ if typing.TYPE_CHECKING:
 
 
 @filetype_processor("gfx")
-def process_gfx(
-    bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs
-) -> bool:
+def process_gfx(bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs) -> bool:
     """
     Extracts the images used in a GFX object and adds them to the blueprint. The layer order will be maintained
     and represented in the Blueprint's `asset_info` for the given path

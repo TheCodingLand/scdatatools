@@ -10,9 +10,7 @@ def profile_to_dict(filename):
 
 def profile_actionmaps_to_csv(filename_or_dict, out_filename):
     pf_dict = (
-        profile_to_dict(filename_or_dict)
-        if isinstance(filename_or_dict, str)
-        else filename_or_dict
+        profile_to_dict(filename_or_dict) if isinstance(filename_or_dict, str) else filename_or_dict
     )
     columns = set()
     mappings = []

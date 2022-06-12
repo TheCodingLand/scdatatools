@@ -68,9 +68,7 @@ class Profile:
 
     def dump_actionmap_csv(self, fp, language=None):
         am = self.actionmap(language)
-        writer = csv.DictWriter(
-            fp, fieldnames=ACTION_MAP_FIELD_NAMES, extrasaction="ignore"
-        )
+        writer = csv.DictWriter(fp, fieldnames=ACTION_MAP_FIELD_NAMES, extrasaction="ignore")
         writer.writeheader()
         action_map = []
         for ui_category, action_category in am.items():
@@ -78,5 +76,7 @@ class Profile:
                 for label, action in actions.items():
                     action_map.append({**{"Category": category, "Action": label}, **action})
 
-        for row in sorted(action_map, key=lambda r: (r['Category'].casefold(), r['Action'].casefold())):
+        for row in sorted(
+            action_map, key=lambda r: (r["Category"].casefold(), r["Action"].casefold())
+        ):
             writer.writerow(row)

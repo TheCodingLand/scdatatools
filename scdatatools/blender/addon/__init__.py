@@ -4,6 +4,7 @@ from pathlib import Path
 
 import sentry_sdk
 
+from scdatatools import __version__
 from .utils import install_blender_addon, reload_scdt_blender_modules
 from .. import logging as blender_logging
 
@@ -37,8 +38,8 @@ sys.path.extend(_ for _ in paths if _ not in sys.path)
 bl_info = {{
     "name": "Star Citizen Data Tools",
     "author": "ventorvar",
-    "version": (0, 1, 0),
-    "blender": (2, 93, 0),
+    "version": {version},
+    "blender": {blender_version},
     "location": "View3D > Panel",
     "category": "SC Modding",
     "doc_url": "https://gitlab.com/scmodding/frameworks/scdatatools",
@@ -50,7 +51,7 @@ from scdatatools.blender.addon import *
 
 def install(version) -> Path:
     """Installs the scdatatools add-on into the Blender version `version`."""
-    return install_blender_addon(version, "scdt_addon", ADDON_TEMPLATE)
+    return install_blender_addon(version, "scdt_addon", ADDON_TEMPLATE, __version__)
 
 
 def register():

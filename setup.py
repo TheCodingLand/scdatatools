@@ -87,6 +87,6 @@ setup(
     test_suite="tests",
     tests_require=test_requirements,
     url="https://gitlab.com/scmodding/frameworks/scdatatools",
-    version="1.0.3",
+    version="1.0.4",
     zip_safe=True,
 )

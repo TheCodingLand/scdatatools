@@ -49,7 +49,9 @@ class MaterialLibrary:
             if is_cryxmlb_file(mtl):
                 et = etree_from_cryxml_file(mtl)
             else:
-                et = ElementTree.parse(mtl, parser=ElementTree.XMLParser(encoding="utf-8"))
+                et = ElementTree.parse(
+                    mtl, parser=ElementTree.XMLParser(encoding="utf-8")
+                )
         except Exception as e:
             logger.error(f"could not load material {self.mtl_path}", exc_info=e)
             raise

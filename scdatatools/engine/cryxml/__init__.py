@@ -130,7 +130,9 @@ class _CryXMLBParser:
         if content:
             self.CharacterDataHandler(content)
 
-        for i in range(node.first_child_index, node.first_child_index + node.child_count):
+        for i in range(
+            node.first_child_index, node.first_child_index + node.child_count
+        ):
             self._iter_parse_nodes(self._read_node(self._read_child_index(i).index))
 
         self.EndElementHandler(node.tag)
@@ -151,7 +153,9 @@ class _CryXMLBParser:
                 raise _StandardXmlFile()
             raise ParseError("Invalid CryXmlB Signature")
 
-        self._attributes = [self._read_attribute(i) for i in range(self._header.attributes_count)]
+        self._attributes = [
+            self._read_attribute(i) for i in range(self._header.attributes_count)
+        ]
         self._child_indices = [
             self._read_child_index(i) for i in range(self._header.child_table_count)
         ]
@@ -372,7 +376,9 @@ class CryXmlConverter(plugins.P4KConverterPlugin):
                                     for e in et.findall(".//Material"):
                                         if "Name" not in e.attrib:
                                             continue
-                                        e.attrib["Name"] = normalize_material_name(e.attrib["Name"])
+                                        e.attrib["Name"] = normalize_material_name(
+                                            e.attrib["Name"]
+                                        )
 
                                 with outpath.open("w") as outfile:
                                     if convert_cryxml_fmt == "xml":

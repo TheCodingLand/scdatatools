@@ -50,7 +50,9 @@ class DataCoreObject:
     """
 
     def __init__(self, datacore, guid_or_dco: typing.Union[str, GUID, Record]):
-        self.record = guid_or_dco if isinstance(guid_or_dco, Record) else str(guid_or_dco)
+        self.record = (
+            guid_or_dco if isinstance(guid_or_dco, Record) else str(guid_or_dco)
+        )
         self._datacore = datacore
 
     @property

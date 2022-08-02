@@ -68,7 +68,9 @@ def unsplit_dds(
 
     dds_file = hdr_data[:dds_hdr_len]
     # unsplit files should be largest to smallest
-    for dds in sorted([_ for _ in parts.keys()], reverse=True, key=lambda d: d.split(".")[-1]):
+    for dds in sorted(
+        [_ for _ in parts.keys()], reverse=True, key=lambda d: d.split(".")[-1]
+    ):
         if is_glossmap(dds) and not glossmap:
             continue
         elif not is_glossmap(dds) and glossmap:
@@ -118,7 +120,8 @@ def collect_parts(
             }
         else:
             dds_files = {
-                Path(_.filename).name: _ for _ in dds_file.p4k.search(basename, mode="startswith")
+                Path(_.filename).name: _
+                for _ in dds_file.p4k.search(basename, mode="startswith")
             }
     else:
         dds_filename = Path(dds_file)

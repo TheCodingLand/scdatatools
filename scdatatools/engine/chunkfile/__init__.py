@@ -29,7 +29,9 @@ GEOMETRY_EXTENSIONS = [
 
 
 class ChunkFile:
-    def __init__(self, chunk_file: typing.Union[str, Path, P4KInfo, P4KExtFile], *args, **kwargs):
+    def __init__(
+        self, chunk_file: typing.Union[str, Path, P4KInfo, P4KExtFile], *args, **kwargs
+    ):
         self.filename = ""
         self._p4kinfo = None
         self.raw_data = None
@@ -40,7 +42,10 @@ class ChunkFile:
             self._p4kinfo = chunk_file
             self.filename = chunk_file.filename
             self.raw_data = bytearray(self._p4kinfo.p4k.open(self._p4kinfo).read())
-        elif isinstance(chunk_file, (str, Path)) and (chunk_file := Path(chunk_file)).is_file():
+        elif (
+            isinstance(chunk_file, (str, Path))
+            and (chunk_file := Path(chunk_file)).is_file()
+        ):
             self.filename = chunk_file.as_posix()
             with chunk_file.open("rb") as f:
                 self.raw_data = bytearray(f.read())
@@ -57,7 +62,8 @@ class ChunkFile:
         chunk_headers = [
             self._chunk_header_class.from_buffer(
                 self.raw_data,
-                self.header.chunk_hdr_table_offset + (i * ctypes.sizeof(self._chunk_header_class)),
+                self.header.chunk_hdr_table_offset
+                + (i * ctypes.sizeof(self._chunk_header_class)),
             )
             for i in range(self.header.num_chunks)
         ]
@@ -81,7 +87,9 @@ class ChunkFile:
                     f"Error processing chunk {h.id} {repr(h)} in {self.filename}",
                     exc_info=e,
                 )
-                self.chunks[h.type.name] = self._chunk_header_class.default_chunk_class.from_buffer(
+                self.chunks[
+                    h.type.name
+                ] = self._chunk_header_class.default_chunk_class.from_buffer(
                     h, self.raw_data, self
                 )
 
@@ -106,7 +114,8 @@ class GeometryChunkFile(ChunkFile):
                     return f
                 elif "female_v2" in self.filename and (
                     f := self._data.getinfo(
-                        Path(self.filename.replace("female_v2", "male_v7")).parent / path
+                        Path(self.filename.replace("female_v2", "male_v7")).parent
+                        / path
                     )
                 ):
                     # see note below...
@@ -216,7 +225,10 @@ class GeometryChunkFile(ChunkFile):
         if self.mesh_component is None:
             if os.path.isfile(self.mesh_file):
                 self.mesh_component = ChunkFile(self.mesh_file)
-            elif isinstance(self._data, Path) and (mf := (self._data / self.mesh_file)).is_file():
+            elif (
+                isinstance(self._data, Path)
+                and (mf := (self._data / self.mesh_file)).is_file()
+            ):
                 self.mesh_component = ChunkFile(mf)
 
         # load mesh_component chunks into unified chunk list
@@ -231,10 +243,14 @@ class GeometryChunkFile(ChunkFile):
                     self.nodes[chunk.name] = chunk
                     if (
                         chunk.parent_id >= 0
-                        and chunk.name not in (parent := self.chunks[chunk.parent_id]).children
+                        and chunk.name
+                        not in (parent := self.chunks[chunk.parent_id]).children
                     ):
                         parent.children.append(chunk.name)
-                    elif chunk.parent_id == -1 and chunk.name not in self._root_node_names:
+                    elif (
+                        chunk.parent_id == -1
+                        and chunk.name not in self._root_node_names
+                    ):
                         self._root_node_names.append(chunk.name)
 
         # resolve node children now that we've merged the two geom files
@@ -243,7 +259,9 @@ class GeometryChunkFile(ChunkFile):
 
     @property
     def root_nodes(self):
-        return [self.nodes[name] for name in self._root_node_names if name in self.nodes]
+        return [
+            self.nodes[name] for name in self._root_node_names if name in self.nodes
+        ]
 
     @cached_property
     def lods(self):
@@ -258,7 +276,9 @@ class GeometryChunkFile(ChunkFile):
         if self._p4kinfo is not None:
             lods = {
                 lod.filename.split("_lod")[-1].split(".")[0]: lod
-                for lod in self._p4kinfo.p4k.search((model_path.parent / lod_search).as_posix())
+                for lod in self._p4kinfo.p4k.search(
+                    (model_path.parent / lod_search).as_posix()
+                )
             }
         elif model_path.is_file():
             lods = {

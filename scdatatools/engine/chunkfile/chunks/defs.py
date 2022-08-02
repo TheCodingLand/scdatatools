@@ -71,7 +71,9 @@ class ChunkType(IntEnum):
     UnknownSC7 = (
         0x4002,
     )  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
-    UnknownSC8 = (0x3005,)  # Data\Objects\planets\flora\bush\bayberry_01\bayberry_01.cgfm: 12293
+    UnknownSC8 = (
+        0x3005,
+    )  # Data\Objects\planets\flora\bush\bayberry_01\bayberry_01.cgfm: 12293
     UnknownSC9 = (0x0013,)
     UnknownSC10 = (0x0014,)
     UnknownSC11 = (0x000B,)
@@ -88,9 +90,7 @@ class ChunkType(IntEnum):
     DBA_Skeleton = 0x0000300D
     DBAData = 0x194FBC50
     DBA = 0xF7351608  # is checked against -0x8cae9f8 in code
-    DBA_UNKNOWN1 = (
-        0x322BA3C7  # found in Data\Animations\Characters\Human\female_v2\force_reactions.dba
-    )
+    DBA_UNKNOWN1 = 0x322BA3C7  # found in Data\Animations\Characters\Human\female_v2\force_reactions.dba
 
     # From  IVO_Loader2? handles AIM files, .caf?
     AIM_Skeleton = 0x1BBC4103
@@ -130,7 +130,9 @@ def chunk_handler(chunk_type: ChunkType, versions: typing.List[int]):
 def chunk_header_handler(version):
     def do_register(chunk_class):
         if version in CHUNK_HEADER_CLASSES:
-            raise KeyError(f"ChunkHeader class already registered for version 0x{version:04x}")
+            raise KeyError(
+                f"ChunkHeader class already registered for version 0x{version:04x}"
+            )
         CHUNK_HEADER_CLASSES[version] = chunk_class
         return chunk_class
 

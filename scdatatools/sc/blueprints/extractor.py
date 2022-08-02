@@ -110,8 +110,12 @@ def extract_blueprint(
         if auto_convert_textures:
             converters.append(DDSTextureConverter)
             converter_options.setdefault("ddstexture_converter_fmt", convert_dds_fmt)
-            converter_options.setdefault("ddstexture_converter_converter", tex_converter)
-            converter_options.setdefault("ddstexture_converter_converter_bin", tex_converter_bin)
+            converter_options.setdefault(
+                "ddstexture_converter_converter", tex_converter
+            )
+            converter_options.setdefault(
+                "ddstexture_converter_converter_bin", tex_converter_bin
+            )
             converter_options.setdefault("ddstexture_converter_replace", True)
 
         logger.debug(f"{auto_convert_models = }")

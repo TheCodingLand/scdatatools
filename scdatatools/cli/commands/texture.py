@@ -53,9 +53,13 @@ class Tex:
             if ddsfile.is_dir():
                 for dds in ddsfile.rglob("*.dds.[0-9]*"):
                     if is_glossmap(dds):
-                        files_to_process.add(dds.parent / f'{dds.name.split(".")[0]}.dds.a')
+                        files_to_process.add(
+                            dds.parent / f'{dds.name.split(".")[0]}.dds.a'
+                        )
                     else:
-                        files_to_process.add(dds.parent / f'{dds.name.split(".")[0]}.dds')
+                        files_to_process.add(
+                            dds.parent / f'{dds.name.split(".")[0]}.dds'
+                        )
             else:
                 _ = Path(ddsfile)
                 if is_glossmap(ddsfile):
@@ -139,9 +143,13 @@ class Tex:
             if ddsfile.is_dir():
                 for dds in ddsfile.rglob("*.dds.[0-9]*"):
                     if is_glossmap(dds):
-                        files_to_process.add(dds.parent / f'{dds.name.split(".")[0]}.dds.a')
+                        files_to_process.add(
+                            dds.parent / f'{dds.name.split(".")[0]}.dds.a'
+                        )
                     else:
-                        files_to_process.add(dds.parent / f'{dds.name.split(".")[0]}.dds')
+                        files_to_process.add(
+                            dds.parent / f'{dds.name.split(".")[0]}.dds'
+                        )
             else:
                 _ = Path(ddsfile)
                 if is_glossmap(ddsfile):

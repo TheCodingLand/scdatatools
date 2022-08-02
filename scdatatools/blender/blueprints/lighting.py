@@ -26,7 +26,9 @@ def set_light_state(light_obj, state):
     )  # +4ev? +6ev? I can't decide
     if light_obj["use_temperature"]:
         if temp_node := light_obj.data.node_tree.nodes.get("Temperature"):
-            temp_node.inputs[0].default_value = light_obj["states"][state]["temperature"]
+            temp_node.inputs[0].default_value = light_obj["states"][state][
+                "temperature"
+            ]
 
 
 def set_linked_light(obj_name, color, temp=None, source=None):
@@ -74,17 +76,27 @@ def create_light(
     data_dir: Path = None,
 ):
     lightType = light["EntityComponentLight"]["@lightType"]
-    bulbRadius = float(light["EntityComponentLight"]["sizeParams"].get("@bulbRadius", 0.01))
-    lightRadius = float(light["EntityComponentLight"]["sizeParams"].get("@lightRadius", 1))
+    bulbRadius = float(
+        light["EntityComponentLight"]["sizeParams"].get("@bulbRadius", 0.01)
+    )
+    lightRadius = float(
+        light["EntityComponentLight"]["sizeParams"].get("@lightRadius", 1)
+    )
     use_temperature = bool(int(light["EntityComponentLight"].get("@useTemperature", 1)))
     texture = light["EntityComponentLight"]["projectorParams"].get("@texture", "")
     fov = float(light["EntityComponentLight"]["projectorParams"].get("@FOV", 179))
-    focusedBeam = float(light["EntityComponentLight"]["projectorParams"].get("@focusedBeam", 1))
-    shadowCasting = float(light["EntityComponentLight"]["shadowParams"].get("@shadowCasting", 1))
+    focusedBeam = float(
+        light["EntityComponentLight"]["projectorParams"].get("@focusedBeam", 1)
+    )
+    shadowCasting = float(
+        light["EntityComponentLight"]["shadowParams"].get("@shadowCasting", 1)
+    )
     projectorNearPlane = float(
         light["EntityComponentLight"]["shadowParams"].get("@projectorNearPlane", None)
     )
-    maxDistance = float(light["EntityComponentLight"]["fadeParams"].get("@maxDistance", None))
+    maxDistance = float(
+        light["EntityComponentLight"]["fadeParams"].get("@maxDistance", None)
+    )
 
     # TODO: EntityComponentLight.defaultState.lightStyle?
     # TODO: use shadowParams.@shadowCasting?
@@ -152,7 +164,9 @@ def create_light(
                 )
                 temp_node = ies_group
                 if light_data.type == "SPOT":
-                    spot_size = sin(light_data.spot_size) / 2  # convert radians to normal
+                    spot_size = (
+                        sin(light_data.spot_size) / 2
+                    )  # convert radians to normal
                     ies_group.inputs["Scale"].default_value = (
                         spot_size,
                         spot_size,
@@ -163,7 +177,9 @@ def create_light(
         bb_node = light_obj.data.node_tree.nodes.new(type="ShaderNodeBlackbody")
         bb_node.name = "Temperature"
         bb_node.inputs[0].default_value = 3500  #
-        light_obj.data.node_tree.links.new(bb_node.outputs["Color"], temp_node.inputs["Color"])
+        light_obj.data.node_tree.links.new(
+            bb_node.outputs["Color"], temp_node.inputs["Color"]
+        )
         # light_obj.data.color = (1,1,1)
 
     if shadowCasting == 0:
@@ -215,7 +231,9 @@ def create_light(
                         helper["rotation"]["z"],
                     )
         if bone_name.lower() in parent.get("item_ports", {}):
-            light_obj.parent = bpy.data.objects.get(parent["item_ports"][bone_name.lower()])
+            light_obj.parent = bpy.data.objects.get(
+                parent["item_ports"][bone_name.lower()]
+            )
         else:
             light_obj.parent = parent
 
@@ -223,11 +241,15 @@ def create_light(
         sum(_)
         for _ in zip(
             location,
-            str_to_tuple(light.get("RelativeXForm", {}).get("@translation", "0,0,0"), float),
+            str_to_tuple(
+                light.get("RelativeXForm", {}).get("@translation", "0,0,0"), float
+            ),
         )
     ]
 
-    q = Quaternion(str_to_tuple(light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float))
+    q = Quaternion(
+        str_to_tuple(light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float)
+    )
     rotation_quaternion = rotation_quaternion.cross(Quaternion((q)))
 
     initial_matrix = bpy_extras.io_utils.axis_conversion(
@@ -245,7 +267,11 @@ def create_light(
         ).to_quaternion()
     )
     light_obj.rotation_quaternion.rotate(
-        Quaternion(str_to_tuple(light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float))
+        Quaternion(
+            str_to_tuple(
+                light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float
+            )
+        )
     )
 
     light_obj.scale = (0.01, 0.01, 0.01)
@@ -258,7 +284,10 @@ def create_light(
         if light["GeomLink"].get("@SubObjectName"):
             light_obj["GeomLink"] = light["GeomLink"].get("@SubObjectName")
             set_linked_light(
-                light["GeomLink"].get("@SubObjectName"), light_obj.data.color, None, light_obj.name
+                light["GeomLink"].get("@SubObjectName"),
+                light_obj.data.color,
+                None,
+                light_obj.name,
             )
 
     logger.debugscbp(f"created light {light_obj.name} in {light_group_collection.name}")

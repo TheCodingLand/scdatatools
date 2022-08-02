@@ -99,7 +99,9 @@ class Chunk:
 
     @classmethod
     def from_buffer(cls, header, data, chunk_file):
-        return cls(header, data[header.offset : header.offset + header.size], chunk_file)
+        return cls(
+            header, data[header.offset : header.offset + header.size], chunk_file
+        )
 
     def __repr__(self):
         return f"<{self.__class__.__name__} id:{self.id} type:{self.chunk_type}>"
@@ -121,7 +123,9 @@ class Chunk900(Chunk):
     @classmethod
     def from_buffer(cls, header, data, chunk_file):
         if cls.size > 0:
-            return cls(header, data[header.offset : header.offset + cls.size], chunk_file)
+            return cls(
+                header, data[header.offset : header.offset + cls.size], chunk_file
+            )
         return cls(header, data[header.offset :], chunk_file)
 
 

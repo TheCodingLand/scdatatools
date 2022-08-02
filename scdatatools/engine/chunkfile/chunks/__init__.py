@@ -25,7 +25,9 @@ def header_class_for_version(chunk_file_version) -> typing.Type[ChunkHeader]:
     return CHUNK_HEADER_CLASSES[chunk_file_version]
 
 
-def chunk_class_from_header(chunk_header: ChunkHeader, fallback=Chunk) -> typing.Type[Chunk]:
+def chunk_class_from_header(
+    chunk_header: ChunkHeader, fallback=Chunk
+) -> typing.Type[Chunk]:
     """Returns the appropriate class for the given `chunk_header`"""
     chunk_versions = CHUNK_CLASSES.setdefault(chunk_header.type, {})
     if chunk_header.version not in chunk_versions:
@@ -34,7 +36,9 @@ def chunk_class_from_header(chunk_header: ChunkHeader, fallback=Chunk) -> typing
     return chunk_versions[chunk_header.version]
 
 
-def chunk_from_header(hdr: ChunkHeader, data: (bytearray, bytes), chunk_file, fallback_class=Chunk):
+def chunk_from_header(
+    hdr: ChunkHeader, data: (bytearray, bytes), chunk_file, fallback_class=Chunk
+):
     """
     :param hdr: `ChunkHeader` describing the Chunk in `data`
     :param data: Data to read chunk from
@@ -42,4 +46,6 @@ def chunk_from_header(hdr: ChunkHeader, data: (bytearray, bytes), chunk_file, fa
     :param fallback_class: The `Chunk` base class to be used as a fallback if a specific class cannot be determined
     :return: `Chunk`
     """
-    return chunk_class_from_header(hdr, fallback=fallback_class).from_buffer(hdr, data, chunk_file)
+    return chunk_class_from_header(hdr, fallback=fallback_class).from_buffer(
+        hdr, data, chunk_file
+    )

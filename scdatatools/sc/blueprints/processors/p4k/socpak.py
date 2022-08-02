@@ -115,24 +115,24 @@ def process_soc(bp: "Blueprint", soc, bone_name, geom_attrs):
                     continue  # TODO: handle these, see SOC_ENTITY_CLASSES_TO_SKIP
                 elif "EntityGeometryResource" in entity.get("PropertiesDataCore", {}):
                     geom, _ = bp.get_or_create_geom(
-                        entity["PropertiesDataCore"]["EntityGeometryResource"]["Geometry"][
+                        entity["PropertiesDataCore"]["EntityGeometryResource"][
                             "Geometry"
-                        ]["Geometry"]["@path"]
+                        ]["Geometry"]["Geometry"]["@path"]
                     )
                 elif entity.get("@EntityClass") == "TransitManager":
                     gateway_index = int(
-                        entity["SCTransitManager"]["CarriageSpawnLocations"]["SpawnLocation"][
-                            "@gatewayIndex"
-                        ]
+                        entity["SCTransitManager"]["CarriageSpawnLocations"][
+                            "SpawnLocation"
+                        ]["@gatewayIndex"]
                     )
-                    gateway = entity["SCTransitManager"]["TransitDestinations"]["Destination"][
-                        gateway_index
-                    ]
+                    gateway = entity["SCTransitManager"]["TransitDestinations"][
+                        "Destination"
+                    ][gateway_index]
                     blueprint_from_socpak(
                         bp.sc,
-                        socpak=entity["PropertiesDataCore"]["SCTransitManager"]["carriageInterior"][
-                            "@path"
-                        ],
+                        socpak=entity["PropertiesDataCore"]["SCTransitManager"][
+                            "carriageInterior"
+                        ]["@path"],
                         container_name=entity["@Name"],
                         bp=bp,
                         attrs={
@@ -142,7 +142,9 @@ def process_soc(bp: "Blueprint", soc, bone_name, geom_attrs):
                             ),
                             "rotation": (
                                 quaternion_from_csv(entity.get("@Rotate", "1,0,0,0"))
-                                * quaternion_from_csv(gateway["Gateway"]["@gatewayQuat"])
+                                * quaternion_from_csv(
+                                    gateway["Gateway"]["@gatewayQuat"]
+                                )
                             ),
                         },
                     )
@@ -156,7 +158,9 @@ def process_soc(bp: "Blueprint", soc, bone_name, geom_attrs):
                     )
                     geom, _ = bp.get_or_create_geom(base_geom_path)
                 if geom is not None:
-                    w, x, y, z = (float(_) for _ in entity.get("@Rotate", "1,0,0,0").split(","))
+                    w, x, y, z = (
+                        float(_) for _ in entity.get("@Rotate", "1,0,0,0").split(",")
+                    )
                     if "@Layer" in entity:
                         geom_attrs["layer"] = entity["@Layer"]
                     geom.add_instance(

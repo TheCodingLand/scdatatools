@@ -16,14 +16,18 @@ if typing.TYPE_CHECKING:
 
 
 @filetype_processor("adb")
-def process_animation_db(bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs) -> bool:
+def process_animation_db(
+    bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs
+) -> bool:
     etree = etree_from_cryxml_file(bp.sc.p4k.open(p4k_info))
     bp.add_file_to_extract(set(etree.getroot().attrib.values()))
     return True
 
 
 @filetype_processor("mtl")
-def process_mtl(bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs) -> bool:
+def process_mtl(
+    bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs
+) -> bool:
     """Collects all Texture.File paths from a mtl"""
     etree = etree_from_cryxml_file(bp.sc.p4k.open(p4k_info))
     bp.add_file_to_extract(set(_.attrib["File"] for _ in etree.findall(".//Texture")))
@@ -33,7 +37,9 @@ def process_mtl(bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs
 
 
 @filetype_processor("xml", "chrparams", "entxml", "rmp", "animevents", "cdf")
-def xml_key_search(bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs) -> bool:
+def xml_key_search(
+    bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs
+) -> bool:
     """Fallback xml handler that searches for known keys with asset paths in them"""
     raw = bp.sc.p4k.open(p4k_info).read()
     if p4k_info.filename.lower().endswith("_editor.xml"):

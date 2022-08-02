@@ -35,7 +35,9 @@ class P4KConverterPlugin(DataToolsPlugin):
     def register(self):
         super().register()
         plugin_manager.register_hook(
-            P4KConverterPlugin.CONVERTER_HOOK, self.__class__, **self.converter_hook_kwargs
+            P4KConverterPlugin.CONVERTER_HOOK,
+            self.__class__,
+            **self.converter_hook_kwargs,
         )
 
     @classmethod
@@ -112,7 +114,9 @@ class PluginManager:
         del self.plugins[plug]
         logger.info(f"Unregistered plugin {plug}")
 
-    def register_hook(self, hook: str, handler: callable, name=None, priority=100, **kwargs):
+    def register_hook(
+        self, hook: str, handler: callable, name=None, priority=100, **kwargs
+    ):
         """Registers `func` with the hook `hook`"""
         hook_name = f"{handler.__module__}{handler.__name__}" if name is None else name
         self._hooks.setdefault(hook, {})[hook_name] = {

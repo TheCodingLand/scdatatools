@@ -11,7 +11,9 @@ if typing.TYPE_CHECKING:
 
 
 @filetype_processor("gfx")
-def process_gfx(bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs) -> bool:
+def process_gfx(
+    bp: "Blueprint", path: str, p4k_info: "P4KInfo", *args, **kwargs
+) -> bool:
     """
     Extracts the images used in a GFX object and adds them to the blueprint. The layer order will be maintained
     and represented in the Blueprint's `asset_info` for the given path

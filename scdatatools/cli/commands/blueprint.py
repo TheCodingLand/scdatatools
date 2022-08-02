@@ -7,7 +7,9 @@ from pathlib import Path
 from nubia import command, argument
 from rich.progress import Progress
 
-from scdatatools.sc.blueprints.generators.datacore_entity import blueprint_from_datacore_entity
+from scdatatools.sc.blueprints.generators.datacore_entity import (
+    blueprint_from_datacore_entity,
+)
 from . import common
 
 logger = logging.getLogger(__name__)
@@ -85,7 +87,9 @@ class blueprint:
         description="The Data Core entity record to extract, or scbp file.",
         positional=True,
     )
-    @argument("output", description="Output directory to extract data into", positional=True)
+    @argument(
+        "output", description="Output directory to extract data into", positional=True
+    )
     @common.extraction_args(exclude=["extract_model_assets", "output"])
     def extract(
         self,
@@ -119,7 +123,9 @@ class blueprint:
                 entity = resolve_blueprint(sc, entity_or_blueprint)
                 logger.info(f"Generating blueprint for {entity.name} ({entity.id})")
 
-                bp = blueprint_from_datacore_entity(sc, entity, monitor=partial(log, generating_bp))
+                bp = blueprint_from_datacore_entity(
+                    sc, entity, monitor=partial(log, generating_bp)
+                )
                 with open(output / f"{bp.name}.scbp", "w") as o:
                     bp.dump(o)
 

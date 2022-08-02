@@ -27,7 +27,9 @@ class SCLocalization:
                 p4k = _get_p4k()
                 lcache.mkdir(parents=True)
                 p4k.extractall(
-                    members=p4k.search("Data/Localization/*/global.ini"), path=lcache, monitor=None
+                    members=p4k.search("Data/Localization/*/global.ini"),
+                    path=lcache,
+                    monitor=None,
                 )
             localization_files = lcache.rglob("**/global.ini")
         else:
@@ -40,7 +42,9 @@ class SCLocalization:
                 lang = Path(f.name).parts[-2]
                 self.languages.append(lang)
                 self.translations[lang] = dict(
-                    _.split("=", 1) for _ in f.read().decode("utf-8").split("\r\n") if "=" in _
+                    _.split("=", 1)
+                    for _ in f.read().decode("utf-8").split("\r\n")
+                    if "=" in _
                 )
                 self.keys.update(self.translations[lang].keys())
         self.keys = sorted(self.keys)

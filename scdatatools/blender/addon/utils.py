@@ -26,9 +26,9 @@ def install_blender_addon(blender_ver, addon_name, addon_template, version) -> P
         raise ValueError(f"Unsupported platform {sys.platform}")
 
     if isinstance(version, str):
-        version = tuple(int(_) for _ in version.split('.')[:3])
+        version = tuple(int(_) for _ in version.split(".")[:3])
 
-    blender_version = (tuple(int(_) for _ in blender_ver.split('.')) + (0, 0, 0))[:3]
+    blender_version = (tuple(int(_) for _ in blender_ver.split(".")) + (0, 0, 0))[:3]
 
     addon_py.parent.mkdir(parents=True, exist_ok=True)
     with addon_py.open("w") as addon:
@@ -36,7 +36,7 @@ def install_blender_addon(blender_ver, addon_name, addon_template, version) -> P
             addon_template.format(
                 path=",\n         ".join(repr(sorted(_ for _ in sys.path)).split(", ")),
                 version=version,
-                blender_version=blender_version
+                blender_version=blender_version,
             )
         )
     return addon_py
@@ -44,6 +44,8 @@ def install_blender_addon(blender_ver, addon_name, addon_template, version) -> P
 
 def reload_scdt_blender_modules():
     # build up the list of modules first, otherwise sys.modules will change while you iterate through it
-    loaded_modules = [m for n, m in sys.modules.items() if n.startswith("scdatatools.blender")]
+    loaded_modules = [
+        m for n, m in sys.modules.items() if n.startswith("scdatatools.blender")
+    ]
     for module in loaded_modules:
         importlib.reload(module)

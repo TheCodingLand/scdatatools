@@ -209,7 +209,9 @@ def tex_convert(
                     DEFAULT_TEXCONV_ARGS + TEXCONV_GLOSSMAP_ARGS + converter_cli_args
                 )
             elif dds.is_normals(infile.name):
-                converter_cli_args = DEFAULT_TEXCONV_ARGS + TEXCONV_DDNA_ARGS + converter_cli_args
+                converter_cli_args = (
+                    DEFAULT_TEXCONV_ARGS + TEXCONV_DDNA_ARGS + converter_cli_args
+                )
             else:
                 converter_cli_args = (
                     DEFAULT_TEXCONV_ARGS + TEXCONV_DEFAULT_ARGS + converter_cli_args
@@ -226,12 +228,12 @@ def tex_convert(
                 )
                 # texconv outputs to the same location as the input file, so move it to the requested output path
                 # if successful
-                shutil.move(outfile.parent / f"{Path(tmpin.name).stem}.{ft}", outfile.absolute())
+                shutil.move(
+                    outfile.parent / f"{Path(tmpin.name).stem}.{ft}", outfile.absolute()
+                )
                 return outfile
             except subprocess.CalledProcessError as e:
-                err_msg = (
-                    f'Error converting with texconv: {e.output.decode("utf-8", errors="ignore")}'
-                )
+                err_msg = f'Error converting with texconv: {e.output.decode("utf-8", errors="ignore")}'
                 if not try_compressonator:
                     raise ConversionError(err_msg)
 
@@ -240,12 +242,16 @@ def tex_convert(
             if try_compressonator:
                 # we've failed into compressonator, so pick-up it's path
                 try:
-                    converter, converter_bin = _check_bin(ConverterUtility.compressonator)
+                    converter, converter_bin = _check_bin(
+                        ConverterUtility.compressonator
+                    )
                 except ConverterUnavailable:
                     # compressonator not available, return texconv error
                     raise ConversionError(err_msg)
             converter_cli_args = (
-                converter_cli_args if converter_cli_args else DEFAULT_COMPRESSONATOR_ARGS
+                converter_cli_args
+                if converter_cli_args
+                else DEFAULT_COMPRESSONATOR_ARGS
             )
             cmd = f"{converter_bin} {converter_cli_args} {tmpin.name} {outfile.absolute()}"
             try:
@@ -288,11 +294,15 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
         options = options or {}
         output_fmt = options.get("ddstexture_converter_fmt", "dds").casefold()
 
-        if output_fmt == "dds" and not options.get("ddstexture_converter_unsplit", False):
+        if output_fmt == "dds" and not options.get(
+            "ddstexture_converter_unsplit", False
+        ):
             # output dds and unsplit not checked, do nothing
             return members, []
 
-        converter = ConverterUtility(options.get("ddstexture_converter_converter", "default"))
+        converter = ConverterUtility(
+            options.get("ddstexture_converter_converter", "default")
+        )
         converter_bin = options.get("ddstexture_converter_converter_bin", "")
         converter_cli_args = options.get("ddstexture_converter_converter_cli_args", "")
         replace = options.get("ddstexture_converter_replace", False)
@@ -315,7 +325,9 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
                 if is_glossmap:
                     out_name += ".glossmap"
 
-                outdds = outpath.with_name(out_name + (".dds.a" if is_glossmap else ".dds"))
+                outdds = outpath.with_name(
+                    out_name + (".dds.a" if is_glossmap else ".dds")
+                )
                 if output_fmt == "dds":
                     outpath = outdds
                 else:
@@ -332,7 +344,9 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
                         dds.unsplit_dds(parts, outdds)
                         if monitor is not None:
                             dds_header = [
-                                _ for _ in parts if _.endswith(".dds") or _.endswith(".dds.a")
+                                _
+                                for _ in parts
+                                if _.endswith(".dds") or _.endswith(".dds.a")
                             ][0]
                             monitor(monitor_msg_from_info(parts[dds_header]))
 
@@ -364,7 +378,9 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = []
             for conv in to_convert:
-                futures.append(executor.submit(_do_convert, tex_in=conv[0], tex_out=conv[1]))
+                futures.append(
+                    executor.submit(_do_convert, tex_in=conv[0], tex_out=conv[1])
+                )
             for future in concurrent.futures.as_completed(futures):
                 if monitor is not None:
                     out, error = future.result()

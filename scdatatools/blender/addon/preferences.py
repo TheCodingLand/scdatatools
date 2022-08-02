@@ -78,7 +78,9 @@ def register():
     bpy.utils.register_class(SCDTUIWindowManagerPropertyGroup)
     bpy.utils.register_class(SCDTSavedProperties)
 
-    bpy.types.WindowManager.scdt = bpy.props.PointerProperty(type=SCDTUIWindowManagerPropertyGroup)
+    bpy.types.WindowManager.scdt = bpy.props.PointerProperty(
+        type=SCDTUIWindowManagerPropertyGroup
+    )
     bpy.types.Scene.scdt = bpy.props.PointerProperty(type=SCDTSavedProperties)
 
     bpy.utils.register_class(SCDTPreferences)

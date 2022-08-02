@@ -46,12 +46,16 @@ class SoundBank:
                     signature.decode("utf-8", errors="ignore").strip().lower(),
                     hdr,
                 )
-                self.components[signature.decode("utf-8", errors="ignore").strip().lower()] = hdr
+                self.components[
+                    signature.decode("utf-8", errors="ignore").strip().lower()
+                ] = hdr
                 offset += hdr.length + 8
         except ValueError:
             pass
 
-        self.wems = {_.id: _ for _ in self.didx.wem_hdrs} if hasattr(self, "didx") else {}
+        self.wems = (
+            {_.id: _ for _ in self.didx.wem_hdrs} if hasattr(self, "didx") else {}
+        )
 
     def extract_wem(self, id, filename):
         wem_hdr = self.wems[id]
@@ -98,12 +102,16 @@ class BankManager:
         :return: The first matching game_object with `obj_id`
         """
         if obj_type is None or isinstance(obj_type, list):
-            obj_type = [_ for _ in hirc_defs.HIRCObjectTypes] if obj_type is None else obj_type
+            obj_type = (
+                [_ for _ in hirc_defs.HIRCObjectTypes] if obj_type is None else obj_type
+            )
             for t in obj_type:
                 if obj_id in self.game_objects[t.name]:
                     return self.game_objects[t.name][obj_id]
             else:
-                raise KeyError(f"ID does not exist for any of the types {obj_type}: {obj_id}")
+                raise KeyError(
+                    f"ID does not exist for any of the types {obj_type}: {obj_id}"
+                )
         else:
             if obj_id not in self.game_objects[obj_type.name]:
                 raise KeyError(f"ID does not exist for {obj_type.name}: {obj_id}")
@@ -158,7 +166,11 @@ class BankManager:
 
             wems = []
             for oid in found_ids:
-                wems.extend(self._find_wems_from_hirc_object(oid, _searched=_searched + [obj.id]))
+                wems.extend(
+                    self._find_wems_from_hirc_object(
+                        oid, _searched=_searched + [obj.id]
+                    )
+                )
             return wems
         else:
             logger.warning(
@@ -175,7 +187,9 @@ class BankManager:
         try:
             return self._find_wems_from_hirc_object(event)
         except KeyError as e:
-            logger.error(f'{event["bank"].filename}.event.{event["object"].id}: {repr(e)}')
+            logger.error(
+                f'{event["bank"].filename}.event.{event["object"].id}: {repr(e)}'
+            )
         return []
 
     def wems_for_atl_name(self, atl_name: str) -> list:

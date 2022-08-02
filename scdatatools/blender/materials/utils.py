@@ -185,8 +185,14 @@ def create_light_texture(texture: Path):
     new_node.links.new(mix_node.outputs["Color"], new_node_output.inputs["Color"])
     new_node.links.new(new_node_texture.outputs["Color"], mix_node.inputs["Color1"])
     new_node.links.new(new_node_input.outputs["Color"], mix_node.inputs["Color2"])
-    new_node.links.new(new_node_input.outputs["Scale"], new_node_mapping.inputs["Scale"])
-    new_node.links.new(new_node_mapping.outputs["Vector"], new_node_texture.inputs["Vector"])
-    new_node.links.new(new_node_texcoord.outputs["Normal"], new_node_mapping.inputs["Vector"])
+    new_node.links.new(
+        new_node_input.outputs["Scale"], new_node_mapping.inputs["Scale"]
+    )
+    new_node.links.new(
+        new_node_mapping.outputs["Vector"], new_node_texture.inputs["Vector"]
+    )
+    new_node.links.new(
+        new_node_texcoord.outputs["Normal"], new_node_mapping.inputs["Vector"]
+    )
 
     return new_node

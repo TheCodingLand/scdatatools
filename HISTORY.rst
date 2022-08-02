@@ -2,6 +2,14 @@
 History
 =======
 
+1.0.4 (2022-08-02)
+------------------
+
+* Improved CLI parameters
+* Improvements for Blender 3.1+ integration
+* New Instanced OC framework
+* 3.17 bug fixes
+
 1.0.3 (2022-04-09)
 ------------------
 

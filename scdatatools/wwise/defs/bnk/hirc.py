@@ -286,9 +286,7 @@ class HIRCHeader(ctypes.LittleEndianStructure):
         offset += ctypes.sizeof(hirc)
         for i in range(hirc.num_objects):
             obj_type = source[offset]
-            obj = HIRC_OBJ_HEADER_FOR_TYPE.get(obj_type, HIRCUnknown).from_buffer(
-                source, offset
-            )
+            obj = HIRC_OBJ_HEADER_FOR_TYPE.get(obj_type, HIRCUnknown).from_buffer(source, offset)
             obj.offset = offset
             hirc.objects.append(obj)
             getattr(hirc, obj.type.name)[obj.id] = obj

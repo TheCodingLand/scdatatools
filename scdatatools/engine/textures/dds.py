@@ -44,9 +44,7 @@ def unsplit_dds(
             parts[n] = p
 
     if hdr_data is None:
-        raise DDSNotSplit(
-            f'Could not determine the DDS header file from {",".join(dds_files.keys())}'
-        )
+        raise DDSNotSplit(f'Could not determine the DDS header file from {",".join(dds_files.keys())}')
 
     if isinstance(hdr_data, (P4KInfo, Path)):
         hdr_data = hdr_data.open("rb").read()
@@ -68,9 +66,7 @@ def unsplit_dds(
 
     dds_file = hdr_data[:dds_hdr_len]
     # unsplit files should be largest to smallest
-    for dds in sorted(
-        [_ for _ in parts.keys()], reverse=True, key=lambda d: d.split(".")[-1]
-    ):
+    for dds in sorted([_ for _ in parts.keys()], reverse=True, key=lambda d: d.split(".")[-1]):
         if is_glossmap(dds) and not glossmap:
             continue
         elif not is_glossmap(dds) and glossmap:
@@ -95,9 +91,7 @@ def unsplit_dds(
     return Path(outfile)
 
 
-def collect_parts(
-    dds_file: typing.Union[str, Path, P4KInfo], from_list: typing.List[P4KInfo] = None
-) -> typing.Dict:
+def collect_parts(dds_file: typing.Union[str, Path, P4KInfo], from_list: typing.List[P4KInfo] = None) -> typing.Dict:
     """Collect all of the component parts of a split dds texture and return them as a dict where the keys are the
     filename and the value is the `P4KInfo` or `Path` of the part.
 
@@ -106,23 +100,13 @@ def collect_parts(
     """
     if isinstance(dds_file, P4KInfo):
         dds_filename = Path(dds_file.filename)
-        basename = (
-            (dds_filename.parent / dds_filename.stem.split(".")[0])
-            .with_suffix(".dds")
-            .as_posix()
-            .casefold()
-        )
+        basename = (dds_filename.parent / dds_filename.stem.split(".")[0]).with_suffix(".dds").as_posix().casefold()
         if from_list:
             dds_files = {
-                p.name: _
-                for _ in from_list
-                if (p := Path(_.filename)).as_posix().casefold().startswith(basename)
+                p.name: _ for _ in from_list if (p := Path(_.filename)).as_posix().casefold().startswith(basename)
             }
         else:
-            dds_files = {
-                Path(_.filename).name: _
-                for _ in dds_file.p4k.search(basename, mode="startswith")
-            }
+            dds_files = {Path(_.filename).name: _ for _ in dds_file.p4k.search(basename, mode="startswith")}
     else:
         dds_filename = Path(dds_file)
         basename = dds_file.parent / dds_file.stem.split(".")[0]
@@ -154,14 +138,8 @@ def collect_and_unsplit(
 
     if isinstance(outfile, Path) and remove:
         if is_glossmap(outfile):
-            [
-                _.unlink(missing_ok=True)
-                for _ in outfile.parent.glob(f'{outfile.name.split(".")[0]}.dds.[0-9]a')
-            ]
+            [_.unlink(missing_ok=True) for _ in outfile.parent.glob(f'{outfile.name.split(".")[0]}.dds.[0-9]a')]
         else:
-            [
-                _.unlink(missing_ok=True)
-                for _ in outfile.parent.glob(f'{outfile.name.split(".")[0]}.dds.[0-9]')
-            ]
+            [_.unlink(missing_ok=True) for _ in outfile.parent.glob(f'{outfile.name.split(".")[0]}.dds.[0-9]')]
 
     return outfile

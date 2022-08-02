@@ -20,9 +20,7 @@ def resolve_blueprint(sc, entity):
         return record
     search = entity if entity.casefold().endswith(".xml") else entity + ".xml"
     records = [
-        record
-        for record in sc.datacore.search_filename(f"*/{search}")
-        if record.type == "EntityClassDefinition"
+        record for record in sc.datacore.search_filename(f"*/{search}") if record.type == "EntityClassDefinition"
     ]
     if len(records) > 1:
         logger.debug(f"{records =}")
@@ -87,9 +85,7 @@ class blueprint:
         description="The Data Core entity record to extract, or scbp file.",
         positional=True,
     )
-    @argument(
-        "output", description="Output directory to extract data into", positional=True
-    )
+    @argument("output", description="Output directory to extract data into", positional=True)
     @common.extraction_args(exclude=["extract_model_assets", "output"])
     def extract(
         self,
@@ -123,9 +119,7 @@ class blueprint:
                 entity = resolve_blueprint(sc, entity_or_blueprint)
                 logger.info(f"Generating blueprint for {entity.name} ({entity.id})")
 
-                bp = blueprint_from_datacore_entity(
-                    sc, entity, monitor=partial(log, generating_bp)
-                )
+                bp = blueprint_from_datacore_entity(sc, entity, monitor=partial(log, generating_bp))
                 with open(output / f"{bp.name}.scbp", "w") as o:
                     bp.dump(o)
 

@@ -43,19 +43,13 @@ class SCImportEntityAvailableContainersPanel(bpy.types.Panel):
     bl_context = ""
 
     def draw(self, context):
-        available = set(self.importer.containers) - set(
-            self.importer.imported_containers
-        )
+        available = set(self.importer.containers) - set(self.importer.imported_containers)
         for container in sorted(available):
-            op = self.layout.row().operator(
-                "scdt.import_entity_container", text=f"Import {container}"
-            )
+            op = self.layout.row().operator("scdt.import_entity_container", text=f"Import {container}")
             op.entity_name = self.importer.entity_collection.name
             op.container = container
         if available:
             self.layout.separator()
-            op = self.layout.row().operator(
-                "scdt.import_entity_container", text=f"Import All"
-            )
+            op = self.layout.row().operator("scdt.import_entity_container", text=f"Import All")
             op.entity_name = self.importer.entity_collection.name
             op.container = ",".join(available)

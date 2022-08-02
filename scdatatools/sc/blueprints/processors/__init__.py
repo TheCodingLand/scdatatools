@@ -29,9 +29,7 @@ class BluePrintProcessorManager:
     def processors_for_filetype(self, filetype: str) -> typing.List[typing.Callable]:
         return self._processors_for_filetype.setdefault(filetype, [])
 
-    def processors_for_datacore_type(
-        self, record_type: str
-    ) -> typing.List[typing.Callable]:
+    def processors_for_datacore_type(self, record_type: str) -> typing.List[typing.Callable]:
         return self._processors_for_datacore_type.setdefault(record_type, [])
 
     def register_filetype_processor(
@@ -50,9 +48,7 @@ class BluePrintProcessorManager:
             if index == -1:
                 self._processors_for_filetype.setdefault(filetype, []).append(processor)
             else:
-                self._processors_for_filetype.setdefault(filetype, []).insert(
-                    index, processor
-                )
+                self._processors_for_filetype.setdefault(filetype, []).insert(index, processor)
         return processor
 
     def unregister_filetype_processor(self, filetype, processor):
@@ -69,26 +65,18 @@ class BluePrintProcessorManager:
         :param processor: Processor to be called to process a file matching `record_type`
         :param index: Index to insert the `processor` into list of processors for `record_type`. Defaults to appending
         """
-        datacore_types = (
-            [datacore_type] if isinstance(datacore_type, str) else datacore_type
-        )
+        datacore_types = [datacore_type] if isinstance(datacore_type, str) else datacore_type
         for datacore_type in datacore_types:
             if index == -1:
-                self._processors_for_datacore_type.setdefault(datacore_type, []).append(
-                    processor
-                )
+                self._processors_for_datacore_type.setdefault(datacore_type, []).append(processor)
             else:
-                self._processors_for_datacore_type.setdefault(datacore_type, []).insert(
-                    index, processor
-                )
+                self._processors_for_datacore_type.setdefault(datacore_type, []).insert(index, processor)
         return processor
 
     def unregister_datacore_type_processor(self, record_type, processor):
         self.processors_for_datacore_type(record_type).remove(processor)
 
-    def process_p4kfile(
-        self, blueprint: "Blueprint", path: str, *args, **kwargs
-    ) -> bool:
+    def process_p4kfile(self, blueprint: "Blueprint", path: str, *args, **kwargs) -> bool:
         """Processes the given path/p4k_info for `Blueprint` using the appropriate processor for `filetype`.
 
         Multiple processors for a `filetype` may be registered, and each one will be tried in turn until one is
@@ -108,10 +96,7 @@ class BluePrintProcessorManager:
             )
             return False
 
-        if (
-            filetype not in self._processors_for_filetype
-            and filetype.split(".")[0] not in IGNORED_FILETYPES
-        ):
+        if filetype not in self._processors_for_filetype and filetype.split(".")[0] not in IGNORED_FILETYPES:
             blueprint.log(f"unhandled p4k file: {path}", logging.WARNING)
             return False
 
@@ -120,9 +105,7 @@ class BluePrintProcessorManager:
                 blueprint.log(f"process: ({filetype}) {p4k_info.filename}")
                 return True
 
-    def process_datacore_object(
-        self, blueprint: "Blueprint", object: "DataCoreBase", *args, **kwargs
-    ) -> bool:
+    def process_datacore_object(self, blueprint: "Blueprint", object: "DataCoreBase", *args, **kwargs) -> bool:
         """Processes the given `object` for `Blueprint` using the appropriate processor for its `type`.
 
         Multiple processors for a `datacore_type` may be registered, and each one will be tried in turn until one is
@@ -153,9 +136,7 @@ register_filetype_processor = processor_manager.register_filetype_processor
 process_p4kfile = processor_manager.process_p4kfile
 
 processors_for_datacore_type = processor_manager.processors_for_datacore_type
-unregister_datacore_type_processor = (
-    processor_manager.unregister_datacore_type_processor
-)
+unregister_datacore_type_processor = processor_manager.unregister_datacore_type_processor
 register_datacore_type_processor = processor_manager.register_datacore_type_processor
 process_datacore_object = processor_manager.process_datacore_object
 # endregion singleton access methods
@@ -189,8 +170,6 @@ def datacore_type_processor(*datacore_types, index=-1):
 
     def do_register(func):
         global processor_manager
-        return processor_manager.register_datacore_type_processor(
-            datacore_types, func, index
-        )
+        return processor_manager.register_datacore_type_processor(datacore_types, func, index)
 
     return do_register

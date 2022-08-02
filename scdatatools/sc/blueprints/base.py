@@ -66,9 +66,7 @@ class BlueprintGeometry(dict):
         # ensure material files have the correct suffix
         if not isinstance(mats, (list, tuple, set)):
             mats = [mats]
-        self["materials"].update(
-            Path(mat).with_suffix(".mtl").as_posix().lower() for mat in mats if mat
-        )
+        self["materials"].update(Path(mat).with_suffix(".mtl").as_posix().lower() for mat in mats if mat)
 
     def add_instance(
         self,
@@ -83,9 +81,7 @@ class BlueprintGeometry(dict):
         if soc is not None:
             inst = soc.setdefault("instances", {}).setdefault(self["name"], {})
         else:
-            inst = self._blueprint.current_container.setdefault(
-                "instances", {}
-            ).setdefault(self["name"], {})
+            inst = self._blueprint.current_container.setdefault("instances", {}).setdefault(self["name"], {})
         if not name:
             name = str(len(inst))
         self.add_materials(materials or [])
@@ -198,9 +194,7 @@ class Blueprint:
             "asset_info": self.asset_info,
             "bone_names": sorted(_ for _ in self.bone_names if _),
             "geometry": {geom: self.geometry[geom] for geom in sorted(self.geometry)},
-            "tint_palettes": []
-            if not self.entity_geom
-            else sorted(self.geometry[self.entity_geom]["tint_palettes"]),
+            "tint_palettes": [] if not self.entity_geom else sorted(self.geometry[self.entity_geom]["tint_palettes"]),
             "containers": self.containers,
         }
 
@@ -229,9 +223,7 @@ class Blueprint:
         if self.monitor is not None:
             if level != logging.INFO:
                 msg = f"{logging.getLevelName(level)}: {msg}"
-            self.monitor(
-                msg, progress=progress, total=total, level=level, exc_info=exc_info
-            )
+            self.monitor(msg, progress=progress, total=total, level=level, exc_info=exc_info)
         if exc_info is not None:
             logger.exception(msg, exc_info=exc_info)
         else:
@@ -265,9 +257,7 @@ class Blueprint:
             self._containers_to_process.setdefault(path, attrs)
             self.add_file_to_extract(path, no_process=True)
 
-    def add_file_to_extract(
-        self, path: typing.Union[str, list, tuple, set, Path], no_process=False
-    ) -> str:
+    def add_file_to_extract(self, path: typing.Union[str, list, tuple, set, Path], no_process=False) -> str:
         """Add an additional file to be extracted from the Data.p4k
 
         :param path: Path (or list of paths) of the file within the `Data.p4k`
@@ -300,17 +290,13 @@ class Blueprint:
                     if not no_process:
                         self._entities_to_process.add(("path", path))
             elif base in self.sc.p4k.BaseNameToInfo:
-                return self.add_file_to_extract(
-                    [_.filename for _ in self.sc.p4k.BaseNameToInfo[base]], no_process
-                )
+                return self.add_file_to_extract([_.filename for _ in self.sc.p4k.BaseNameToInfo[base]], no_process)
             else:
                 if base.endswith("disp"):
                     # a lot of textures miss the 'l' at the end of the file... may as well catch them
                     base += "l"
                     if base in self.sc.p4k.BaseNameToInfo:
-                        return self.add_file_to_extract(
-                            [_.filename for _ in self.sc.p4k.BaseNameToInfo[base]]
-                        )
+                        return self.add_file_to_extract([_.filename for _ in self.sc.p4k.BaseNameToInfo[base]])
                 self.log(f"could not find file in P4K: {path}", logging.WARNING)
                 return ""
         return path
@@ -335,15 +321,11 @@ class Blueprint:
 
         if guid not in self.records:
             record = self.sc.datacore.records_by_guid[guid]
-            self.log(
-                f"+ record: {Path(record.filename).relative_to(RECORDS_BASE_PATH).as_posix()}"
-            )
+            self.log(f"+ record: {Path(record.filename).relative_to(RECORDS_BASE_PATH).as_posix()}")
             self.records.add(guid)
             self._entities_to_process.add(("record", guid))
             self._container_for_record[guid] = self.current_container
-            outrec = (Path("Data") / record.filename).with_suffix(
-                f".{self.convert_cryxml_fmt}"
-            )
+            outrec = (Path("Data") / record.filename).with_suffix(f".{self.convert_cryxml_fmt}")
             if self.convert_cryxml_fmt == "xml":
                 self.converted_files[outrec] = record.dcb.dump_record_xml(record)
             else:
@@ -390,28 +372,16 @@ class Blueprint:
         if geom_path.suffix.lower() == ".cdf":
             # parse the cdf and create it's sub_geometry as well
             try:
-                p4k_path = (
-                    (Path("data") / geom_path)
-                    if geom_path.parts[0].lower() != "data"
-                    else geom_path
-                )
+                p4k_path = (Path("data") / geom_path) if geom_path.parts[0].lower() != "data" else geom_path
                 p4k_info = self.sc.p4k.NameToInfoLower[p4k_path.as_posix().lower()]
-                cdf = dict_from_cryxml_file(self.sc.p4k.open(p4k_info))[
-                    "CharacterDefinition"
-                ]
+                cdf = dict_from_cryxml_file(self.sc.p4k.open(p4k_info))["CharacterDefinition"]
                 geom_path = Path(cdf["Model"]["@File"])
                 attachments = cdf["AttachmentList"]["Attachment"]
                 if isinstance(attachments, dict):
-                    attachments = [
-                        attachments
-                    ]  # happens if there is only one attachment
+                    attachments = [attachments]  # happens if there is only one attachment
                 # TODO: handle attachment points that don't have geometry (doesn't have a @Binding)
                 sub_geometry.update(
-                    {
-                        _["@Binding"]: {"attrs": {"bone_name": _["@AName"]}}
-                        for _ in attachments
-                        if "@Binding" in _
-                    }
+                    {_["@Binding"]: {"attrs": {"bone_name": _["@AName"]}} for _ in attachments if "@Binding" in _}
                 )
             except KeyError:
                 self.log(f"failed to parse cdf: {geom_path}", logging.ERROR)
@@ -419,15 +389,8 @@ class Blueprint:
 
         if geom_path.suffix.lower() == ".cgf":
             # check to see if there is a cga equivalent, and use that instead
-            test_path = (
-                (Path("data") / geom_path)
-                if geom_path.parts[0].lower() != "data"
-                else geom_path
-            )
-            if (
-                test_path.with_suffix(".cga").as_posix().lower()
-                in self.sc.p4k.NameToInfoLower
-            ):
+            test_path = (Path("data") / geom_path) if geom_path.parts[0].lower() != "data" else geom_path
+            if test_path.with_suffix(".cga").as_posix().lower() in self.sc.p4k.NameToInfoLower:
                 geom_path = geom_path.with_suffix(".cga")
 
         geom_name = geom_path.as_posix().lower()
@@ -436,9 +399,7 @@ class Blueprint:
             geom_path = Path(*geom_path.parts[1:])
 
         if parent is not None:
-            child_geom, _ = self.get_or_create_geom(
-                geom_path, create_params=create_params
-            )
+            child_geom, _ = self.get_or_create_geom(geom_path, create_params=create_params)
             parent.add_sub_geometry(child_geom, **create_params)
             return parent, True
 
@@ -491,9 +452,7 @@ class Blueprint:
             guid = record.id.value
         else:
             guid = record
-        self.add_record_to_extract(
-            guid
-        )  # make sure the record has been tracked at least at some point
+        self.add_record_to_extract(guid)  # make sure the record has been tracked at least at some point
         if guid not in self.record_geometry:
             from scdatatools.sc.blueprints.processors.datacore import (
                 process_geometry_resource_params,
@@ -502,11 +461,7 @@ class Blueprint:
             record = self.sc.datacore.records_by_guid[guid]
             try:
                 geom_component = next(
-                    iter(
-                        _
-                        for _ in record.properties["Components"]
-                        if _.type == "SGeometryResourceParams"
-                    )
+                    iter(_ for _ in record.properties["Components"] if _.type == "SGeometryResourceParams")
                 )
                 process_geometry_resource_params(self, geom_component, record)
                 # ent_pro = ('record', guid)
@@ -546,9 +501,7 @@ class Blueprint:
         return cont.get("containers", {}).get(name)
 
     @contextmanager
-    def set_current_container(
-        self, container: typing.Union[str, dict], attrs: dict = None
-    ):
+    def set_current_container(self, container: typing.Union[str, dict], attrs: dict = None):
         """Context manager used to scope the `current_container` while building up the `Blueprint`
 
         with current_container('base.base_int_body_main'):
@@ -563,16 +516,16 @@ class Blueprint:
             if isinstance(container, str):
                 if "." in container:
                     container, sub = container.split(".", maxsplit=1)
-                    self.current_container = previous_container.setdefault(
-                        "containers", {}
-                    ).setdefault(container, self._empty_container(attrs))
+                    self.current_container = previous_container.setdefault("containers", {}).setdefault(
+                        container, self._empty_container(attrs)
+                    )
                     with self.set_current_container(sub) as cont:
                         yield cont
                     return
 
-                self.current_container = previous_container.setdefault(
-                    "containers", {}
-                ).setdefault(container, self._empty_container(attrs))
+                self.current_container = previous_container.setdefault("containers", {}).setdefault(
+                    container, self._empty_container(attrs)
+                )
             else:
                 self.current_container = container
             yield self.current_container
@@ -581,9 +534,7 @@ class Blueprint:
 
     def _process_record(self, record_guid, *args, **kwargs):
         try:
-            process_datacore_object(
-                self, self.sc.datacore.records_by_guid[record_guid], *args, **kwargs
-            )
+            process_datacore_object(self, self.sc.datacore.records_by_guid[record_guid], *args, **kwargs)
         except Exception as e:
             self.log(f"processing record {record_guid}: {e}", logging.ERROR, exc_info=e)
             raise
@@ -617,22 +568,14 @@ class Blueprint:
                             exc_info=e,
                         )
 
-            cur_entities_to_process = (
-                self._entities_to_process - self._processed_entities
-            )
+            cur_entities_to_process = self._entities_to_process - self._processed_entities
             self._entities_to_process = set()
             for ent_type, entity in cur_entities_to_process:
-                sentry_sdk.set_context(
-                    "blueprint.processing", {"entity_type": ent_type, "entity": entity}
-                )
+                sentry_sdk.set_context("blueprint.processing", {"entity_type": ent_type, "entity": entity})
                 if ent_type == "record":
                     with self.set_current_container(self._container_for_record[entity]):
-                        self._process_record(
-                            entity
-                        )  # processed records can add more records to process
+                        self._process_record(entity)  # processed records can add more records to process
                 else:
                     with self.set_current_container(self._container_for_path[entity]):
-                        self._process_p4k_file(
-                            entity
-                        )  # processed files could add more files to process
+                        self._process_p4k_file(entity)  # processed files could add more files to process
             self._processed_entities |= cur_entities_to_process

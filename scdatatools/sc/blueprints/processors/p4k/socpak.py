@@ -115,36 +115,27 @@ def process_soc(bp: "Blueprint", soc, bone_name, geom_attrs):
                     continue  # TODO: handle these, see SOC_ENTITY_CLASSES_TO_SKIP
                 elif "EntityGeometryResource" in entity.get("PropertiesDataCore", {}):
                     geom, _ = bp.get_or_create_geom(
-                        entity["PropertiesDataCore"]["EntityGeometryResource"][
-                            "Geometry"
-                        ]["Geometry"]["Geometry"]["@path"]
+                        entity["PropertiesDataCore"]["EntityGeometryResource"]["Geometry"]["Geometry"]["Geometry"][
+                            "@path"
+                        ]
                     )
                 elif entity.get("@EntityClass") == "TransitManager":
                     gateway_index = int(
-                        entity["SCTransitManager"]["CarriageSpawnLocations"][
-                            "SpawnLocation"
-                        ]["@gatewayIndex"]
+                        entity["SCTransitManager"]["CarriageSpawnLocations"]["SpawnLocation"]["@gatewayIndex"]
                     )
-                    gateway = entity["SCTransitManager"]["TransitDestinations"][
-                        "Destination"
-                    ][gateway_index]
+                    gateway = entity["SCTransitManager"]["TransitDestinations"]["Destination"][gateway_index]
                     blueprint_from_socpak(
                         bp.sc,
-                        socpak=entity["PropertiesDataCore"]["SCTransitManager"][
-                            "carriageInterior"
-                        ]["@path"],
+                        socpak=entity["PropertiesDataCore"]["SCTransitManager"]["carriageInterior"]["@path"],
                         container_name=entity["@Name"],
                         bp=bp,
                         attrs={
                             "pos": (
-                                vector_from_csv(entity["@Pos"])
-                                + vector_from_csv(gateway["Gateway"]["@gatewayPos"])
+                                vector_from_csv(entity["@Pos"]) + vector_from_csv(gateway["Gateway"]["@gatewayPos"])
                             ),
                             "rotation": (
                                 quaternion_from_csv(entity.get("@Rotate", "1,0,0,0"))
-                                * quaternion_from_csv(
-                                    gateway["Gateway"]["@gatewayQuat"]
-                                )
+                                * quaternion_from_csv(gateway["Gateway"]["@gatewayQuat"])
                             ),
                         },
                     )
@@ -153,14 +144,10 @@ def process_soc(bp: "Blueprint", soc, bone_name, geom_attrs):
                     process_light_object(bp, bpsoc, entity, bone_name)
                     continue
                 elif ecguid := entity.get("@EntityClassGUID"):
-                    base_geom_path = bp.geometry_for_record(
-                        bp.sc.datacore.records_by_guid.get(ecguid), base=True
-                    )
+                    base_geom_path = bp.geometry_for_record(bp.sc.datacore.records_by_guid.get(ecguid), base=True)
                     geom, _ = bp.get_or_create_geom(base_geom_path)
                 if geom is not None:
-                    w, x, y, z = (
-                        float(_) for _ in entity.get("@Rotate", "1,0,0,0").split(",")
-                    )
+                    w, x, y, z = (float(_) for _ in entity.get("@Rotate", "1,0,0,0").split(","))
                     if "@Layer" in entity:
                         geom_attrs["layer"] = entity["@Layer"]
                     geom.add_instance(
@@ -174,8 +161,7 @@ def process_soc(bp: "Blueprint", soc, bone_name, geom_attrs):
                     )
                 else:
                     bp.log(
-                        f"WARNING: non-skipped soc EntityClass doesnt have geometry: "
-                        f'{entity.get("@EntityClass")}',
+                        f"WARNING: non-skipped soc EntityClass doesnt have geometry: " f'{entity.get("@EntityClass")}',
                         logging.WARNING,
                     )
             except Exception as e:

@@ -44,9 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 class StarCitizen:
-    def __init__(
-        self, game_folder, p4k_file="Data.p4k", p4k_load_monitor=None, cache_dir=None
-    ):
+    def __init__(self, game_folder, p4k_file="Data.p4k", p4k_load_monitor=None, cache_dir=None):
         plugin_manager.setup()  # make sure the plugin manager is setup
 
         self.branch = self.build_time_stamp = self.config = self.version = None
@@ -56,10 +54,7 @@ class StarCitizen:
         self._p4k_load_monitor = p4k_load_monitor
 
         self.game_folder = Path(game_folder).absolute()
-        if (
-            self.game_folder.is_file()
-            and self.game_folder.name.casefold() == p4k_file.casefold()
-        ):
+        if self.game_folder.is_file() and self.game_folder.name.casefold() == p4k_file.casefold():
             self.game_folder = self.game_folder.parent
         if not self.game_folder.is_dir():
             raise ValueError(f"{self.game_folder} is not a directory")
@@ -70,9 +65,7 @@ class StarCitizen:
             raise ValueError(f"Could not find p4k file {self.p4k_file}")
 
         # setup initial empty caches
-        self._datacore = (
-            self._tag_database
-        ) = self._wwise_manager = self._localization = self._profile = None
+        self._datacore = self._tag_database = self._wwise_manager = self._localization = self._profile = None
         self._prefab_manager = self._oc_manager = None
 
         for ver_file in TRY_VERSION_FILES:
@@ -88,9 +81,7 @@ class StarCitizen:
                         self.version = data.get("RequestedP4ChangeNum", None)
                         self.shelved_change = data.get("Shelved_Change", None)
                         self.tag = data.get("Tag", None)
-                        self.version_label = (
-                            f"{self.branch}-{self.version}"  # better than nothing
-                        )
+                        self.version_label = f"{self.branch}-{self.version}"  # better than nothing
                         break
                     except Exception as e:  # noqa
                         pass
@@ -151,9 +142,7 @@ class StarCitizen:
                     if not skip_data_hash or f.suffix in P4K_ALWAYS_HASH_DATA_FILES:
                         inv[path] = (
                             f.stat().st_size,
-                            xxhash32_file(f)
-                            if f.is_file() and f.name != "Data.p4k"
-                            else None,
+                            xxhash32_file(f) if f.is_file() and f.name != "Data.p4k" else None,
                         )
                     else:
                         inv[path] = (f.stat().st_size, None)
@@ -175,10 +164,7 @@ class StarCitizen:
                 if path in inv:
                     print(f"Error duplicate path: {path}")
                 elif not f.is_dir():
-                    if (
-                        not skip_data_hash
-                        or Path(f.filename).suffix in P4K_ALWAYS_HASH_DATA_FILES
-                    ):
+                    if not skip_data_hash or Path(f.filename).suffix in P4K_ALWAYS_HASH_DATA_FILES:
                         fp = self.p4k.open(f, "r")
                         inv[path] = (f.file_size, xxhash32_file(fp))
                         fp.close()
@@ -195,15 +181,11 @@ class StarCitizen:
             unit_scale=True,
         ):
 
-            path = (
-                f'{(dcb_path / r.filename).with_suffix("").as_posix()}.{r.id.value}.xml'
-            )
+            path = f'{(dcb_path / r.filename).with_suffix("").as_posix()}.{r.id.value}.xml'
             try:
                 data = self.datacore.dump_record_json(r, indent=None).encode("utf-8")
             except Exception as e:
-                data = f"Failed to generate data for record {r.filename}:{r.id.value}. {e}".encode(
-                    "utf-8"
-                )
+                data = f"Failed to generate data for record {r.filename}:{r.id.value}. {e}".encode("utf-8")
                 print("\n" + data)
             if path in inv:
                 print(f"Error duplicate path: {path}")
@@ -248,9 +230,7 @@ class StarCitizen:
     @p4k.setter
     def p4k(self, p4k_file):
         if self.is_loaded("p4k"):
-            raise ValueError(
-                "Cannot assign a p4k file to an already loaded StarCitizen"
-            )
+            raise ValueError("Cannot assign a p4k file to an already loaded StarCitizen")
 
         if not isinstance(p4k_file, P4KFile):
             raise ValueError("p4k must be a P4KFile")
@@ -272,9 +252,7 @@ class StarCitizen:
                 dcb = self.p4k.getinfo("Data/Game.dcb")
                 if self.cache_dir:
                     logger.debug(f"Saving datacore cache to {self.cache_dir}")
-                    self.p4k.extract(
-                        dcb, path=self.cache_dir, save_to=True, monitor=None
-                    )
+                    self.p4k.extract(dcb, path=self.cache_dir, save_to=True, monitor=None)
             with dcb.open("rb") as f:
                 self._datacore = DataCoreBinary(f.read())
                 self._is_loaded["datacore"] = True
@@ -319,8 +297,7 @@ class StarCitizen:
                             return self.version_label
             else:
                 sys.stderr.write(
-                    f"Could not determine version label for {self.version} "
-                    f"from library {launcher.library}"
+                    f"Could not determine version label for {self.version} " f"from library {launcher.library}"
                 )
                 return ""
         except KeyError:

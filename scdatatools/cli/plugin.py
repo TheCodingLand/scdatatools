@@ -122,9 +122,7 @@ class SCDTNubiaPlugin(PluginInterface):
 
         # err_fmt = logging.Formatter(fmt="[%(asctime)-15s] [%(level)s] [%(name)s] %(thread)s%(message)s")
         err_console = Console(stderr=True)
-        err_handler = RichHandler(
-            console=err_console, rich_tracebacks=True, tracebacks_show_locals=True
-        )
+        err_handler = RichHandler(console=err_console, rich_tracebacks=True, tracebacks_show_locals=True)
         err_handler.addFilter(ErrorFilter())
         logging.root.addHandler(err_handler)
 

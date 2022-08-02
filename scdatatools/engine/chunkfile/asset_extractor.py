@@ -13,9 +13,7 @@ class ModelAssetsExtractor(plugins.P4KConverterPlugin):
     name = "model_assets_extractor"
     display_name = "Model Assets Extractor"
     handles = CGF_CONVERTER_MODEL_EXTS
-    converter_hook_kwargs = {
-        "priority": 10  # makes sure this plugin gets run before other converts (default is 100)
-    }
+    converter_hook_kwargs = {"priority": 10}  # makes sure this plugin gets run before other converts (default is 100)
 
     @classmethod
     def convert(
@@ -50,7 +48,5 @@ class ModelAssetsExtractor(plugins.P4KConverterPlugin):
             if ext in handled_exts:
                 bp.add_file_to_extract(member.filename)
 
-        bp_files_to_extract = set(
-            sc.p4k.search(bp.extract_filter, ignore_case=True, mode="in_strip")
-        )
+        bp_files_to_extract = set(sc.p4k.search(bp.extract_filter, ignore_case=True, mode="in_strip"))
         return list(members_to_extract | bp_files_to_extract), []

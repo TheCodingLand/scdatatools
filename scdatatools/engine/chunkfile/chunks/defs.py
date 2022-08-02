@@ -25,9 +25,7 @@ class ChunkType(IntEnum):
     BoneLightBinding = (0x1010,)
     MeshMorphTarget = (0x1011,)
     BoneInitialPos = (0x1012,)
-    SourceInfo = (
-        0x1013,
-    )  # Describes the source from which the cgf was exported: source max file, machine and user.
+    SourceInfo = (0x1013,)  # Describes the source from which the cgf was exported: source max file, machine and user.
     MtlName = (0x1014,)  # provides material name as used in the material.xml file
     ExportFlags = (0x1015,)  # Describes export information
     DataStream = (0x1016,)  # A data stream
@@ -46,34 +44,18 @@ class ChunkType(IntEnum):
     CryXMLB = (0x0004,)
     JSON = (0x0011,)
 
-    UnknownSC1 = (
-        0x3004,
-    )  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
-    UnknownSC2 = (
-        0x0002,
-    )  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
+    UnknownSC1 = (0x3004,)  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
+    UnknownSC2 = (0x0002,)  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
 
     # https://github.com/dymek91/Exporting-Toolkit/blob/master/shipsExporter/CryEngine/ChCr/SCOC/Chunk_AreaShape.cs
-    AreaShape = (
-        0x000E,
-    )  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
+    AreaShape = (0x000E,)  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
 
     # https://github.com/dymek91/Exporting-Toolkit/blob/master/shipsExporter/CryEngine/ChCr/SCOC/Chunk_Objects.cs
-    IncludedObjects = (
-        0x0010,
-    )  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
-    UnknownSC5 = (
-        0x0008,
-    )  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
-    UnknownSC6 = (
-        0x300A,
-    )  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
-    UnknownSC7 = (
-        0x4002,
-    )  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
-    UnknownSC8 = (
-        0x3005,
-    )  # Data\Objects\planets\flora\bush\bayberry_01\bayberry_01.cgfm: 12293
+    IncludedObjects = (0x0010,)  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
+    UnknownSC5 = (0x0008,)  # 'data/objectcontainers/ships/aegs/javelin/base_int_hab_main/base_int_hab_main.soc'
+    UnknownSC6 = (0x300A,)  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
+    UnknownSC7 = (0x4002,)  # 'data/objects/spaceships/ships/aegs/javelin/exteriors/aegs_javelin.cga'
+    UnknownSC8 = (0x3005,)  # Data\Objects\planets\flora\bush\bayberry_01\bayberry_01.cgfm: 12293
     UnknownSC9 = (0x0013,)
     UnknownSC10 = (0x0014,)
     UnknownSC11 = (0x000B,)
@@ -130,9 +112,7 @@ def chunk_handler(chunk_type: ChunkType, versions: typing.List[int]):
 def chunk_header_handler(version):
     def do_register(chunk_class):
         if version in CHUNK_HEADER_CLASSES:
-            raise KeyError(
-                f"ChunkHeader class already registered for version 0x{version:04x}"
-            )
+            raise KeyError(f"ChunkHeader class already registered for version 0x{version:04x}")
         CHUNK_HEADER_CLASSES[version] = chunk_class
         return chunk_class
 

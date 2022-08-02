@@ -57,9 +57,7 @@ def _check_bin(converter=ConverterUtility.default, converter_bin=""):
     if converter != ConverterUtility.default and converter_bin:
         return converter, converter_bin
     elif converter == ConverterUtility.default and converter_bin:
-        raise ValueError(
-            f"Cannot specify converter_bin and `ConverterUtility.default` at the same time"
-        )
+        raise ValueError(f"Cannot specify converter_bin and `ConverterUtility.default` at the same time")
 
     if converter == ConverterUtility.default:
         if TEXCONV:
@@ -67,20 +65,16 @@ def _check_bin(converter=ConverterUtility.default, converter_bin=""):
         if COMPRESSONATORCLI:
             return ConverterUtility.compressonator, COMPRESSONATORCLI
         raise ConverterUnavailable(
-            "Converter is not available. Please make sure `texconv` or "
-            "`compressonatorcli` is in your system PATH"
+            "Converter is not available. Please make sure `texconv` or " "`compressonatorcli` is in your system PATH"
         )
     elif converter == ConverterUtility.texconv:
         if not TEXCONV:
-            raise ConverterUnavailable(
-                "Converter is not available. Please make sure `texconv` is in your system PATH"
-            )
+            raise ConverterUnavailable("Converter is not available. Please make sure `texconv` is in your system PATH")
         return ConverterUtility.texconv, TEXCONV
     elif converter == ConverterUtility.compressonator:
         if not COMPRESSONATORCLI:
             raise ConverterUnavailable(
-                "Converter is not available. Please make sure `compressonatorcli` is in your "
-                "system PATH"
+                "Converter is not available. Please make sure `compressonatorcli` is in your " "system PATH"
             )
         return ConverterUtility.compressonator, COMPRESSONATORCLI
     else:
@@ -108,11 +102,7 @@ def convert_buffer(
         of the returned `bytes`
     """
 
-    out_format = (
-        DDS_CONV_FORMAT.get(sys.platform, DDS_CONV_FALLBACK)
-        if out_format == "default"
-        else out_format
-    )
+    out_format = DDS_CONV_FORMAT.get(sys.platform, DDS_CONV_FALLBACK) if out_format == "default" else out_format
     out_format = out_format.replace(".", "")
     _ = tempfile.NamedTemporaryFile(suffix=f".{out_format}")
     tmpout = Path(_.name)
@@ -162,9 +152,7 @@ def tex_convert(
     :return: :class:`Path` of the converted image if successful
     """
     if converter_cli_args and converter == ConverterUtility.default:
-        raise ValueError(
-            f"You must specify which converter to use when supplying converter_cli_args"
-        )
+        raise ValueError(f"You must specify which converter to use when supplying converter_cli_args")
     try_compressonator = converter == ConverterUtility.default
     converter, converter_bin = _check_bin(converter, converter_bin)
 
@@ -205,17 +193,11 @@ def tex_convert(
         Path(outfile).parent.mkdir(parents=True, exist_ok=True)
         if converter in [ConverterUtility.default, ConverterUtility.texconv]:
             if dds.is_glossmap(infile.name):
-                converter_cli_args = (
-                    DEFAULT_TEXCONV_ARGS + TEXCONV_GLOSSMAP_ARGS + converter_cli_args
-                )
+                converter_cli_args = DEFAULT_TEXCONV_ARGS + TEXCONV_GLOSSMAP_ARGS + converter_cli_args
             elif dds.is_normals(infile.name):
-                converter_cli_args = (
-                    DEFAULT_TEXCONV_ARGS + TEXCONV_DDNA_ARGS + converter_cli_args
-                )
+                converter_cli_args = DEFAULT_TEXCONV_ARGS + TEXCONV_DDNA_ARGS + converter_cli_args
             else:
-                converter_cli_args = (
-                    DEFAULT_TEXCONV_ARGS + TEXCONV_DEFAULT_ARGS + converter_cli_args
-                )
+                converter_cli_args = DEFAULT_TEXCONV_ARGS + TEXCONV_DEFAULT_ARGS + converter_cli_args
             cmd = f'"{converter_bin}" -ft {ft} {converter_cli_args} "{tmpin.name}"'
             try:
                 r = subprocess.run(
@@ -228,9 +210,7 @@ def tex_convert(
                 )
                 # texconv outputs to the same location as the input file, so move it to the requested output path
                 # if successful
-                shutil.move(
-                    outfile.parent / f"{Path(tmpin.name).stem}.{ft}", outfile.absolute()
-                )
+                shutil.move(outfile.parent / f"{Path(tmpin.name).stem}.{ft}", outfile.absolute())
                 return outfile
             except subprocess.CalledProcessError as e:
                 err_msg = f'Error converting with texconv: {e.output.decode("utf-8", errors="ignore")}'
@@ -242,17 +222,11 @@ def tex_convert(
             if try_compressonator:
                 # we've failed into compressonator, so pick-up it's path
                 try:
-                    converter, converter_bin = _check_bin(
-                        ConverterUtility.compressonator
-                    )
+                    converter, converter_bin = _check_bin(ConverterUtility.compressonator)
                 except ConverterUnavailable:
                     # compressonator not available, return texconv error
                     raise ConversionError(err_msg)
-            converter_cli_args = (
-                converter_cli_args
-                if converter_cli_args
-                else DEFAULT_COMPRESSONATOR_ARGS
-            )
+            converter_cli_args = converter_cli_args if converter_cli_args else DEFAULT_COMPRESSONATOR_ARGS
             cmd = f"{converter_bin} {converter_cli_args} {tmpin.name} {outfile.absolute()}"
             try:
                 r = subprocess.run(
@@ -266,9 +240,7 @@ def tex_convert(
             except subprocess.CalledProcessError as e:
                 err = f'Error converting with compressonator: {e.output.decode("utf-8", errors="ignore")}'
                 if err_msg:
-                    raise ConversionError(
-                        f"Failed to convert with texconv and compressonatorcli:\n\n{err_msg}\n{err}"
-                    )
+                    raise ConversionError(f"Failed to convert with texconv and compressonatorcli:\n\n{err_msg}\n{err}")
                 raise ConversionError(err)
     finally:
         os.unlink(tmpin.name)
@@ -294,15 +266,11 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
         options = options or {}
         output_fmt = options.get("ddstexture_converter_fmt", "dds").casefold()
 
-        if output_fmt == "dds" and not options.get(
-            "ddstexture_converter_unsplit", False
-        ):
+        if output_fmt == "dds" and not options.get("ddstexture_converter_unsplit", False):
             # output dds and unsplit not checked, do nothing
             return members, []
 
-        converter = ConverterUtility(
-            options.get("ddstexture_converter_converter", "default")
-        )
+        converter = ConverterUtility(options.get("ddstexture_converter_converter", "default"))
         converter_bin = options.get("ddstexture_converter_converter_bin", "")
         converter_cli_args = options.get("ddstexture_converter_converter_cli_args", "")
         replace = options.get("ddstexture_converter_replace", False)
@@ -311,9 +279,7 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
         extracted_paths = []
         to_convert = []
         while members:
-            f = members[
-                -1
-            ]  # collect_parts needs the file to be in the list, so pop it later, -1 since we're popping
+            f = members[-1]  # collect_parts needs the file to be in the list, so pop it later, -1 since we're popping
             if ".dds" not in f.filename.casefold():
                 unhandled_members.append(members.pop())
             else:
@@ -325,9 +291,7 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
                 if is_glossmap:
                     out_name += ".glossmap"
 
-                outdds = outpath.with_name(
-                    out_name + (".dds.a" if is_glossmap else ".dds")
-                )
+                outdds = outpath.with_name(out_name + (".dds.a" if is_glossmap else ".dds"))
                 if output_fmt == "dds":
                     outpath = outdds
                 else:
@@ -343,11 +307,7 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
                         # only unsplit
                         dds.unsplit_dds(parts, outdds)
                         if monitor is not None:
-                            dds_header = [
-                                _
-                                for _ in parts
-                                if _.endswith(".dds") or _.endswith(".dds.a")
-                            ][0]
+                            dds_header = [_ for _ in parts if _.endswith(".dds") or _.endswith(".dds.a")][0]
                             monitor(monitor_msg_from_info(parts[dds_header]))
 
                         if output_fmt != "dds":
@@ -378,9 +338,7 @@ class DDSTextureConverter(plugins.P4KConverterPlugin):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = []
             for conv in to_convert:
-                futures.append(
-                    executor.submit(_do_convert, tex_in=conv[0], tex_out=conv[1])
-                )
+                futures.append(executor.submit(_do_convert, tex_in=conv[0], tex_out=conv[1]))
             for future in concurrent.futures.as_completed(futures):
                 if monitor is not None:
                     out, error = future.result()

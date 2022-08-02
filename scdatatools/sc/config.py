@@ -26,11 +26,7 @@ class Profile:
     def actionmap(self, language=None):
         m = {}
         for am in self.json["profile"]["actionmap"]:
-            category = (
-                self.sc.gettext(am["@UICategory"], language=language)
-                if "@UICategory" in am
-                else "Other"
-            )
+            category = self.sc.gettext(am["@UICategory"], language=language) if "@UICategory" in am else "Other"
 
             if "@UILabel" in am and am["@UILabel"]:
                 label = self.sc.gettext(am["@UILabel"], language=language)
@@ -56,9 +52,7 @@ class Profile:
                     else self.sc.gettext(a["@name"], language=language)
                 )
                 m[category][label][al] = {
-                    self.sc.gettext(k, language=language).lstrip("@"): self.sc.gettext(
-                        v, language=language
-                    )
+                    self.sc.gettext(k, language=language).lstrip("@"): self.sc.gettext(v, language=language)
                     if isinstance(v, str)
                     else v
                     for k, v in a.items()
@@ -68,19 +62,13 @@ class Profile:
 
     def dump_actionmap_csv(self, fp, language=None):
         am = self.actionmap(language)
-        writer = csv.DictWriter(
-            fp, fieldnames=ACTION_MAP_FIELD_NAMES, extrasaction="ignore"
-        )
+        writer = csv.DictWriter(fp, fieldnames=ACTION_MAP_FIELD_NAMES, extrasaction="ignore")
         writer.writeheader()
         action_map = []
         for ui_category, action_category in am.items():
             for category, actions in action_category.items():
                 for label, action in actions.items():
-                    action_map.append(
-                        {**{"Category": category, "Action": label}, **action}
-                    )
+                    action_map.append({**{"Category": category, "Action": label}, **action})
 
-        for row in sorted(
-            action_map, key=lambda r: (r["Category"].casefold(), r["Action"].casefold())
-        ):
+        for row in sorted(action_map, key=lambda r: (r["Category"].casefold(), r["Action"].casefold())):
             writer.writerow(row)

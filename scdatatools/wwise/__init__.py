@@ -24,14 +24,10 @@ class WwiseManager:
         :param revorb: Optionally specify the revorb command path. Otherwise it will try to be automatically found.
         """
         self.sc = sc
-        self.wems = {
-            Path(_.filename).stem: _ for _ in sc.p4k.search("Data/Sounds/wwise/*.wem")
-        }
+        self.wems = {Path(_.filename).stem: _ for _ in sc.p4k.search("Data/Sounds/wwise/*.wem")}
         self.bank_manager = BankManager()
         for bnk in self.sc.p4k.search("Data/Sounds/wwise/*.bnk"):
-            self.bank_manager.load_bank(
-                Path(bnk.filename).name, sc.p4k.open(bnk).read()
-            )
+            self.bank_manager.load_bank(Path(bnk.filename).name, sc.p4k.open(bnk).read())
 
         self.preloads = {}
         self.triggers = {}
@@ -70,13 +66,9 @@ class WwiseManager:
             self.preloads[ga_name] = {"triggers": {}, "external_sources": {}}
 
             # Process ATL Triggers
-            atl_triggers = (
-                ga.get("ATLConfig", {}).get("AudioTriggers", {}).get("ATLTrigger", [])
-            )
+            atl_triggers = ga.get("ATLConfig", {}).get("AudioTriggers", {}).get("ATLTrigger", [])
             if isinstance(atl_triggers, dict):
-                atl_triggers = [
-                    atl_triggers
-                ]  # if there is only one trigger it wont be a list
+                atl_triggers = [atl_triggers]  # if there is only one trigger it wont be a list
             for trigger in atl_triggers:
                 atl_name = trigger.get("@atl_name", "")
                 if atl_name:
@@ -84,15 +76,9 @@ class WwiseManager:
                     self.triggers[atl_name] = trigger
 
             # Process ATLExternalSources
-            atl_ext_sources = (
-                ga.get("ATLConfig", {})
-                .get("AudioExternalSources", {})
-                .get("ATLExternalSource", [])
-            )
+            atl_ext_sources = ga.get("ATLConfig", {}).get("AudioExternalSources", {}).get("ATLExternalSource", [])
             if isinstance(atl_ext_sources, dict):
-                atl_ext_sources = [
-                    atl_ext_sources
-                ]  # if there is only one ext_source it wont be a list
+                atl_ext_sources = [atl_ext_sources]  # if there is only one ext_source it wont be a list
             for ext_source in atl_ext_sources:
                 atl_name = ext_source.get("@atl_name", "")
                 if atl_name:
@@ -105,9 +91,7 @@ class WwiseManager:
         if not atl_name:
             return {}
         if atl_name in self.external_sources:
-            wf = self.external_sources[atl_name]["ATLExternalSourceEntry"][
-                "WwiseExternalSource"
-            ]["@wwise_filename"]
+            wf = self.external_sources[atl_name]["ATLExternalSourceEntry"]["WwiseExternalSource"]["@wwise_filename"]
             wf_name = Path(wf).stem
             return {wf_name: self.wems[wf_name]}
         wem_ids = self.bank_manager.wems_for_atl_name(atl_name)
@@ -144,9 +128,7 @@ class WwiseManager:
         _.close()
 
         if isinstance(wem_bytes_or_id, (str, int)):
-            with self.sc.p4k.open(
-                self.wems[str(wem_bytes_or_id)]
-            ) as source, tmpout.open("wb") as t:
+            with self.sc.p4k.open(self.wems[str(wem_bytes_or_id)]) as source, tmpout.open("wb") as t:
                 shutil.copyfileobj(source, t)
         elif isinstance(wem_bytes_or_id, P4KInfo):
             with self.sc.p4k.open(wem_bytes_or_id) as source, tmpout.open("wb") as t:
@@ -159,8 +141,7 @@ class WwiseManager:
         try:
             os.chdir(self.ww2ogg.parent.absolute())
             check_output(
-                f"{self.ww2ogg} {tmpout.absolute()} -o {oggout.absolute()} "
-                f"--pcb packed_codebooks_aoTuV_603.bin",
+                f"{self.ww2ogg} {tmpout.absolute()} -o {oggout.absolute()} " f"--pcb packed_codebooks_aoTuV_603.bin",
                 stderr=STDOUT,
                 shell=True,
             )

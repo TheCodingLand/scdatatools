@@ -37,25 +37,19 @@ class SoundBank:
         try:
             while offset < len(self.raw_data):
                 signature = self.raw_data[offset : offset + 4]
-                hdr = bnk_defs.HEADER_FOR_SIGNATURE[bytes(signature)].from_buffer(
-                    self.raw_data, offset
-                )
+                hdr = bnk_defs.HEADER_FOR_SIGNATURE[bytes(signature)].from_buffer(self.raw_data, offset)
                 hdr.offset = offset
                 setattr(
                     self,
                     signature.decode("utf-8", errors="ignore").strip().lower(),
                     hdr,
                 )
-                self.components[
-                    signature.decode("utf-8", errors="ignore").strip().lower()
-                ] = hdr
+                self.components[signature.decode("utf-8", errors="ignore").strip().lower()] = hdr
                 offset += hdr.length + 8
         except ValueError:
             pass
 
-        self.wems = (
-            {_.id: _ for _ in self.didx.wem_hdrs} if hasattr(self, "didx") else {}
-        )
+        self.wems = {_.id: _ for _ in self.didx.wem_hdrs} if hasattr(self, "didx") else {}
 
     def extract_wem(self, id, filename):
         wem_hdr = self.wems[id]
@@ -91,9 +85,7 @@ class BankManager:
                     found.append(self.game_objects[k][t])
         return found
 
-    def game_object_for_id(
-        self, obj_id: int, obj_type: hirc_defs.HIRCObjectTypes = None
-    ) -> hirc_defs.HIRCObject:
+    def game_object_for_id(self, obj_id: int, obj_type: hirc_defs.HIRCObjectTypes = None) -> hirc_defs.HIRCObject:
         """
         Find an object with `obj_id` in the loaded game object
         :param obj_id: `int` id to find
@@ -102,16 +94,12 @@ class BankManager:
         :return: The first matching game_object with `obj_id`
         """
         if obj_type is None or isinstance(obj_type, list):
-            obj_type = (
-                [_ for _ in hirc_defs.HIRCObjectTypes] if obj_type is None else obj_type
-            )
+            obj_type = [_ for _ in hirc_defs.HIRCObjectTypes] if obj_type is None else obj_type
             for t in obj_type:
                 if obj_id in self.game_objects[t.name]:
                     return self.game_objects[t.name][obj_id]
             else:
-                raise KeyError(
-                    f"ID does not exist for any of the types {obj_type}: {obj_id}"
-                )
+                raise KeyError(f"ID does not exist for any of the types {obj_type}: {obj_id}")
         else:
             if obj_id not in self.game_objects[obj_type.name]:
                 raise KeyError(f"ID does not exist for {obj_type.name}: {obj_id}")
@@ -145,32 +133,23 @@ class BankManager:
             for sid in obj.sounds:
                 try:
                     wems.extend(
-                        self._find_wems_from_hirc_object(
-                            self.game_object_for_id(sid), _searched=_searched + [obj.id]
-                        )
+                        self._find_wems_from_hirc_object(self.game_object_for_id(sid), _searched=_searched + [obj.id])
                     )
                 except KeyError as e:
                     logger.error(
-                        f"Error looking up sound id from HIRCRandom {obj.id} in "
-                        f'{obj_dict["bank"].filename}: {e}'
+                        f"Error looking up sound id from HIRCRandom {obj.id} in " f'{obj_dict["bank"].filename}: {e}'
                     )
             return wems
         elif obj.type in BRUTE_FORCE_TYPES:
             found_ids = [
                 _
-                for _ in self.search_for_ids_in_buf(
-                    obj_dict["bank"].raw_data[obj.offset : obj.offset + obj.length]
-                )
+                for _ in self.search_for_ids_in_buf(obj_dict["bank"].raw_data[obj.offset : obj.offset + obj.length])
                 if _["object"].id != obj.id
             ]
 
             wems = []
             for oid in found_ids:
-                wems.extend(
-                    self._find_wems_from_hirc_object(
-                        oid, _searched=_searched + [obj.id]
-                    )
-                )
+                wems.extend(self._find_wems_from_hirc_object(oid, _searched=_searched + [obj.id]))
             return wems
         else:
             logger.warning(
@@ -187,9 +166,7 @@ class BankManager:
         try:
             return self._find_wems_from_hirc_object(event)
         except KeyError as e:
-            logger.error(
-                f'{event["bank"].filename}.event.{event["object"].id}: {repr(e)}'
-            )
+            logger.error(f'{event["bank"].filename}.event.{event["object"].id}: {repr(e)}')
         return []
 
     def wems_for_atl_name(self, atl_name: str) -> list:

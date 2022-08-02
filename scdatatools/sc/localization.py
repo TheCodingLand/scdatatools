@@ -42,9 +42,7 @@ class SCLocalization:
                 lang = Path(f.name).parts[-2]
                 self.languages.append(lang)
                 self.translations[lang] = dict(
-                    _.split("=", 1)
-                    for _ in f.read().decode("utf-8").split("\r\n")
-                    if "=" in _
+                    _.split("=", 1) for _ in f.read().decode("utf-8").split("\r\n") if "=" in _
                 )
                 self.keys.update(self.translations[lang].keys())
         self.keys = sorted(self.keys)
@@ -57,11 +55,7 @@ class SCLocalization:
         :param default_response: The value to be returned if no translation exists for the given `key`. Returns the
             `key` if `None`
         """
-        language = (
-            self.default_language
-            if (language is None or language not in self.languages)
-            else language
-        )
+        language = self.default_language if (language is None or language not in self.languages) else language
         trans = self.translations.get(language, {}).get(key, "")
         if not trans and key.startswith("@"):
             trans = self.translations.get(language, {}).get(key[1:], "")

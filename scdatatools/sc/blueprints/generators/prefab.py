@@ -12,9 +12,7 @@ if typing.TYPE_CHECKING:
     from scdatatools.engine.prefabs import PrefabLibrary, Prefab
 
 
-def blueprint_from_prefab(
-    prefab: "Prefab", bp: Blueprint = None, monitor: typing.Callable = None
-) -> "Blueprint":
+def blueprint_from_prefab(prefab: "Prefab", bp: Blueprint = None, monitor: typing.Callable = None) -> "Blueprint":
     """
     Generates a `Blueprint` which can be used to extract and import the assets defined within the given `Prefab`
 
@@ -34,10 +32,8 @@ def blueprint_from_prefab(
                 geom, _ = bp.get_or_create_geom(obj["object"]["geometry"])
                 geom.add_instance(
                     name=obj["object"]["name"],
-                    pos=obj["pos_offset"]
-                    + vector_from_csv(obj["object"].get("pos", "0,0,0")),
-                    rotation=obj["rotation_offset"]
-                    * quaternion_from_csv(obj["object"].get("rotate", "1,1,1,1")),
+                    pos=obj["pos_offset"] + vector_from_csv(obj["object"].get("pos", "0,0,0")),
+                    rotation=obj["rotation_offset"] * quaternion_from_csv(obj["object"].get("rotate", "1,1,1,1")),
                     scale=vector_from_csv(obj["object"].get("scale", "1,1,1")),
                 )
             except Exception as e:

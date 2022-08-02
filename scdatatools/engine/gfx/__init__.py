@@ -45,9 +45,7 @@ class Tag:
 
     @classmethod
     def from_buffer(cls, header, data):
-        return cls(
-            header, data[header.data_offset : header.data_offset + header.data_length]
-        )
+        return cls(header, data[header.data_offset : header.data_offset + header.data_length])
 
 
 class ExportAssets(Tag):
@@ -116,9 +114,7 @@ class GFX:
         offset = ctypes.sizeof(self.header)
         while offset < self.header.file_length:
             tag_hdr = TagHeader.from_buffer(self.raw_data, offset)
-            tag = tag_from_header(
-                tag_hdr, self.raw_data[offset : offset + tag_hdr.length], offset
-            )
+            tag = tag_from_header(tag_hdr, self.raw_data[offset : offset + tag_hdr.length], offset)
 
             if isinstance(tag, ExportAssets):
                 self.assets.update(tag.assets)

@@ -109,11 +109,7 @@ def track(
     """
 
     columns: List["ProgressColumn"] = [] if IN_BLENDER else [progress.SpinnerColumn()]
-    columns.extend(
-        [progress.TextColumn("[progress.description]{task.description}")]
-        if description
-        else []
-    )
+    columns.extend([progress.TextColumn("[progress.description]{task.description}")] if description else [])
     columns.extend(
         (
             progress.BarColumn(
@@ -142,6 +138,4 @@ def track(
     )
 
     with p:
-        yield from p.track(
-            sequence, total=total, description=description, update_period=update_period
-        )
+        yield from p.track(sequence, total=total, description=description, update_period=update_period)

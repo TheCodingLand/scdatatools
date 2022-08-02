@@ -106,18 +106,14 @@ def version_from_id_file(id_file) -> (dict, str):
         version = version_data.get("RequestedP4ChangeNum", None)
         version_label = f"{branch}-{version}"
     except Exception:
-        sys.stderr.write(
-            f"Warning: Unable to determine version of P4K file, missing or corrupt c_win_shader.id"
-        )
+        sys.stderr.write(f"Warning: Unable to determine version of P4K file, missing or corrupt c_win_shader.id")
     finally:
         if opened:
             id_file.close()
     return version_data, version_label
 
 
-def etree_to_dict(
-    t: typing.Union[ElementTree.ElementTree, ElementTree.Element]
-) -> dict:
+def etree_to_dict(t: typing.Union[ElementTree.ElementTree, ElementTree.Element]) -> dict:
     """Convert the given ElementTree `t` to an dict following the following XML to JSON specification:
     https://www.xml.com/pub/a/2006/05/31/converting-between-xml-and-json.html
 
@@ -215,9 +211,7 @@ def dict_search(obj: dict, keys: typing.Union[str, list], ignore_case=False):
     return values
 
 
-def dict_contains_value(
-    obj: dict, values_to_check: typing.Union[str, list], ignore_case=False
-):
+def dict_contains_value(obj: dict, values_to_check: typing.Union[str, list], ignore_case=False):
     """returns the unique values of every key `key` within nested dict objects"""
     if not isinstance(values_to_check, list):
         values_to_check = [values_to_check]
@@ -265,9 +259,7 @@ class StructureWithEnums:
                 except ValueError:
                     pass
             else:
-                sys.stderr.write(
-                    f'\n{value} is not valid for any of the types "{repr(classes)}"\n'
-                )
+                sys.stderr.write(f'\n{value} is not valid for any of the types "{repr(classes)}"\n')
         return value
 
     def __str__(self):
@@ -275,11 +267,7 @@ class StructureWithEnums:
         for field in self._fields_:
             attr, attr_type = field
             if attr in self._map:
-                attr_type = (
-                    repr(self._map[attr])
-                    if len(self._map[attr]) > 1
-                    else self._map[attr].__name__
-                )
+                attr_type = repr(self._map[attr]) if len(self._map[attr]) > 1 else self._map[attr].__name__
             else:
                 attr_type = attr_type.__name__
             value = getattr(self, attr)
@@ -364,9 +352,7 @@ def search_for_data_dir_in_path(path):
     try:
         if not isinstance(path, Path):
             path = Path(path)
-        return Path(
-            *path.parts[: tuple(_.lower() for _ in path.parts).index("data") + 1]
-        )
+        return Path(*path.parts[: tuple(_.lower() for _ in path.parts).index("data") + 1])
     except ValueError:
         return ""
 

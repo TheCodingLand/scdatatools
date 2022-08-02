@@ -22,9 +22,7 @@ def read_and_seek(dcb, data_type, buffer=None):
     return r
 
 
-def geometry_for_record(
-    record, data_root: typing.Union[P4KFile, Path] = None, base=False
-):
+def geometry_for_record(record, data_root: typing.Union[P4KFile, Path] = None, base=False):
     """Return the primary Geometry associated with the given record.
 
     :param record: Record to resolve the geometry
@@ -36,18 +34,14 @@ def geometry_for_record(
         return None
 
     def _geom_from_geometry_node(geom_node):
-        geom_path = (
-            geom_node.properties["Geometry"].properties["Geometry"].properties["path"]
-        )
+        geom_path = geom_node.properties["Geometry"].properties["Geometry"].properties["path"]
         if geom_path:
             if isinstance(data_root, Path):
                 geom_path = data_root / Path(geom_path)
             elif isinstance(data_root, P4KFile):
                 try:
                     geom_path = data_root.getinfo(
-                        geom_path
-                        if geom_path.lower().startswith("data")
-                        else f"data/{geom_path}"
+                        geom_path if geom_path.lower().startswith("data") else f"data/{geom_path}"
                     )
                 except KeyError:
                     pass
@@ -65,11 +59,7 @@ def geometry_for_record(
     geom = None
     try:
         geom_component = next(
-            iter(
-                _
-                for _ in record.properties.get("Components", [])
-                if _.name == "SGeometryResourceParams"
-            )
+            iter(_ for _ in record.properties.get("Components", []) if _.name == "SGeometryResourceParams")
         )
         geom = _geom_from_geometry_node(geom_component.properties["Geometry"])
     except (StopIteration, KeyError):

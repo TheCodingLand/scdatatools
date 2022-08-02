@@ -97,9 +97,7 @@ class PluginManager:
     def register_plugin(self, plugin: DataToolsPlugin):
         plug = f"{plugin.__module__}.{plugin.__qualname__}"
         if not issubclass(plugin, self.PLUGIN_CLASS):
-            raise ValueError(
-                f'Invalid plugin class type for "{plug}", must inherit from {self.PLUGIN_CLASS}'
-            )
+            raise ValueError(f'Invalid plugin class type for "{plug}", must inherit from {self.PLUGIN_CLASS}')
         if plug in self.plugins:
             raise KeyError(f"Plugin {plug} has already been registered")
         self.plugins[plug] = plugin()
@@ -114,9 +112,7 @@ class PluginManager:
         del self.plugins[plug]
         logger.info(f"Unregistered plugin {plug}")
 
-    def register_hook(
-        self, hook: str, handler: callable, name=None, priority=100, **kwargs
-    ):
+    def register_hook(self, hook: str, handler: callable, name=None, priority=100, **kwargs):
         """Registers `func` with the hook `hook`"""
         hook_name = f"{handler.__module__}{handler.__name__}" if name is None else name
         self._hooks.setdefault(hook, {})[hook_name] = {

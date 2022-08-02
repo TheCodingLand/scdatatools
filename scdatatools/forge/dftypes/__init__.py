@@ -88,11 +88,7 @@ class StructureDefinition(DataCoreNamed):
 
     @property
     def parent(self):
-        return (
-            None
-            if self.parent_index == DCB_NO_PARENT
-            else self.dcb.structure_definitions[self.parent_index]
-        )
+        return None if self.parent_index == DCB_NO_PARENT else self.dcb.structure_definitions[self.parent_index]
 
     @property
     def properties(self):
@@ -163,9 +159,7 @@ class EnumDefinition(DataCoreNamed):
             self.name,
             [
                 self.dcb.values[DataTypes.EnumValueName][_].value
-                for _ in range(
-                    self.first_value_index, self.first_value_index + self.value_count
-                )
+                for _ in range(self.first_value_index, self.first_value_index + self.value_count)
             ],
         )
 
@@ -185,9 +179,7 @@ class DataMappingDefinition16(DataCoreBase):
     ]
 
     def __repr__(self):
-        return (
-            f"<DataMap structure:{self.structure_index} count:{self.structure_count}>"
-        )
+        return f"<DataMap structure:{self.structure_index} count:{self.structure_count}>"
 
     def __str__(self):
         return f"dataMap:{self.structure_index}_count:{self.structure_count}"
@@ -200,9 +192,7 @@ class DataMappingDefinition32(DataCoreBase):
     ]
 
     def __repr__(self):
-        return (
-            f"<DataMap structure:{self.structure_index} count:{self.structure_count}>"
-        )
+        return f"<DataMap structure:{self.structure_index} count:{self.structure_count}>"
 
     def __str__(self):
         return f"dataMap:{self.structure_index}_count:{self.structure_count}"
@@ -246,9 +236,7 @@ class StructureInstance:
             elif data_type == DataTypes.Class:
                 end_offset = offset + property_definition.type_def.calculated_data_size
                 return (
-                    self.dcb.get_structure_instance_from_offset(
-                        property_definition.structure_index, offset
-                    ),
+                    self.dcb.get_structure_instance_from_offset(property_definition.structure_index, offset),
                     end_offset,
                 )
 
@@ -258,22 +246,16 @@ class StructureInstance:
             prop._dcb = self.dcb
 
             if data_type == DataTypes.EnumChoice:
-                prop._enum_definition = self.dcb.enum_definitions[
-                    property_definition.structure_index
-                ]
+                prop._enum_definition = self.dcb.enum_definitions[property_definition.structure_index]
             return prop.value, end_offset
         else:
             try:
-                ConversionTypes(
-                    conv_type
-                )  # will throw value error if this is not a valid type
+                ConversionTypes(conv_type)  # will throw value error if this is not a valid type
                 end_offset = offset + 8
                 # buf = bytearray(
                 #     self.dcb.raw_data[offset:end_offset]
                 # )  # 8 == sizeof(int32 + int32)
-                count, first_index = (ctypes.c_uint32 * 2).from_buffer(
-                    self.dcb.raw_data, offset
-                )
+                count, first_index = (ctypes.c_uint32 * 2).from_buffer(self.dcb.raw_data, offset)
                 if data_type == DataTypes.Class:
                     clss = []
                     for _ in range(count):
@@ -295,16 +277,12 @@ class StructureInstance:
                     return clss, end_offset
                 elif data_type in self.dcb.values:
                     return (
-                        self.dcb.values[property_definition.data_type][
-                            first_index : first_index + count
-                        ],
+                        self.dcb.values[property_definition.data_type][first_index : first_index + count],
                         end_offset,
                     )
             except ValueError:
                 pass
-        raise NotImplementedError(
-            f"Property has not been implemented: {property_definition}"
-        )
+        raise NotImplementedError(f"Property has not been implemented: {property_definition}")
 
     @property
     def properties(self):
@@ -356,15 +334,10 @@ class Pointer:
 
     @cached_property
     def reference(self):
-        if (
-            self.structure_index == DCB_NO_PARENT
-            or self.instance_index == DCB_NO_PARENT
-        ):
+        if self.structure_index == DCB_NO_PARENT or self.instance_index == DCB_NO_PARENT:
             return None
         # return self.dcb.structure_instances[self.structure_index][self.instance_index]
-        return self.dcb.get_structure_instance(
-            self.structure_index, self.instance_index
-        )
+        return self.dcb.get_structure_instance(self.structure_index, self.instance_index)
 
     @property
     def structure_definition(self):
@@ -382,9 +355,7 @@ class StrongPointer(Pointer, DataCoreBase):
     def __repr__(self):
         if self.structure_definition is not None:
             return f"<StrongPointer structure:{self.structure_definition.name} instance:{self.instance_index}>"
-        return (
-            f"<StrongPointer structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
-        )
+        return f"<StrongPointer structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
 
     def __str__(self):
         if self.structure_definition is not None:
@@ -396,9 +367,7 @@ class ClassReference(StrongPointer):
     def __repr__(self):
         if self.structure_definition is not None:
             return f"<ClassReference structure:{self.structure_definition.name} instance:{self.instance_index}>"
-        return (
-            f"<ClassReference structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
-        )
+        return f"<ClassReference structure:{DCB_NO_PARENT} instance:{self.instance_index}>"
 
     def __str__(self):
         if self.structure_definition is not None:
@@ -456,31 +425,18 @@ class Record(Pointer, DataCoreNamed):
 
     @property
     def name(self):
-        return self.dcb.string_for_offset(self.name_offset).replace(
-            f"{self.type}.", "", 1
-        )
+        return self.dcb.string_for_offset(self.name_offset).replace(f"{self.type}.", "", 1)
 
     @property
     def filename(self):
         return self.dcb.string_for_offset(self.filename_offset)
 
     def __repr__(self):
-        struct_name = (
-            self.structure_definition.name
-            if self.structure_definition is not None
-            else DCB_NO_PARENT
-        )
-        return (
-            f"<Record name:{self.name} {self.id.value} struct:{struct_name} "
-            f"instance:{self.instance_index}>"
-        )
+        struct_name = self.structure_definition.name if self.structure_definition is not None else DCB_NO_PARENT
+        return f"<Record name:{self.name} {self.id.value} struct:{struct_name} " f"instance:{self.instance_index}>"
 
     def __str__(self):
-        struct_name = (
-            self.structure_definition.name
-            if self.structure_definition is not None
-            else DCB_NO_PARENT
-        )
+        struct_name = self.structure_definition.name if self.structure_definition is not None else DCB_NO_PARENT
         return f"record:{self.name}:{self.id.value}_struct:{struct_name}"
 
 

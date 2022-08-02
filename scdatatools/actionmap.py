@@ -9,11 +9,7 @@ def actionmap_to_dict(filename):
 
 
 def actionmap_to_csv(filename_or_dict, out_filename):
-    am_dict = (
-        actionmap_to_dict(filename_or_dict)
-        if isinstance(filename_or_dict, str)
-        else filename_or_dict
-    )
+    am_dict = actionmap_to_dict(filename_or_dict) if isinstance(filename_or_dict, str) else filename_or_dict
     columns = set()
     mappings = []
     for am in am_dict["ActionMaps"]["actionmap"]:
@@ -21,9 +17,7 @@ def actionmap_to_csv(filename_or_dict, out_filename):
             _ = {"group": am["@name"], "action": action["@name"]}
             for rebind in action["rebind"]:
                 columns.add(rebind["@device"])
-                _[
-                    rebind["@device"]
-                ] = f"{rebind.get('@ActivationMode', '').strip()}:{rebind.get('@input', '').strip()}"
+                _[rebind["@device"]] = f"{rebind.get('@ActivationMode', '').strip()}:{rebind.get('@input', '').strip()}"
             mappings.append(_)
     fieldnames = ["group", "action"] + list(columns)
     with open(out_filename, "w") as csvfile:

@@ -66,9 +66,7 @@ def set_viewport(mat, mtl_attrs, trans=False):
 def write_attrib_to_mat(mat, mtl_attrs, attr):
     for name, value in mtl_attrs[attr].attrib.items():
         mat[name] = value
-        if SN_GROUP in mat.node_tree.nodes and mat.node_tree.nodes[SN_GROUP].inputs.get(
-            name
-        ):
+        if SN_GROUP in mat.node_tree.nodes and mat.node_tree.nodes[SN_GROUP].inputs.get(name):
             mat.node_tree.nodes[SN_GROUP].inputs[name].default_value = float(value)
 
 
@@ -117,9 +115,7 @@ class MTLLoader:
         self.tinted_materials = []
         self.loaded_materials = []
 
-    def _load_sub_material(
-        self, mtl_path: typing.Union[Path, str]
-    ) -> typing.Union[None, Path]:
+    def _load_sub_material(self, mtl_path: typing.Union[Path, str]) -> typing.Union[None, Path]:
         """
         Load the sub-material from the path `mtl_path`
 
@@ -161,9 +157,7 @@ class MTLLoader:
         nodes.new(type="ShaderNodeGroup")
         return mat, True
 
-    def create_materials_from_mtl(
-        self, mtl: typing.Union[str, Path, typing.IO], _sub_mat: bool = False
-    ) -> list:
+    def create_materials_from_mtl(self, mtl: typing.Union[str, Path, typing.IO], _sub_mat: bool = False) -> list:
         """
         Parses and creates all missing materials defined in a StarCitizen `mtl` file.
 
@@ -194,9 +188,7 @@ class MTLLoader:
             if is_cryxmlb_file(mtl):
                 et = etree_from_cryxml_file(mtl)
             else:
-                et = ElementTree.parse(
-                    mtl, parser=ElementTree.XMLParser(encoding="utf-8")
-                )
+                et = ElementTree.parse(mtl, parser=ElementTree.XMLParser(encoding="utf-8"))
         except Exception as e:
             logger.error(f"could not load material {mtl_path}", exc_info=e)
             raise
@@ -213,9 +205,7 @@ class MTLLoader:
                 attrs[subelement.tag] = subelement
 
             # Convert the name to match the exported prefixed-material names
-            attrs["Name"] = normalize_material_name(
-                f'{mtl_path.name.replace(".", "_")}_{attrs["Name"]}'
-            )
+            attrs["Name"] = normalize_material_name(f'{mtl_path.name.replace(".", "_")}_{attrs["Name"]}')
 
             shader_type = attrs.get("Shader", "").lower()
             # shader_type = "simple"
@@ -296,35 +286,25 @@ class MTLLoader:
             shadergroup.node_tree = bpy.data.node_groups["_Illum"]
         set_viewport(mat, mtl_attrs, viewport_trans)
 
-        mat.node_tree.links.new(
-            shadergroup.outputs["BSDF"], shaderout.inputs["Surface"]
-        )
-        mat.node_tree.links.new(
-            shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
-        )
+        mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
+        mat.node_tree.links.new(shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"])
 
         if "pom" in matname.lower():
             shadergroup.inputs["Base Color"].default_value = (0.18, 0.18, 0.18, 1)
             shadergroup.inputs["n Strength"].default_value = 10
             shadergroup.inputs["Metallic"].default_value = 1
         else:
-            shadergroup.inputs["Base Color"].default_value = make_tuple(
-                mtl_attrs.get("Diffuse") + ",1"
-            )
+            shadergroup.inputs["Base Color"].default_value = make_tuple(mtl_attrs.get("Diffuse") + ",1")
 
         # shadergroup.inputs['ddna Alpha'].default_value = mat.roughness
 
         try:
-            shadergroup.inputs["spec Color"].default_value = make_tuple(
-                mtl_attrs.get("Specular") + ",1"
-            )
+            shadergroup.inputs["spec Color"].default_value = make_tuple(mtl_attrs.get("Specular") + ",1")
         except:
             pass
 
         try:
-            shadergroup.inputs["Glow"].default_value = float(
-                mtl_attrs.get("Glow", 0)
-            ) * pow(2, 6)
+            shadergroup.inputs["Glow"].default_value = float(mtl_attrs.get("Glow", 0)) * pow(2, 6)
         except:
             pass
 
@@ -336,8 +316,7 @@ class MTLLoader:
             pass
         try:
             shadergroup.inputs["BlendLayer2SpecularColor"].default_value = make_tuple(
-                mtl_attrs["PublicParams"].get("BlendLayer2SpecularColor", "0.5,0.5,0.5")
-                + ",1"
+                mtl_attrs["PublicParams"].get("BlendLayer2SpecularColor", "0.5,0.5,0.5") + ",1"
             )
         except:
             pass
@@ -348,15 +327,11 @@ class MTLLoader:
         except:
             pass
         try:
-            shadergroup.inputs["BlendFactor"].default_value = float(
-                mtl_attrs["PublicParams"].get("Blend Factor", 0)
-            )
+            shadergroup.inputs["BlendFactor"].default_value = float(mtl_attrs["PublicParams"].get("Blend Factor", 0))
         except:
             pass
         try:
-            shadergroup.inputs["HeightBias"].default_value = float(
-                mtl_attrs["PublicParams"].get("HeightBias", 0.5)
-            )
+            shadergroup.inputs["HeightBias"].default_value = float(mtl_attrs["PublicParams"].get("HeightBias", 0.5))
             shadergroup.inputs["PomDisplacement"].default_value = float(
                 mtl_attrs["PublicParams"].get("PomDisplacement", 0)
             )
@@ -396,16 +371,12 @@ class MTLLoader:
             if subpath.stem in bpy.data.node_groups:
                 newbasegroup.node_tree = bpy.data.node_groups[subpath.stem]
             else:
-                logger.error(
-                    f'Unknown shader node group "{subpath.stem}" in {mat.name}'
-                )
+                logger.error(f'Unknown shader node group "{subpath.stem}" in {mat.name}')
                 continue
 
             newbasegroup.name = submat.get("Name")
             # newbasegroup.node_tree.label = submat.get("Name")
-            newbasegroup.inputs["tint Color"].default_value = make_tuple(
-                submat.get("TintColor") + ",1"
-            )
+            newbasegroup.inputs["tint Color"].default_value = make_tuple(submat.get("TintColor") + ",1")
             newbasegroup.inputs["UV Scale"].default_value = [
                 float(submat.get("UVTiling")),
                 float(submat.get("UVTiling")),
@@ -414,9 +385,7 @@ class MTLLoader:
             newbasegroup.location.x = -600
             newbasegroup.location.y += y
             y -= 260
-            _link_possible_node_connections(
-                mat, newbasegroup, shadergroup, newbasegroup.name
-            )
+            _link_possible_node_connections(mat, newbasegroup, shadergroup, newbasegroup.name)
         return mat
 
     def create_hard_surface(self, mtl_attrs):
@@ -448,12 +417,8 @@ class MTLLoader:
         shaderout = mat.node_tree.nodes[SN_OUT]
         shadergroup = mat.node_tree.nodes[SN_GROUP]
         shadergroup.node_tree = bpy.data.node_groups["_HardSurface"]
-        mat.node_tree.links.new(
-            shadergroup.outputs["BSDF"], shaderout.inputs["Surface"]
-        )
-        mat.node_tree.links.new(
-            shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
-        )
+        mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
+        mat.node_tree.links.new(shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"])
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
         shadergroup.inputs["Primary ddna Alpha"].default_value = mat.roughness
         if "USE_SPECULAR_MAPS" in mtl_attrs["StringGenMask"]:
@@ -462,9 +427,7 @@ class MTLLoader:
         else:
             shadergroup.inputs["Metallic"].default_value = 0
             shadergroup.inputs["Anisotropic"].default_value = 0
-        shadergroup.inputs["Emission"].default_value = make_tuple(
-            mtl_attrs["Emissive"] + ",1"
-        )
+        shadergroup.inputs["Emission"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
         shaderout.location.x += 200
 
         tint_group = None
@@ -490,9 +453,7 @@ class MTLLoader:
                 newbasegroup = nodes.new("ShaderNodeGroup")
                 newbasegroup.node_tree = bpy.data.node_groups[subpath.stem]
             else:
-                logger.error(
-                    f'Unknown shader node group "{subpath.stem}" in {mat.name}'
-                )
+                logger.error(f'Unknown shader node group "{subpath.stem}" in {mat.name}')
                 continue
 
             if "Wear" in submat.get("Name"):
@@ -501,9 +462,7 @@ class MTLLoader:
                 newbasegroup.name = submat.get("Name")
 
             # newbasegroup.node_tree.label = submat.get("Name")
-            newbasegroup.inputs["tint diff Color"].default_value = make_tuple(
-                submat.get("TintColor") + ",1"
-            )
+            newbasegroup.inputs["tint diff Color"].default_value = make_tuple(submat.get("TintColor") + ",1")
             newbasegroup.inputs["UV Scale"].default_value = [
                 float(submat.get("UVTiling")),
                 float(submat.get("UVTiling")),
@@ -512,9 +471,7 @@ class MTLLoader:
             newbasegroup.location.x = -600
             newbasegroup.location.y += y
             y -= 300
-            _link_possible_node_connections(
-                mat, newbasegroup, shadergroup, newbasegroup.name
-            )
+            _link_possible_node_connections(mat, newbasegroup, shadergroup, newbasegroup.name)
             if tint_group is not None:
                 if submat.get("PaletteTint", "0") == "1":
                     mat.node_tree.links.new(
@@ -571,12 +528,8 @@ class MTLLoader:
         set_viewport(mat, mtl_attrs, True)
 
         shadergroup.node_tree = bpy.data.node_groups["_Glass"]
-        mat.node_tree.links.new(
-            shadergroup.outputs["BSDF"], shaderout.inputs["Surface"]
-        )
-        mat.node_tree.links.new(
-            shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
-        )
+        mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
+        mat.node_tree.links.new(shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"])
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
         # shadergroup.inputs['ddna Alpha'].default_value = mat.roughness
         # shadergroup.inputs['spec Color'].default_value = mat.specular_color[0]/2
@@ -600,17 +553,11 @@ class MTLLoader:
         set_viewport(mat, mtl_attrs)
 
         shadergroup.node_tree = bpy.data.node_groups["_LayerBlend"]
-        mat.node_tree.links.new(
-            shadergroup.outputs["BSDF"], shaderout.inputs["Surface"]
-        )
-        mat.node_tree.links.new(
-            shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
-        )
+        mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
+        mat.node_tree.links.new(shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"])
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
         shadergroup.inputs["ddna Alpha"].default_value = mat.roughness
-        shadergroup.inputs["Emission"].default_value = make_tuple(
-            mtl_attrs["Emissive"] + ",1"
-        )
+        shadergroup.inputs["Emission"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
         shaderout.location.x += 200
 
         use_tint_node_group = False
@@ -644,9 +591,7 @@ class MTLLoader:
             if subpath.stem in bpy.data.node_groups:
                 newbasegroup.node_tree = bpy.data.node_groups[subpath.stem]
             else:
-                logger.error(
-                    f'Unknown shader node group "{subpath.stem}" in {mat.name}'
-                )
+                logger.error(f'Unknown shader node group "{subpath.stem}" in {mat.name}')
                 continue
             if submat.get("Name"):
                 newbasegroup.name = submat.get("Name")
@@ -656,9 +601,7 @@ class MTLLoader:
                 newbasegroup.name = "Unknown"
             # newbasegroup.node_tree.label = submat.get("Name")
             if submat.get("TintColor"):
-                newbasegroup.inputs["tint diff Color"].default_value = make_tuple(
-                    submat.get("TintColor") + ",1"
-                )
+                newbasegroup.inputs["tint diff Color"].default_value = make_tuple(submat.get("TintColor") + ",1")
             if submat.get("UVTiling"):
                 newbasegroup.inputs["UV Scale"].default_value = [
                     float(submat.get("UVTiling")),
@@ -709,9 +652,7 @@ class MTLLoader:
             newbasegroup.location.x = -600
             newbasegroup.location.y += y
             y -= 300
-            _link_possible_node_connections(
-                mat, newbasegroup, shadergroup, newbasegroup.name
-            )
+            _link_possible_node_connections(mat, newbasegroup, shadergroup, newbasegroup.name)
         return mat
 
     def create_layer_node(self, mtl_attrs):
@@ -719,24 +660,15 @@ class MTLLoader:
         logger.debugscbp(f"Layer node: {layer_node_name}")
         if bpy.data.node_groups.get(layer_node_name):
             return bpy.data.node_groups[layer_node_name]
-        mat = (
-            bpy.data.node_groups.get(layer_node_name)
-            or bpy.data.node_groups["_MaterialLayer"].copy()
-        )
+        mat = bpy.data.node_groups.get(layer_node_name) or bpy.data.node_groups["_MaterialLayer"].copy()
         mat.name = layer_node_name
         nodes = mat.nodes
 
         # mat['filename'] = mtl_path.as_posix()
 
-        mat.nodes["Tint"].inputs["diff Color"].default_value = make_tuple(
-            mtl_attrs.get("Diffuse", ".5,.5,.5") + ",1"
-        )
-        mat.nodes["Tint"].inputs["spec Color"].default_value = make_tuple(
-            mtl_attrs.get("Specular", ".5,.5,.5") + ",1"
-        )
-        mat.nodes["detail Scale"].outputs[0].default_value = float(
-            mtl_attrs["PublicParams"].get("DetailTiling", 1)
-        )
+        mat.nodes["Tint"].inputs["diff Color"].default_value = make_tuple(mtl_attrs.get("Diffuse", ".5,.5,.5") + ",1")
+        mat.nodes["Tint"].inputs["spec Color"].default_value = make_tuple(mtl_attrs.get("Specular", ".5,.5,.5") + ",1")
+        mat.nodes["detail Scale"].outputs[0].default_value = float(mtl_attrs["PublicParams"].get("DetailTiling", 1))
 
         self.load_textures(mtl_attrs["Textures"], mat, nodes[SN_OUT])
 
@@ -755,34 +687,18 @@ class MTLLoader:
                         mat.nodes["Material Output"].inputs["blend Color"],
                     )
                 elif node.name in ["TexSlot1", "_diff"]:
-                    mat.links.new(
-                        imagenodecolorout, mat.nodes["Tint"].inputs["diff Color"]
-                    )
-                    mat.links.new(
-                        imagenodealphaout, mat.nodes["Tint"].inputs["diff Alpha"]
-                    )
+                    mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["diff Color"])
+                    mat.links.new(imagenodealphaout, mat.nodes["Tint"].inputs["diff Alpha"])
                 elif node.name in ["TexSlot2"]:
-                    mat.links.new(
-                        imagenodecolorout, mat.nodes["Tint"].inputs["ddna Color"]
-                    )
-                    mat.links.new(
-                        imagenodealphaout, mat.nodes["Tint"].inputs["ddna Alpha"]
-                    )
+                    mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["ddna Color"])
+                    mat.links.new(imagenodealphaout, mat.nodes["Tint"].inputs["ddna Alpha"])
                 elif node.name in ["TexSlot3", "TexSlot2A"]:
-                    mat.links.new(
-                        imagenodecolorout, mat.nodes["Tint"].inputs["ddna Alpha"]
-                    )
+                    mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["ddna Alpha"])
                 elif node.name in ["TexSlot6", "_spec"]:
-                    mat.links.new(
-                        imagenodecolorout, mat.nodes["Tint"].inputs["spec Color"]
-                    )
+                    mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["spec Color"])
                 elif node.name in ["TexSlot7", "detail"]:
-                    mat.links.new(
-                        imagenodecolorout, mat.nodes["Tint"].inputs["detail Color"]
-                    )
-                    mat.links.new(
-                        imagenodealphaout, mat.nodes["Tint"].inputs["detail Alpha"]
-                    )
+                    mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["detail Color"])
+                    mat.links.new(imagenodealphaout, mat.nodes["Tint"].inputs["detail Alpha"])
                     mat.links.new(imagenodein, detailmapnodeout)
                 elif node.name in ["TexSlot8", "Blendmap"]:
                     mat.links.new(
@@ -812,9 +728,7 @@ class MTLLoader:
         set_viewport(mat, mtl_attrs, True)
 
         shadergroup.node_tree = bpy.data.node_groups["_Hologramcig"]
-        mat.node_tree.links.new(
-            shadergroup.outputs["BSDF"], shaderout.inputs["Surface"]
-        )
+        mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
 
         return mat
 
@@ -835,14 +749,10 @@ class MTLLoader:
         nodes.clear()
         shaderout = nodes.new(type="ShaderNodeOutputMaterial")
         shadergroup = nodes.new("ShaderNodeBsdfPrincipled")
-        mat.node_tree.links.new(
-            shadergroup.outputs["BSDF"], shaderout.inputs["Surface"]
-        )
+        mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
 
         if mtl_attrs.get("Diffuse"):
-            shadergroup.inputs[0].default_value = make_tuple(
-                mtl_attrs["Diffuse"] + ",1"
-            )
+            shadergroup.inputs[0].default_value = make_tuple(mtl_attrs["Diffuse"] + ",1")
         # shadergroup.diffuse_color = mat.diffuse_color
         shaderout.location.x += 300
 
@@ -856,9 +766,7 @@ class MTLLoader:
                         mat.node_tree.links.new(node.outputs[0], shadergroup.inputs[0])
                         mat.node_tree.links.new(node.outputs[1], shadergroup.inputs[19])
                     except:
-                        logger.error(
-                            f"Could not link {node.name} to {shadergroup.name}"
-                        )
+                        logger.error(f"Could not link {node.name} to {shadergroup.name}")
                         pass
 
         return mat
@@ -890,9 +798,7 @@ class MTLLoader:
                     return True
             return False
 
-        nodes = (
-            mat.node_tree.nodes if hasattr(mat, "node_tree") else getattr(mat, "nodes")
-        )
+        nodes = mat.node_tree.nodes if hasattr(mat, "node_tree") else getattr(mat, "nodes")
         if nodes is None:
             return logger.error(f"Could not determine nodes for mat {mat.name}")
 
@@ -945,15 +851,11 @@ class MTLLoader:
                     if mapnode.inputs["Scale"].default_value == [0, 0, 1]:
                         mapnode.inputs["Scale"].default_value = [1, 1, 1]
                     try:
-                        mat.node_tree.links.new(
-                            mapnode.outputs["Vector"], texnode.inputs["Vector"]
-                        )
+                        mat.node_tree.links.new(mapnode.outputs["Vector"], texnode.inputs["Vector"])
                     except:
                         pass
                     try:
-                        mat.node_tree.links.new(
-                            uvnode.outputs["UV"], mapnode.inputs["Vector"]
-                        )
+                        mat.node_tree.links.new(uvnode.outputs["UV"], mapnode.inputs["Vector"])
                     except:
                         pass
                 mapnode.location = texnode.location
@@ -970,12 +872,8 @@ class MTLLoader:
             if tex.get("Map") in ["TexSlot1", "Diffuse"]:
                 texnode.image.colorspace_settings.name = "sRGB"
                 try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["diff Color"]
-                    )
-                    mat.node_tree.links.new(
-                        texnode.outputs["Alpha"], shadergroup.inputs["diff Alpha"]
-                    )
+                    mat.node_tree.links.new(texnode.outputs["Color"], shadergroup.inputs["diff Color"])
+                    mat.node_tree.links.new(texnode.outputs["Alpha"], shadergroup.inputs["diff Alpha"])
                 except:
                     try:
                         mat.node_tree.links.new(
@@ -991,12 +889,8 @@ class MTLLoader:
                         pass
             elif tex.get("Map") in ["TexSlot2"]:  # this should be a ddna map
                 try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["ddna Color"]
-                    )
-                    mat.node_tree.links.new(
-                        texnode.outputs["Alpha"], shadergroup.inputs["ddna Alpha"]
-                    )
+                    mat.node_tree.links.new(texnode.outputs["Color"], shadergroup.inputs["ddna Color"])
+                    mat.node_tree.links.new(texnode.outputs["Alpha"], shadergroup.inputs["ddna Alpha"])
                 except:
                     try:
                         mat.node_tree.links.new(
@@ -1010,9 +904,7 @@ class MTLLoader:
                 "Glossmap",
             ]:  # this is a glossmap made during the texture conversion
                 try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["ddna Alpha"]
-                    )
+                    mat.node_tree.links.new(texnode.outputs["Color"], shadergroup.inputs["ddna Alpha"])
                     # mat.node_tree.links.new(texnode.outputs['Alpha'], shadergroup.inputs['ddna Alpha'])
                 except:
                     try:
@@ -1026,64 +918,44 @@ class MTLLoader:
                         pass
             elif tex.get("Map") in ["TexSlot3"]:  # this is a ddn map
                 try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["ddna Color"]
-                    )
+                    mat.node_tree.links.new(texnode.outputs["Color"], shadergroup.inputs["ddna Color"])
                 except:
                     pass
             elif tex.get("Map") in ["TexSlot4", "Specular"]:
                 texnode.image.colorspace_settings.name = "sRGB"
                 try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["spec Color"]
-                    )
+                    mat.node_tree.links.new(texnode.outputs["Color"], shadergroup.inputs["spec Color"])
                 except:
                     pass
             elif tex.get("Map") in ["TexSlot6"]:
                 try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["detail Color"]
-                    )
-                    mat.node_tree.links.new(
-                        texnode.outputs["Alpha"], shadergroup.inputs["detail Alpha"]
-                    )
+                    mat.node_tree.links.new(texnode.outputs["Color"], shadergroup.inputs["detail Color"])
+                    mat.node_tree.links.new(texnode.outputs["Alpha"], shadergroup.inputs["detail Alpha"])
                 except:
                     # logger.error("failed to link detail Map")
                     pass
             elif tex.get("Map") in ["TexSlot8", "Heightmap"]:
                 try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["disp Color"]
-                    )
+                    mat.node_tree.links.new(texnode.outputs["Color"], shadergroup.inputs["disp Color"])
                 except:
                     pass
             elif tex.get("Map") in ["TexSlot9", "Decalmap"]:
                 try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["decal Color"]
-                    )
-                    mat.node_tree.links.new(
-                        texnode.outputs["Alpha"], shadergroup.inputs["decal Alpha"]
-                    )
+                    mat.node_tree.links.new(texnode.outputs["Color"], shadergroup.inputs["decal Color"])
+                    mat.node_tree.links.new(texnode.outputs["Alpha"], shadergroup.inputs["decal Alpha"])
                 except:
                     # logger.error("failed to link Decal Map")
                     pass
             elif tex.get("Map") in ["TexSlot11", "WDA"]:
                 try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["wda Color"]
-                    )
-                    mat.node_tree.links.new(
-                        texnode.outputs["Alpha"], shadergroup.inputs["wda Alpha"]
-                    )
+                    mat.node_tree.links.new(texnode.outputs["Color"], shadergroup.inputs["wda Color"])
+                    mat.node_tree.links.new(texnode.outputs["Alpha"], shadergroup.inputs["wda Alpha"])
                 except:
                     # logger.error("failed to link WDA Map")
                     pass
             elif tex.get("Map") in ["TexSlot12", "Blendmap"]:
                 try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["blend Color"]
-                    )
+                    mat.node_tree.links.new(texnode.outputs["Color"], shadergroup.inputs["blend Color"])
                 except:
                     # logger.error("failed to link Blend Map")
                     pass
@@ -1100,9 +972,7 @@ class MTLLoader:
 
 
 def load_materials(materials, data_dir, tint_palette_node_group=None):
-    loader = MTLLoader(
-        data_dir=data_dir, tint_palette_node_group=tint_palette_node_group
-    )
+    loader = MTLLoader(data_dir=data_dir, tint_palette_node_group=tint_palette_node_group)
     for mat in track(materials, description="Loading materials", unit="mats"):
         if not mat:
             continue
@@ -1122,9 +992,7 @@ def load_tint_palette(palette_file, tint_palette_node_group, data_dir=""):
     if not p.is_file():
         return
 
-    logger.debugscbp(
-        f"loading tint palette {palette_file} for {tint_palette_node_group.name}"
-    )
+    logger.debugscbp(f"loading tint palette {palette_file} for {tint_palette_node_group.name}")
 
     t = tint_palette_node_group
     name_map = {
@@ -1135,20 +1003,14 @@ def load_tint_palette(palette_file, tint_palette_node_group, data_dir=""):
 
     x = xml.etree.ElementTree.parse(p.open())
     for entry in ["entryA", "entryB", "entryC"]:
-        t.nodes["Outputs"].inputs[name_map[entry]].default_value = a_to_c(
-            x.find(f".//{entry}/tintColor").attrib
-        )
+        t.nodes["Outputs"].inputs[name_map[entry]].default_value = a_to_c(x.find(f".//{entry}/tintColor").attrib)
         attrs = x.find(f".//{entry}/specColor").attrib
-        t.nodes["Outputs"].inputs[
-            f"{name_map[entry]} SpecColor"
-        ].default_value = a_to_c(attrs)
+        t.nodes["Outputs"].inputs[f"{name_map[entry]} SpecColor"].default_value = a_to_c(attrs)
         t.nodes["Outputs"].inputs[f"{name_map[entry]} Glossiness"].default_value = (
             float(x.find(f".//{entry}").attrib["glossiness"]) / 255
         )
 
-    t.nodes["Outputs"].inputs["Glass Color"].default_value = a_to_c(
-        x.find(f".//glassColor").attrib
-    )
+    t.nodes["Outputs"].inputs["Glass Color"].default_value = a_to_c(x.find(f".//glassColor").attrib)
 
     if "DecalConverter" not in t.nodes:
         return  # Decals handling not loaded
@@ -1163,9 +1025,7 @@ def load_tint_palette(palette_file, tint_palette_node_group, data_dir=""):
             t.nodes["Decal"].image = None
 
     for decalColor in ["decalColorR", "decalColorG", "decalColorB"]:
-        t.nodes["DecalConverter"].inputs[decalColor].default_value = a_to_c(
-            x.find(f".//{decalColor}").attrib
-        )
+        t.nodes["DecalConverter"].inputs[decalColor].default_value = a_to_c(x.find(f".//{decalColor}").attrib)
 
 
 class LoadTintPalette(Operator):
@@ -1248,9 +1108,7 @@ class ImportSCMTL(Operator, ImportHelper):
 
         # load_materials([dirpath / _.name for _ in self.files],
         #               data_dir=self.import_data_dir, use_setting=self.use_setting)
-        load_materials(
-            [dirpath / _.name for _ in self.files], data_dir=self.import_data_dir
-        )
+        load_materials([dirpath / _.name for _ in self.files], data_dir=self.import_data_dir)
 
         return {"FINISHED"}
 

@@ -9,16 +9,10 @@ class Entity(DataCoreObject):
         self.components = {}
         for c in sorted(self.record.properties["Components"], key=lambda c: c.name):
             if c.name in self.components:
-                print(
-                    f"WARNING: Duplicate component for entity, shouldnt be possible? {c.name}"
-                )
+                print(f"WARNING: Duplicate component for entity, shouldnt be possible? {c.name}")
                 continue
             self.components[c.name] = c
-        self.tags = [
-            dco_from_guid(self._datacore, t.name)
-            for t in self.record.properties["tags"]
-            if t.name
-        ]
+        self.tags = [dco_from_guid(self._datacore, t.name) for t in self.record.properties["tags"] if t.name]
 
 
 @register_record_handler(

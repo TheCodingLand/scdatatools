@@ -10,17 +10,13 @@ def install_blender_addon(blender_ver, addon_name, addon_template, version) -> P
 
     if sys.platform == "win32":
         addon_py = Path(
-            f"{os.environ['APPDATA']}/Blender Foundation/blender/"
-            f"{blender_ver}/scripts/addons/{addon_name}.py"
+            f"{os.environ['APPDATA']}/Blender Foundation/blender/" f"{blender_ver}/scripts/addons/{addon_name}.py"
         ).expanduser()
     elif sys.platform == "linux":
-        addon_py = Path(
-            f"~/.config/blender/{blender_ver}/scripts/addons/{addon_name}.py"
-        ).expanduser()
+        addon_py = Path(f"~/.config/blender/{blender_ver}/scripts/addons/{addon_name}.py").expanduser()
     elif sys.platform == "darwin":
         addon_py = Path(
-            f"~/Library/Application Support/Blender/"
-            f"{blender_ver}/scripts/addons/{addon_name}.py"
+            f"~/Library/Application Support/Blender/" f"{blender_ver}/scripts/addons/{addon_name}.py"
         ).expanduser()
     else:
         raise ValueError(f"Unsupported platform {sys.platform}")
@@ -44,8 +40,6 @@ def install_blender_addon(blender_ver, addon_name, addon_template, version) -> P
 
 def reload_scdt_blender_modules():
     # build up the list of modules first, otherwise sys.modules will change while you iterate through it
-    loaded_modules = [
-        m for n, m in sys.modules.items() if n.startswith("scdatatools.blender")
-    ]
+    loaded_modules = [m for n, m in sys.modules.items() if n.startswith("scdatatools.blender")]
     for module in loaded_modules:
         importlib.reload(module)

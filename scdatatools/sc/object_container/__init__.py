@@ -18,9 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class StreamingObjectContainer:
-    def __init__(
-        self, soc_info: P4KInfo, object_container: "ObjectContainer", attrs: dict = None
-    ):
+    def __init__(self, soc_info: P4KInfo, object_container: "ObjectContainer", attrs: dict = None):
         self.name = Path(soc_info.filename).name
         self.attrs = attrs or {}
         self.object_container = object_container
@@ -36,27 +34,15 @@ class StreamingObjectContainer:
 
     @cached_property
     def included_objects(self):
-        return {
-            cid: chunk
-            for cid, chunk in self.chunks.items()
-            if isinstance(chunk, chunks.IncludedObjects)
-        }
+        return {cid: chunk for cid, chunk in self.chunks.items() if isinstance(chunk, chunks.IncludedObjects)}
 
     @cached_property
     def cryxml_chunks(self):
-        return {
-            cid: chunk
-            for cid, chunk in self.chunks.items()
-            if isinstance(chunk, chunks.CryXMLBChunk)
-        }
+        return {cid: chunk for cid, chunk in self.chunks.items() if isinstance(chunk, chunks.CryXMLBChunk)}
 
     @cached_property
     def json_chunks(self):
-        return {
-            cid: chunk
-            for cid, chunk in self.chunks.items()
-            if isinstance(chunk, chunks.JSONChunk)
-        }
+        return {cid: chunk for cid, chunk in self.chunks.items() if isinstance(chunk, chunks.JSONChunk)}
 
 
 class ObjectContainerInstance:
@@ -102,9 +88,7 @@ class ObjectContainerInstance:
                 self._attrs[v] = kwargs[v]  # from a duplicated instance
                 setattr(self, v, kwargs[v])
 
-        self.label = self._attrs.get(
-            "label", self.entdata.get("@Name", Path(self.name).stem)
-        )
+        self.label = self._attrs.get("label", self.entdata.get("@Name", Path(self.name).stem))
         self.position = vector_from_csv(self._attrs.get("position", "0,0,0"))
         self.rotation = quaternion_from_csv(self._attrs.get("rotation", "1,0,0,0"))
         if "entity_name" not in self._attrs:
@@ -113,9 +97,7 @@ class ObjectContainerInstance:
 
         if isinstance(parent, ObjectContainerInstance):
             self.global_position = parent.global_position + self.position
-            self.global_rotation = (
-                parent.global_rotation * self.rotation
-            )  # TODO: is this actually a thing?
+            self.global_rotation = parent.global_rotation * self.rotation  # TODO: is this actually a thing?
         else:
             self.global_position = self.position
             self.global_rotation = self.rotation
@@ -137,12 +119,8 @@ class ObjectContainerInstance:
     def __getitem__(self, item):
         return self.children[item]
 
-    def duplicate(
-        self, parent: typing.Union["ObjectContainer", "ObjectContainerInstance"]
-    ):
-        return ObjectContainerInstance(
-            sc=self._sc, name=self.name, root=parent.root, parent=parent, **self._attrs
-        )
+    def duplicate(self, parent: typing.Union["ObjectContainer", "ObjectContainerInstance"]):
+        return ObjectContainerInstance(sc=self._sc, name=self.name, root=parent.root, parent=parent, **self._attrs)
 
     def add_child(self, child_id, child):
         self._children_by_id[child_id] = child
@@ -207,16 +185,10 @@ class ObjectContainer:
 
         self._p4k_path = Path(self.socpak.filename)
         self._pak_name = self._p4k_path.stem
-        self._load_soc_xml(
-            self._p4k_path.parent / self._p4k_path.stem / f"{self._p4k_path.stem}.xml"
-        )
+        self._load_soc_xml(self._p4k_path.parent / self._p4k_path.stem / f"{self._p4k_path.stem}.xml")
 
         base_soc_info = self._sc.p4k.getinfo(
-            (
-                self._p4k_path.parent
-                / self._p4k_path.stem
-                / f"{self._p4k_path.stem}.soc"
-            ).as_posix()
+            (self._p4k_path.parent / self._p4k_path.stem / f"{self._p4k_path.stem}.soc").as_posix()
         )
         if base_soc_info:
             base_soc = StreamingObjectContainer(base_soc_info, self)
@@ -263,12 +235,8 @@ class ObjectContainer:
                 ]
 
                 try:
-                    ent_info = self._sc.p4k.getinfo(
-                        f'{self._pak_base}/entdata/{child_attrs["guid"]}.entxml'
-                    )
-                    child_attrs["entdata"] = dict_from_cryxml_file(ent_info.open())[
-                        "Entity"
-                    ]
+                    ent_info = self._sc.p4k.getinfo(f'{self._pak_base}/entdata/{child_attrs["guid"]}.entxml')
+                    child_attrs["entdata"] = dict_from_cryxml_file(ent_info.open())["Entity"]
                 except KeyError:
                     child_attrs["entdata"] = {}
 
@@ -293,9 +261,7 @@ class ObjectContainer:
         try:
             soc_info = self._sc.p4k.getinfo(soc_path)
         except KeyError:
-            logger.error(
-                f'soc "{attrs["name"]}" not found for object container {self.socpak.filename}'
-            )
+            logger.error(f'soc "{attrs["name"]}" not found for object container {self.socpak.filename}')
             return
         soc = StreamingObjectContainer(soc_info, self, attrs)
         self.socs[soc.name] = soc
@@ -314,15 +280,11 @@ class ObjectContainerManager:
             try:
                 self.load_socpak(socpak_info)
             except Exception as e:
-                logger.exception(
-                    f"Could not load socpak {socpak_info.filename}", exc_info=e
-                )
+                logger.exception(f"Could not load socpak {socpak_info.filename}", exc_info=e)
 
     def load_socpak(self, socpak: typing.Union[P4KInfo, str]) -> ObjectContainer:
         if not isinstance(socpak, P4KInfo):
-            socpak = norm_path(
-                f'{"" if socpak.lower().startswith("data") else "data/"}{socpak}'
-            )
+            socpak = norm_path(f'{"" if socpak.lower().startswith("data") else "data/"}{socpak}')
             socpak = self.sc.p4k.getinfo(socpak)
 
         if socpak.filename in self.object_containers:

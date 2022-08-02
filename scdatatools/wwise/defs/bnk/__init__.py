@@ -58,17 +58,11 @@ class DIDXHeader(ctypes.LittleEndianStructure):
         didx.wem_hdrs = []
         num_wems = didx.length // ctypes.sizeof(DIDXWemRecord)
         for i in range(num_wems):
-            didx.wem_hdrs.append(
-                DIDXWemRecord.from_buffer(
-                    source, offset + 8 + (i * ctypes.sizeof(DIDXWemRecord))
-                )
-            )
+            didx.wem_hdrs.append(DIDXWemRecord.from_buffer(source, offset + 8 + (i * ctypes.sizeof(DIDXWemRecord))))
         return didx
 
     def calculated_size(self):
-        return ctypes.sizeof(DIDXHeader) + ctypes.sizeof(DIDXWemRecord) * len(
-            getattr(self, "wem_hdrs", [])
-        )
+        return ctypes.sizeof(DIDXHeader) + ctypes.sizeof(DIDXWemRecord) * len(getattr(self, "wem_hdrs", []))
 
 
 class DATAHeader(ctypes.LittleEndianStructure):
@@ -114,9 +108,7 @@ class STIDSoundBankHeader(ctypes.LittleEndianStructure):
     def from_buffer(cls, source, offset=0):
         hdr = type(cls).from_buffer(cls, source, offset)
         hdr.length = ctypes.sizeof(cls) + hdr.name_length
-        hdr.name = source[
-            offset + ctypes.sizeof(cls) : offset + ctypes.sizeof(cls) + hdr.name_length
-        ].decode("utf-8")
+        hdr.name = source[offset + ctypes.sizeof(cls) : offset + ctypes.sizeof(cls) + hdr.name_length].decode("utf-8")
         return hdr
 
 

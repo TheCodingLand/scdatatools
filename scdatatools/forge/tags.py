@@ -27,9 +27,7 @@ class TagDatabase:
         self.dcb = dcb
         root_record = [_ for _ in self.dcb.records if _.type == "TagDatabase"]
         if len(root_record) != 1:
-            raise ValueError(
-                f"Could not determine the TagDatabase record from the provided DataCoreBinary"
-            )
+            raise ValueError(f"Could not determine the TagDatabase record from the provided DataCoreBinary")
         root_record = root_record[0]
         self.root_tag = Tag(root_record.name, root_record.id, root_record, self)
         self.tags_by_guid = {self.root_tag.guid: self.root_tag}

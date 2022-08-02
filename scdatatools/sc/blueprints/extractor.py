@@ -110,12 +110,8 @@ def extract_blueprint(
         if auto_convert_textures:
             converters.append(DDSTextureConverter)
             converter_options.setdefault("ddstexture_converter_fmt", convert_dds_fmt)
-            converter_options.setdefault(
-                "ddstexture_converter_converter", tex_converter
-            )
-            converter_options.setdefault(
-                "ddstexture_converter_converter_bin", tex_converter_bin
-            )
+            converter_options.setdefault("ddstexture_converter_converter", tex_converter)
+            converter_options.setdefault("ddstexture_converter_converter_bin", tex_converter_bin)
             converter_options.setdefault("ddstexture_converter_replace", True)
 
         logger.debug(f"{auto_convert_models = }")
@@ -124,9 +120,7 @@ def extract_blueprint(
             converter_options.setdefault("cgf_converter_bin", cgf_converter_bin)
             converter_options.setdefault("cgf_converter_opts", cgf_converter_opts)
 
-        files_to_extract = sc.p4k.search(
-            blueprint.extract_filter, ignore_case=True, mode="in_strip", exclude=exclude
-        )
+        files_to_extract = sc.p4k.search(blueprint.extract_filter, ignore_case=True, mode="in_strip", exclude=exclude)
         extracted_files = sc.p4k.extractall(
             outdir,
             files_to_extract,

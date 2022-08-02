@@ -82,9 +82,7 @@ def parse_forge_args(forge_file, filter):
         dcb = DataCoreBinary(str(forge_file))
 
     # using the dict like this ends up removing duplicated but keeping the order of insertion
-    records = dict(
-        chain((str(r.id), r) for f in filters for r in dcb.search_filename(f))
-    )
+    records = dict(chain((str(r.id), r) for f in filters for r in dcb.search_filename(f)))
     return dcb, filters, records
 
 
@@ -147,9 +145,7 @@ class forge:
         output = Path(output).absolute() if output != "-" else output
 
         if single:
-            print(
-                f"Extracting first match for filters '{','.join(filters)}' to {output}"
-            )
+            print(f"Extracting first match for filters '{','.join(filters)}' to {output}")
             print("=" * 120)
             if not records:
                 sys.stderr.write(f"No files found for filter")
@@ -169,9 +165,7 @@ class forge:
                 if output == "-":
                     # don't output the progress bar if we're dumping to the console
                     for record in records.values():
-                        _dump_record(
-                            dcb, record, output, guid, guid_if_exists, not json
-                        )
+                        _dump_record(dcb, record, output, guid, guid_if_exists, not json)
                 else:
                     output = Path(output)
                     output.mkdir(parents=True, exist_ok=True)
@@ -180,8 +174,6 @@ class forge:
                         description="Extracting records",
                         unit="records",
                     ):
-                        _dump_record(
-                            dcb, record, output, guid, guid_if_exists, not json
-                        )
+                        _dump_record(dcb, record, output, guid, guid_if_exists, not json)
             except KeyboardInterrupt:
                 pass

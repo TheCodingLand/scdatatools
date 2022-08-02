@@ -51,9 +51,7 @@ def dae_importer(geom_file: typing.Union[str, Path], data_dir: Path):
     """Used by `get_or_create_geometry` to import a Collada"""
     dae_file = (data_dir / geom_file).with_suffix(".dae")
     if not dae_file.is_file():
-        logger.warning(
-            f"Skipping entity {geom_file.stem}: dae does not exist {dae_file}"
-        )
+        logger.warning(f"Skipping entity {geom_file.stem}: dae does not exist {dae_file}")
         return False
 
     bpy.ops.wm.collada_import(filepath=dae_file.as_posix())
@@ -82,11 +80,7 @@ def geom_collection_for_path(geom_path: Path):
 
     cur_path = Path()
     while geom_parts:
-        col_name = (
-            geom_parts[0]
-            if str(cur_path) == "."
-            else hashed_path_key(cur_path / geom_parts[0])
-        )
+        col_name = geom_parts[0] if str(cur_path) == "." else hashed_path_key(cur_path / geom_parts[0])
         if col_name not in bpy.data.collections:
             new_col = bpy.data.collections.new(col_name)
             col_name = new_col.name
@@ -209,12 +203,7 @@ def get_or_create_geometry(
                         # norm name hasnt been setup yet, just rename this material to the right name
                         slot.material.name = norm_mat_name
 
-                verts = [
-                    v
-                    for f in obj.data.polygons
-                    if f.material_index == i
-                    for v in f.vertices
-                ]
+                verts = [v for f in obj.data.polygons if f.material_index == i for v in f.vertices]
                 if verts:
                     vg = obj.vertex_groups.get(slot.material.name)
                     if vg is None:
@@ -291,11 +280,7 @@ def create_geom_instance(
         return None
 
     # ignore the auto-generated instance numbers in the BP
-    inst_name = (
-        f"{instance_name}"
-        if (instance_name and not instance_name.isdigit())
-        else gc.name
-    )
+    inst_name = f"{instance_name}" if (instance_name and not instance_name.isdigit()) else gc.name
     new_instance = bpy.data.objects.new(inst_name, None)
     new_instance.instance_type = "COLLECTION"
     new_instance.instance_collection = gc
@@ -308,16 +293,9 @@ def create_geom_instance(
     if collection is not None:
         collection.objects.link(new_instance)
 
-    location = (
-        gc["orig_location"]
-        if location is None
-        else (location["x"], location["y"], location["z"])
-    )
+    location = gc["orig_location"] if location is None else (location["x"], location["y"], location["z"])
     if scale is not None:
-        scale = tuple(
-            a * b
-            for a, b in zip(gc["orig_scale"], (scale["x"], scale["y"], scale["z"]))
-        )
+        scale = tuple(a * b for a, b in zip(gc["orig_scale"], (scale["x"], scale["y"], scale["z"])))
     else:
         scale = gc["orig_scale"]
     # location = (0, 0, 0) if location is None else (location['x'], location['y'], location['z'])
@@ -381,9 +359,7 @@ def create_geom_instance(
                 )
         if parent is not None and bone_name.lower() in parent.get("item_ports", {}):
             try:
-                new_instance.parent = bpy.data.objects[
-                    parent["item_ports"][bone_name.lower()]
-                ]
+                new_instance.parent = bpy.data.objects[parent["item_ports"][bone_name.lower()]]
             except KeyError:
                 logger.error(
                     f"Could not find object for bone_name {bone_name}, "
@@ -437,36 +413,25 @@ class SCBlueprintImporter:
             for name, container in p.get("containers", {}).items():
                 name = f"{base_name}{name}"
                 if name not in self.containers and (
-                    container.get("instances", {})
-                    or container.get("lights", {})
-                    or container.get("socs", [])
+                    container.get("instances", {}) or container.get("lights", {}) or container.get("socs", [])
                 ):
                     self.containers.append(name)
                 _walk_containers(container, base_name=f"{name}.")
 
         _walk_containers(self.bp)
 
-        self.entity_collection = bpy.data.collections.new(
-            hashed_path_key(self.bp["name"])
-        )
+        self.entity_collection = bpy.data.collections.new(hashed_path_key(self.bp["name"]))
         bpy.context.scene.collection.children.link(self.entity_collection)
 
         # self.lighting_collection = bpy.data.collections.new(f'{self.bp["name"]}_Lighting')
         # self.entity_collection.children.link(self.lighting_collection)
 
-        self.tint_palette_node_group = tint_palette_node_group_for_entity(
-            self.entity_collection.name
-        )
+        self.tint_palette_node_group = tint_palette_node_group_for_entity(self.entity_collection.name)
         self.tint_palettes = {
-            Path(_).stem: (Path(self.data_dir) / _).as_posix()
-            for _ in self.bp.get("tint_palettes", [])
+            Path(_).stem: (Path(self.data_dir) / _).as_posix() for _ in self.bp.get("tint_palettes", [])
         }
-        self.default_tint_palette = [
-            _ for _ in self.tint_palettes.keys() if "default" in _.lower()
-        ]
-        self.default_tint_palette = (
-            self.default_tint_palette[0] if self.default_tint_palette else ""
-        )
+        self.default_tint_palette = [_ for _ in self.tint_palettes.keys() if "default" in _.lower()]
+        self.default_tint_palette = self.default_tint_palette[0] if self.default_tint_palette else ""
 
         panel_name = self.entity_collection.name.replace("-", "")
         entity_panel_id = f"VIEW3D_PT_SCImpEnt_P_{panel_name[-40:]}"
@@ -523,14 +488,10 @@ class SCBlueprintImporter:
         if self.remove_physics_proxies:
             # obj name will be scoped (geom_file.orig_name)
             proxy_objs = [
-                obj_name
-                for obj_name in gc["objs"]
-                if obj_name.split(".")[-1].lower().startswith("$physics_proxy")
+                obj_name for obj_name in gc["objs"] if obj_name.split(".")[-1].lower().startswith("$physics_proxy")
             ]
             if proxy_objs:
-                for obj_name in track(
-                    proxy_objs, description="Removing SC physics proxy objects"
-                ):
+                for obj_name in track(proxy_objs, description="Removing SC physics proxy objects"):
                     bpy.data.objects.remove(bpy.data.objects[obj_name], do_unlink=True)
 
         for mat in entity["materials"]:
@@ -579,10 +540,7 @@ class SCBlueprintImporter:
             )
             return
 
-        if (
-            self.entity_instance is None
-            and new_instance["filename"] == self.bp["entity_geom"]
-        ):
+        if self.entity_instance is None and new_instance["filename"] == self.bp["entity_geom"]:
             self.entity_instance = new_instance
             new_instance.name = self.bp["name"]
 
@@ -592,9 +550,7 @@ class SCBlueprintImporter:
                 if helper := self.entity_instance["helpers"].get(bone_name.lower(), {}):
                     bone_name = helper["name"]
                 if bone_name.lower() in self.entity_instance["item_ports"]:
-                    new_instance.parent = bpy.data.objects[
-                        self.entity_instance["item_ports"][bone_name.lower()]
-                    ]
+                    new_instance.parent = bpy.data.objects[self.entity_instance["item_ports"][bone_name.lower()]]
             if new_instance.parent is None:
                 # if it's still none, fall back to setting the parent to the new-instance parent
                 new_instance.parent = parent
@@ -677,13 +633,9 @@ class SCBlueprintImporter:
                 cont_root.parent = parent
 
             pos = container.get("attrs", {}).get("pos", {"x": 0, "y": 0, "z": 0})
-            rot = container.get("attrs", {}).get(
-                "rotation", {"w": 1, "x": 0, "y": 0, "z": 0}
-            )
+            rot = container.get("attrs", {}).get("rotation", {"w": 1, "x": 0, "y": 0, "z": 0})
             oc_loc_offset = mathutils.Vector((pos["x"], pos["y"], pos["z"]))
-            oc_rot_offset = mathutils.Quaternion(
-                (rot["w"], rot["x"], rot["y"], rot["z"])
-            )
+            oc_rot_offset = mathutils.Quaternion((rot["w"], rot["x"], rot["y"], rot["z"]))
             if loc_offset is not None:
                 oc_loc_offset += loc_offset
             if rot_offset is not None:
@@ -697,12 +649,8 @@ class SCBlueprintImporter:
         else:
             cont_root = bpy.data.objects.get(cont_root_obj)
 
-        if (
-            containers == ["all"] or name in containers
-        ) and name not in self.imported_containers:
-            with log_time(
-                f'Importing {name} container from {self.bp["name"]}', logger.info
-            ):
+        if (containers == ["all"] or name in containers) and name not in self.imported_containers:
+            with log_time(f'Importing {name} container from {self.bp["name"]}', logger.info):
                 if not skip_geometry:
 
                     def _walk_geom(cont):
@@ -713,36 +661,22 @@ class SCBlueprintImporter:
                         for k, v in cont.items():
                             if k == "socs":
                                 for soc_path in v:
-                                    geom.update(
-                                        _walk_geom(self.bp["socs"].get(soc_path, {}))
-                                    )
+                                    geom.update(_walk_geom(self.bp["socs"].get(soc_path, {})))
                             elif k == "instances":
                                 for geom_name in v:
                                     geom.add(geom_name)
-                                    geom.update(
-                                        _walk_geom(
-                                            self.bp["geometry"].get(geom_name, {})
-                                        )
-                                    )
+                                    geom.update(_walk_geom(self.bp["geometry"].get(geom_name, {})))
                             elif k == "loadout":
                                 for l in v.values():
                                     geom.update(_walk_geom(l))
                             elif k == "geometry":
                                 for geom_name in v:
                                     geom.add(geom_name)
-                                    geom.update(
-                                        _walk_geom(
-                                            self.bp["geometry"].get(geom_name, {})
-                                        )
-                                    )
+                                    geom.update(_walk_geom(self.bp["geometry"].get(geom_name, {})))
                             elif k == "sub_geometry":
                                 for geom_name in v.keys():
                                     geom.add(geom_name)
-                                    geom.update(
-                                        _walk_geom(
-                                            self.bp["geometry"].get(geom_name, {})
-                                        )
-                                    )
+                                    geom.update(_walk_geom(self.bp["geometry"].get(geom_name, {})))
                         return geom
 
                     container_geom = _walk_geom(container)
@@ -794,11 +728,7 @@ class SCBlueprintImporter:
                                 description=f"Creating Lights",
                                 unit="l",
                             ):
-                                if (
-                                    light_group_col := bpy.data.collections.get(
-                                        light_group_name
-                                    )
-                                ) is None:
+                                if (light_group_col := bpy.data.collections.get(light_group_name)) is None:
                                     light_group_col = bpy.data.collections.new(
                                         f'{self.bp["name"]}_LG_{light_group_name}'
                                     )
@@ -813,9 +743,7 @@ class SCBlueprintImporter:
                                             data_dir=self.data_dir,
                                         )
                                     except Exception:
-                                        logger.exception(
-                                            f"Failed to create light {light_name} in {cont_name}"
-                                        )
+                                        logger.exception(f"Failed to create light {light_name} in {cont_name}")
 
                     for soc_path in container["socs"]:
                         if soc := self.bp["socs"].get(soc_path):
@@ -843,18 +771,10 @@ class SCBlueprintImporter:
             created_geom = []
 
             containers = containers or ["base"]
-            if (
-                containers != ["all"]
-                and "base" not in containers
-                and "base" not in self.imported_containers
-            ):
+            if containers != ["all"] and "base" not in containers and "base" not in self.imported_containers:
                 containers.insert(0, "base")
-            created_geom += self.import_container(
-                "base", containers=containers[:], geom_only=True
-            )
-            created_geom += self.import_container(
-                "base", containers=containers[:], skip_geometry=True
-            )
+            created_geom += self.import_container("base", containers=containers[:], geom_only=True)
+            created_geom += self.import_container("base", containers=containers[:], skip_geometry=True)
             # if ['all'] == containers:
             #     created_geom += self.import_container('base', containers=containers[:], geom_only=True)
             #     created_geom += self.import_container('base', containers=containers[:], skip_geometry=True)
@@ -880,13 +800,9 @@ class SCBlueprintImporter:
             if self.auto_import_materials:
                 mats_to_load = set()
                 for gc in created_geom:
-                    mats_to_load.update(
-                        bpy.data.collections[gc].get("materials", {}).values()
-                    )
+                    mats_to_load.update(bpy.data.collections[gc].get("materials", {}).values())
                 with log_time("Loading Materials", logger.info):
-                    materials.load_materials(
-                        mats_to_load, self.data_dir, self.tint_palette_node_group
-                    )
+                    materials.load_materials(mats_to_load, self.data_dir, self.tint_palette_node_group)
 
             if self.default_tint_palette:
                 load_tint_palette(
@@ -983,25 +899,16 @@ class ImportStarFabBlueprint(Operator, ImportHelper):
 
     def execute(self, context):
         bp_file = Path(self.filepath)
-        data_dir = (
-            Path(self.import_data_dir)
-            if self.import_data_dir
-            else bp_file.parent / "Data"
-        ).absolute()
+        data_dir = (Path(self.import_data_dir) if self.import_data_dir else bp_file.parent / "Data").absolute()
         if not data_dir.is_dir():
-            logger.error(
-                f'Could not determine Data directory for blueprint "{bp_file}"'
-            )
+            logger.error(f'Could not determine Data directory for blueprint "{bp_file}"')
             return {"CANCELLED"}
 
         # TODO: "Default" will get the first one, update this to use plugin settings
-        model_importer = model_importers.get(
-            self.model_importer, next(iter(model_importers.values()))
-        )
+        model_importer = model_importers.get(self.model_importer, next(iter(model_importers.values())))
 
         with use_log_file(
-            bp_file.parent
-            / f'{bp_file.stem}_{datetime.now().strftime("%Y_%m_%d-%H_%M_%S")}.blender_import.log'
+            bp_file.parent / f'{bp_file.stem}_{datetime.now().strftime("%Y_%m_%d-%H_%M_%S")}.blender_import.log'
         ):
             try:
                 importer = SCBlueprintImporter(
@@ -1013,9 +920,7 @@ class ImportStarFabBlueprint(Operator, ImportHelper):
                     import_lighting=self.auto_import_lighting,
                     model_importer=model_importer,
                 )
-                if importer.import_(
-                    containers=["all"] if self.import_all_containers else None
-                ):
+                if importer.import_(containers=["all"] if self.import_all_containers else None):
                     return {"FINISHED"}
             except Exception as e:
                 logging.exception(f"Failed to import SCBP", exc_info=e)
@@ -1023,29 +928,21 @@ class ImportStarFabBlueprint(Operator, ImportHelper):
 
 
 def menu_func_import(self, context):
-    self.layout.operator(
-        ImportStarFabBlueprint.bl_idname, text=ImportStarFabBlueprint.bl_label
-    )
+    self.layout.operator(ImportStarFabBlueprint.bl_idname, text=ImportStarFabBlueprint.bl_label)
 
 
 def menu_scdt_blueprint_outliner(self, context):
     if any(obj.instance_collection is not None for obj in context.selected_ids):
         self.layout.separator()
         self.layout.operator("scdt.make_real", text="Make Instance Real")
-        self.layout.operator(
-            "scdt.make_hierarchy_real", text="Make Instance Hierarchy Real"
-        )
-        self.layout.operator(
-            "scdt.isolate_source_collection", text="Isolate Source Collection"
-        )
+        self.layout.operator("scdt.make_hierarchy_real", text="Make Instance Hierarchy Real")
+        self.layout.operator("scdt.isolate_source_collection", text="Isolate Source Collection")
 
 
 def menu_scdt_blueprint_outliner_collection(self, context):
     if any(obj.get("instanced") for obj in context.selected_ids):
         self.layout.separator()
-        self.layout.operator(
-            "scdt.return_isolated_source_collections", text="Return Isolated Sources"
-        )
+        self.layout.operator("scdt.return_isolated_source_collections", text="Return Isolated Sources")
 
 
 def register():
@@ -1073,9 +970,7 @@ def register():
     for hook_name, hook in plugin_manager.hooks(MODEL_IMPORT_HOOK):
         name = hook["kwargs"].get("label")
         if not name or name in model_importers:
-            logger.warning(
-                f'Invalid model importer handler {hook_name} {hook["kwargs"]} - a unique `name` is required'
-            )
+            logger.warning(f'Invalid model importer handler {hook_name} {hook["kwargs"]} - a unique `name` is required')
             continue
         model_importers[name] = hook["handler"]
         model_importer_enums.append((name, name, hook["kwargs"].get("description", "")))

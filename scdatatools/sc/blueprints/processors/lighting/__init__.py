@@ -33,17 +33,11 @@ def process_light_object(bp: "Blueprint", soc, entity: dict, bone_name=""):
         }
     elif eclass == "LightGroup":
         light_group = soc["lights"].setdefault(entity["@Name"], {})
-        lights = (
-            entity.get("EntityComponentLightGroup", {})
-            .get("BakedInLights", {})
-            .get("Light", [])
-        )
+        lights = entity.get("EntityComponentLightGroup", {}).get("BakedInLights", {}).get("Light", [])
         if isinstance(lights, dict):
             lights = [lights]
         for i, light in enumerate(lights):
-            bp.add_file_to_extract(
-                light["EntityComponentLight"]["projectorParams"].get("@texture", "")
-            )
+            bp.add_file_to_extract(light["EntityComponentLight"]["projectorParams"].get("@texture", ""))
             light.update(
                 {
                     "@Pos": entity.get("@Pos", "0,0,0"),

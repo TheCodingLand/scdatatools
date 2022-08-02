@@ -83,9 +83,7 @@ class IncludedObjectType1(IncludedObjectType):
 
     def __str__(self):
         s = f"""[{self.id}] {self.filename}:\n\t\t"""
-        s += "\n\t\t".join(
-            f"{a}: {getattr(self, a)}" for a in ["pos", "scale", "rotation"]
-        )
+        s += "\n\t\t".join(f"{a}: {getattr(self, a)}" for a in ["pos", "scale", "rotation"])
         return s
 
     def __repr__(self):
@@ -116,22 +114,16 @@ class IncludedObjects(Chunk):
         # read cgfs
         num_cgfs = struct.unpack("<I", self.chunk_data.read(4))[0]
         for i in range(num_cgfs):
-            self.cgfs.append(
-                self.chunk_data.read(CHUNK_STR_LEN).strip(b"\x00").decode("utf-8")
-            )
+            self.cgfs.append(self.chunk_data.read(CHUNK_STR_LEN).strip(b"\x00").decode("utf-8"))
 
         # read mtls/palettes
         num_mtls, num_palettes = struct.unpack("<HH", self.chunk_data.read(4))
         for i in range(num_mtls):
-            self.materials.append(
-                self.chunk_data.read(CHUNK_STR_LEN).strip(b"\x00").decode("utf-8")
-            )
+            self.materials.append(self.chunk_data.read(CHUNK_STR_LEN).strip(b"\x00").decode("utf-8"))
 
         # read tint palettes
         for i in range(num_palettes):
-            self.tint_palettes.append(
-                self.chunk_data.read(CHUNK_STR_LEN).strip(b"\x00").decode("utf-8")
-            )
+            self.tint_palettes.append(self.chunk_data.read(CHUNK_STR_LEN).strip(b"\x00").decode("utf-8"))
 
         self.filenames = self.cgfs + self.materials
 
@@ -160,11 +152,7 @@ class IncludedObjects(Chunk):
                         f"{hexdump.dump(self.chunk_data.data[_last_known:_last_known+4])}"
                     )
                     _last_known = 0
-                self.objects.append(
-                    obj_class.from_buffer(
-                        self.chunk_data.data, self.chunk_data.tell(), self
-                    )
-                )
+                self.objects.append(obj_class.from_buffer(self.chunk_data.data, self.chunk_data.tell(), self))
                 obj_size = ctypes.sizeof(self.objects[-1])
                 self.chunk_data.seek(obj_size)
                 len_objects -= obj_size

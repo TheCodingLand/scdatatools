@@ -16,9 +16,7 @@ class Helper(Chunk):
             self.helper_type = self.chunk_data.unpack("i")
             self.size = self.chunk_data.unpack("3f")
         else:
-            raise NotImplementedError(
-                f"Node version {self.chunk_header.version} has not been implemented yet"
-            )
+            raise NotImplementedError(f"Node version {self.chunk_header.version} has not been implemented yet")
 
 
 class Node824Struct(Structure):
@@ -48,9 +46,7 @@ class Node(Chunk):
             self._props_offset = ctypes.sizeof(Node824Struct)
             self.parent_id = self.attrs.parent_id
         else:
-            raise NotImplementedError(
-                f"Node version {self.chunk_header.version} has not been implemented yet"
-            )
+            raise NotImplementedError(f"Node version {self.chunk_header.version} has not been implemented yet")
 
         self.children = []
 
@@ -81,9 +77,7 @@ class Node(Chunk):
     @cached_property
     def properties(self):
         return (
-            self.chunk_data.data[
-                self._props_offset : self._props_offset + self.attrs.properties_len
-            ]
+            self.chunk_data.data[self._props_offset : self._props_offset + self.attrs.properties_len]
             .strip(b"\x00")
             .decode("utf-8")
         )

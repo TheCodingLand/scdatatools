@@ -11,9 +11,7 @@ from scdatatools import plugins
 logger = logging.getLogger(__name__)
 CGF_CONVERTER_MODEL_EXTS = ["cga", "cgf", "chr", "skin"]
 CGF_CONVERTER_TIMEOUT = 5 * 60  # assume cgf converter is stuck after this much time
-CGF_CONVERTER_DEFAULT_OPTS = (
-    '-en "$physics_proxy" -em proxy -em nocollision_faces -prefixmatnames -notex'
-)
+CGF_CONVERTER_DEFAULT_OPTS = '-en "$physics_proxy" -em proxy -em nocollision_faces -prefixmatnames -notex'
 CGF_CONVERTER = shutil.which("cgf-converter")
 
 
@@ -79,9 +77,7 @@ class CGFModelConverter(plugins.P4KConverterPlugin):
 
         def _do_model_convert(model_file):
             cgf_cmd = f'"{cgf_converter}" {cgf_converter_opts} "{model_file}" -objectdir "{obj_dir}"'
-            cgf = subprocess.Popen(
-                cgf_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-            )
+            cgf = subprocess.Popen(cgf_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
             start_time = time.time()
             while (time.time() - start_time) < CGF_CONVERTER_TIMEOUT:
@@ -94,9 +90,7 @@ class CGFModelConverter(plugins.P4KConverterPlugin):
             if cgf.returncode != 0:
                 errmsg = cgf.stdout.read().decode("utf-8")
                 if "is being used by another process" in errmsg.lower():
-                    return (
-                        []
-                    )  # someone else already picked up this file, ignore the error
+                    return []  # someone else already picked up this file, ignore the error
                 return [
                     (
                         None,
@@ -116,14 +110,9 @@ class CGFModelConverter(plugins.P4KConverterPlugin):
                     continue  # skip the `m` files here
 
                 model_file = Path(model_file)
-                if (
-                    model_file.suffix == ".cgf"
-                    and model_file.with_suffix(".cga").is_file()
-                ):
+                if model_file.suffix == ".cgf" and model_file.with_suffix(".cga").is_file():
                     continue  # skip converting cgf files if the cga equivalent is available
-                futures.append(
-                    executor.submit(_do_model_convert, model_file=model_file)
-                )
+                futures.append(executor.submit(_do_model_convert, model_file=model_file))
                 total += 1
             for future in concurrent.futures.as_completed(futures):
                 for ret in future.result():

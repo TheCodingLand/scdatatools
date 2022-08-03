@@ -22,7 +22,7 @@ def set_light_state(light_obj, state):
     light_obj.data.color = light_obj["states"][state]["color"]
     # adjust intensity by +4EV; make this a user settings later
     light_obj.data.energy = light_obj["states"][state]["intensity"] * pow(
-        2, 4
+        2, 6
     )  # +4ev? +6ev? I can't decide
     if light_obj["use_temperature"]:
         if temp_node := light_obj.data.node_tree.nodes.get("Temperature"):
@@ -94,9 +94,8 @@ def create_light(
         light_data = bpy.data.lights.new(name=light_group_collection.name, type="SPOT")
         light_data.spot_size = math.radians(fov)
         light_data.spot_blend = bulbRadius
-        light_data.shadow_soft_size = (
-            bulbRadius * 0.01
-        )  # set to zero for hard IES light edges, increase for softness
+        light_data.shadow_soft_size = bulbRadius
+        # set to zero for hard IES light edges, increase for softness
         # light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
         # light_data.spread = math.radians(fov)
         # light_data.size = bulbRadius

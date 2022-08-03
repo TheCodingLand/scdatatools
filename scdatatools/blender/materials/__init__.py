@@ -338,7 +338,7 @@ class MTLLoader:
             pass
         try:
             shadergroup.inputs["BlendFactor"].default_value = float(
-                mtl_attrs["PublicParams"].get("Blend Factor", 0)
+                mtl_attrs["PublicParams"].get("BlendFactor", 0)
             )
         except:
             pass

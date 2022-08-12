@@ -285,6 +285,7 @@ class MTLLoader:
             viewport_trans = True
         elif "rtt_text_to_decal" in matname.lower():
             shadergroup.inputs["diff Alpha"].default_value = 0
+            shadergroup.inputs["UseAlpha"].default_value = 1
             viewport_trans = True
         else:
             shadergroup.node_tree = bpy.data.node_groups["_Illum"]
@@ -297,14 +298,23 @@ class MTLLoader:
 
         if "pom" in matname.lower():
             shadergroup.inputs["Base Color"].default_value = (0.18, 0.18, 0.18, 1)
-            shadergroup.inputs["n Strength"].default_value = 10
+            shadergroup.inputs["n Strength"].default_value = 1
             shadergroup.inputs["Metallic"].default_value = 1
         else:
             shadergroup.inputs["Base Color"].default_value = make_tuple(
                 mtl_attrs.get("Diffuse") + ",1"
             )
+        try:
+            shadergroup.inputs["spec Color"].default_value = make_tuple(
+                mtl_attrs.get("Specular") + ",1"
+            )
+        except:
+            pass
 
-        # shadergroup.inputs['ddna Alpha'].default_value = mat.roughness
+        try:
+            shadergroup.inputs["ddna Alpha"].default_value = float(mtl_attrs.get("Shininess", 128))/255
+        except:
+            pass
 
         try:
             shadergroup.inputs["spec Color"].default_value = make_tuple(
@@ -314,7 +324,7 @@ class MTLLoader:
             pass
 
         try:
-            shadergroup.inputs["Glow"].default_value = float(mtl_attrs.get("Glow", 0)) * pow(2, 6)
+            shadergroup.inputs["Glow"].default_value = float(mtl_attrs.get("Glow", 0)) * pow (2,6)
         except:
             pass
 
@@ -562,6 +572,33 @@ class MTLLoader:
 
         return mat
 
+    def create_display_surface(self, mtl_attrs):
+        mat, created = self.get_or_create_shader_material(mtl_attrs["Name"])
+        if not created:
+            return
+
+        nodes = mat.node_tree.nodes
+        shaderout = mat.node_tree.nodes[SN_OUT]
+        shadergroup = mat.node_tree.nodes[SN_GROUP]
+
+        # Viewport material values
+        set_viewport(mat, mtl_attrs, True)
+
+        shadergroup.node_tree = bpy.data.node_groups["_Display"]
+        mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
+        mat.node_tree.links.new(
+            shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
+        )
+        shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
+        # shadergroup.inputs['ddna Alpha'].default_value = mat.roughness
+        # shadergroup.inputs['spec Color'].default_value = mat.specular_color[0]/2
+        shadergroup.inputs["IOR"].default_value = 1.45
+        shaderout.location.x += 200
+
+        self.load_textures(mtl_attrs["Textures"], mat, shadergroup)
+
+        return mat
+
     def create_layer_blend_surface(self, mtl_attrs):
         mat, created = self.get_or_create_shader_material(mtl_attrs["Name"])
         if not created:
@@ -581,7 +618,17 @@ class MTLLoader:
         )
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
         shadergroup.inputs["ddna Alpha"].default_value = mat.roughness
-        shadergroup.inputs["Emission"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
+        #shadergroup.inputs["Emission"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
+        try:
+            shadergroup.inputs["Glow"].default_value = float(
+                mtl_attrs.get("Glow", 0)) * pow (2,6)
+        except:
+            pass
+        try:
+            shadergroup.inputs["Emissive"].default_value = reversed(
+                make_tuple(mtl_attrs.get("Emissive")))
+        except:
+            pass
         shaderout.location.x += 200
 
         use_tint_node_group = False
@@ -823,7 +870,7 @@ class MTLLoader:
         mat.node_tree.links.new(shadernode.outputs["BSDF"], shaderout.inputs["Surface"])
         return mat
 
-    def load_textures(self, textures, mat, shadergroup=None):
+    def load_textures(self, textures, mat, shadergroup=None):              
 
         y = 0
 
@@ -841,6 +888,8 @@ class MTLLoader:
             filename = tex.get("File")
             logger.debugscbp(f"texture %s", tex.attrib)
             if filename == "nearest_cubemap":
+                continue
+            elif filename == "$RenderToTexture":
                 continue
 
             if (tex.get("Map") in ["TexSlot2", "Bumpmap"]) and (

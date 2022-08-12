@@ -8,25 +8,20 @@ from scdatatools.blender.utils import hashed_path_key
 logger = logging.getLogger(__name__)
 
 SCSHARDERS_BLEND = Path(__file__).parent / "SCShaders.blend"
-REQUIRED_SHADER_NODE_GROUPS = [
+REQUIRED_SHADER_NODE_GROUPS = [    
+    "_Parallax (UV)",
+    "_TintDecalConverter",
     "_Glass",
     "_HardSurface",
     "_Illum",
     "_Illum.decal",
     "_Illum.emit",
     "_Illum.pom",
+    "_DisplayScreen",
     "_LayerBlend",
     "_LayerMix",
     "_MaterialLayer",
-    "_Tint",
-    "BlendSeperator",
-    "Detail Seperator",
-    ".flip normals",
-    "Mix channels",
-    "_Parallax (UV)",
-    "_TintDecalConverter",
-    "_Hologramcig",
-    "Roughness global",
+    "_Hologramcig",    
 ]
 
 

@@ -2,7 +2,6 @@ import ctypes
 import logging
 import struct
 
-import hexdump
 import numpy as np
 
 from scdatatools.engine.model_utils import Vector3D
@@ -28,9 +27,12 @@ class IncludedObjectType(ctypes.LittleEndianStructure):
         return obj
 
 
-class IncludedObjectType0(IncludedObjectType):
+class UnknownIncludedObjectType(IncludedObjectType):
     _pack_ = 1
-    _fields_ = [("object_type", ctypes.c_uint32), ("unknown", ctypes.c_uint32)]
+    _fields_ = [
+        ("object_type", ctypes.c_uint32),
+        ("data", ctypes.c_byte * 180)
+    ]
 
     @property
     def filename(self):
@@ -50,7 +52,9 @@ class IncludedObjectType1(IncludedObjectType):
         ("id", ctypes.c_uint16),
         ("temp1", ctypes.c_uint16),
         ("raw_rotMatrix", ctypes.c_double * 12),
-        ("unknown", ctypes.c_uint32 * 4),
+        ("unknown2", ctypes.c_uint32 * 5),
+        ("flags", ctypes.c_uint32),
+        ("unknown3", ctypes.c_uint32 * 2)
     ]
 
     @classmethod
@@ -91,7 +95,7 @@ class IncludedObjectType1(IncludedObjectType):
 
 
 INCLUDED_OBJECT_TYPES = {
-    0x00000000: IncludedObjectType0,
+    # 0x00000000: IncludedObjectType0,
     0x00000001: IncludedObjectType1,
     # TODO: other ICOs
     #   0x00000007?
@@ -140,34 +144,42 @@ class IncludedObjects(Chunk):
             obj_class = INCLUDED_OBJECT_TYPES.get(obj_type)
 
             if obj_class is None:
-                # TODO: This is brute force-y and hack-y and i dont like it. but there seems to be a ton of variation in
-                #  the data found between chunks that i havent quite been able to pin down. it _seems_ to be safe to
-                #  work this way though
-                if _last_known == 0:
-                    _last_known = self.chunk_data.tell()
-                # skip a uint32
-                self.chunk_data.seek(4)
-                len_objects -= 4
-            else:
-                if _last_known > 0:
-                    logger.warning(
-                        f"SOC IncludedObject: Skipped block of {self.chunk_data.tell() - _last_known} bytes "
-                        f"starting at 0x{_last_known:x} - "
-                        f"{hexdump.dump(self.chunk_data.data[_last_known:_last_known+4])}"
-                    )
-                    _last_known = 0
-                self.objects.append(
-                    obj_class.from_buffer(self.chunk_data.data, self.chunk_data.tell(), self)
-                )
-                obj_size = ctypes.sizeof(self.objects[-1])
-                self.chunk_data.seek(obj_size)
-                len_objects -= obj_size
+                obj_class = UnknownIncludedObjectType
+            self.objects.append(
+                obj_class.from_buffer(self.chunk_data.data, self.chunk_data.tell(), self)
+            )
+            obj_size = ctypes.sizeof(self.objects[-1])
+            self.chunk_data.seek(obj_size)
+            len_objects -= obj_size
+            #     # TODO: This is brute force-y and hack-y and i dont like it. but there seems to be a ton of variation in
+            #     #  the data found between chunks that i havent quite been able to pin down. it _seems_ to be safe to
+            #     #  work this way though
+            #     if _last_known == 0:
+            #         _last_known = self.chunk_data.tell()
+            #     # skip a uint32
+            #     self.chunk_data.seek(4)
+            #     len_objects -= 4
+            # else:
+            #     if _last_known > 0:
+            #         logger.warning(
+            #             f"SOC IncludedObject: Skipped block of {self.chunk_data.tell() - _last_known} bytes "
+            #             f"starting at 0x{_last_known:x} - "
+            #             f"{hexdump.dump(self.chunk_data.data[_last_known:_last_known+4])}"
+            #         )
+            #         _last_known = 0
+            #     self.objects.append(
+            #         obj_class.from_buffer(self.chunk_data.data, self.chunk_data.tell(), self)
+            #     )
+            #     obj_size = ctypes.sizeof(self.objects[-1])
+            #     self.chunk_data.seek(obj_size)
+            #     len_objects -= obj_size
         if _last_known > 0:
             logger.debug(
                 f"SOC IncludedObject: Skipped block of {self.chunk_data.tell() - _last_known} "
                 f"bytes starting at 0x{_last_known:x}"
             )
-        assert len_objects == 0
+        if len_objects != 0:
+            raise Exception()
 
     def __str__(self):
         cgfs = "\n    ".join(self.cgfs)

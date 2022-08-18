@@ -29,7 +29,8 @@ def install_blender_addon(blender_ver, addon_name, addon_template) -> Path:
     with addon_py.open("w") as addon:
         addon.write(
             addon_template.format(
-                path=",\n         ".join(repr(sorted(_ for _ in sys.path)).split(", "))
+                path=",\n         ".join(repr(sorted(_ for _ in sys.path)).split(", ")),
+                blender_version=blender_ver,
             )
         )
     return addon_py

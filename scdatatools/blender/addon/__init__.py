@@ -38,7 +38,7 @@ bl_info = {{
     "name": "Star Citizen Data Tools",
     "author": "ventorvar",
     "version": (0, 1, 0),
-    "blender": (2, 93, 0),
+    "blender": (3, 1, 0),
     "location": "View3D > Panel",
     "category": "SC Modding",
     "doc_url": "https://gitlab.com/scmodding/frameworks/scdatatools",

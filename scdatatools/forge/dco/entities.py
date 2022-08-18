@@ -46,5 +46,9 @@ class Ship(Entity):
     def object_containers(self):
         return self.components["VehicleComponentParams"].properties["objectContainers"]
 
+    @property
+    def max_bounding_box_size(self):
+        return self.components["VehicleComponentParams"].properties["maxBoundingBoxSize"].properties
+
     def __repr__(self):
         return f"<DCO Ship {self.name}>"

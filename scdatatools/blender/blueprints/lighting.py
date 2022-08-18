@@ -85,6 +85,7 @@ def create_light(
         light["EntityComponentLight"]["shadowParams"].get("@projectorNearPlane", None)
     )
     maxDistance = float(light["EntityComponentLight"]["fadeParams"].get("@maxDistance", None))
+    maxShadowDistance = float(light["EntityComponentLight"]["shadowParams"].get("@maxShadowCastDist", None))
 
     # TODO: EntityComponentLight.defaultState.lightStyle?
     # TODO: use shadowParams.@shadowCasting?
@@ -121,7 +122,7 @@ def create_light(
                 float(val["color"].get("@b", 1)),
             ),
             "intensity": float(val.get("@intensity", 1)),
-            "temperature": float(val.get("@temperature", 5200)),
+            "temperature": float(val.get("@temperature", 3500)),
             "presetTag": val.get("@presetTag", ""),
             "lightStyle": int(val.get("@lightStyle", 0)),
         }
@@ -161,7 +162,7 @@ def create_light(
     if use_temperature:
         bb_node = light_obj.data.node_tree.nodes.new(type="ShaderNodeBlackbody")
         bb_node.name = "Temperature"
-        bb_node.inputs[0].default_value = 3500  #
+        bb_node.inputs[0].default_value = 3500#
         light_obj.data.node_tree.links.new(bb_node.outputs["Color"], temp_node.inputs["Color"])
         # light_obj.data.color = (1,1,1)
 

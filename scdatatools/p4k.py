@@ -675,6 +675,12 @@ class P4KFile(zipfile.ZipFile):
                 extracted_files.append(ext_path)
         return extracted_files
 
+    def close(self) -> None:
+        for archive in self.subarchives.values():
+            if archive is not None:
+                archive.close()
+        super().close()
+
     def _extract_member(self, member, targetpath, pwd=None, save_to=False, overwrite=True):
         """Extract the ZipInfo object 'member' to a physical file on the path targetpath."""
         if not isinstance(member, P4KInfo):

@@ -110,6 +110,7 @@ class StarCitizen:
     def load_all(self):
         """Ensure the p4k, datacore, localization and wwise manager are loaded"""
         assert self.p4k is not None
+        self.p4k.expand_subarchives()
         assert self.datacore is not None
         assert self.localization is not None
         assert self.wwise is not None

@@ -70,13 +70,13 @@ class ObjectContainerInstance:
     }
 
     def __init__(
-        self,
-        sc: "StarCitizen",
-        name: str,
-        root: "ObjectContainer",
-        parent: typing.Union["ObjectContainer", "ObjectContainerInstance"],
-        entdata: dict = None,
-        **kwargs,
+            self,
+            sc: "StarCitizen",
+            name: str,
+            root: "ObjectContainer",
+            parent: typing.Union["ObjectContainer", "ObjectContainerInstance"],
+            entdata: dict = None,
+            **kwargs,
     ):
         self._sc = sc
         self.name = name
@@ -92,11 +92,12 @@ class ObjectContainerInstance:
 
         for k, v in ObjectContainerInstance.__INSTANCE_ARGS__.items():
             if k in kwargs:
-                self._attrs[v] = kwargs[k]
-                setattr(self, v, kwargs[k])
+                self._attrs[v] = kwargs.pop(k)
             elif v in kwargs:
-                self._attrs[v] = kwargs[v]  # from a duplicated instance
-                setattr(self, v, kwargs[v])
+                self._attrs[v] = kwargs.pop(v)  # from a duplicated instance
+            setattr(self, v, self._attrs[v])
+
+        self.attrs = kwargs
 
         self.label = self._attrs.get("label", self.entdata.get("@Name", Path(self.name).stem))
         self.position = vector_from_csv(self._attrs.get("position", "0,0,0"))
@@ -105,14 +106,23 @@ class ObjectContainerInstance:
             self._attrs["entity_name"] = ""
             self.entity_name = ""
 
+        self.display_name = self.entity_name
+        if 'starMapRecord' in self.attrs:
+            try:
+                self.display_name = self._sc.gettext(
+                    self._sc.datacore.records_by_guid[self.attrs['starMapRecord']].name
+                )
+            except KeyError:
+                pass
+
         if isinstance(parent, ObjectContainerInstance):
-            self.global_position = parent.global_position + self.position
-            self.global_rotation = (
-                parent.global_rotation * self.rotation
+            self.universal_position = parent.universal_position + self.position
+            self.universal_rotation = (
+                    parent.universal_rotation * self.rotation
             )  # TODO: is this actually a thing?
         else:
-            self.global_position = self.position
-            self.global_rotation = self.rotation
+            self.universal_position = self.position
+            self.universal_rotation = self.rotation
 
         self._children_loaded = False
         self._children_by_id: dict[str, ObjectContainerInstance] = {}
@@ -170,8 +180,8 @@ class ObjectContainerInstance:
             {
                 "name": self.name,
                 "container": self.container,
-                "global_position": self.global_position,
-                "global_rotation": self.global_rotation,
+                "universal_positional": self.universal_position,
+                "universal_rotation": self.universal_rotation,
                 "position": self.position,
                 "rotation": self.rotation,
                 "parent": self.parent,
@@ -313,3 +323,82 @@ class ObjectContainerManager:
         oc = ObjectContainer(self.sc, socpak)
         self.object_containers[socpak.filename] = oc
         return oc
+
+
+try:
+    from pyvista.plotting import Plotter
+
+
+    class ObjectContainerPlotter:
+        def __init__(self, object_container, depth_to_show=1, plotter=None, label_font_size=48, point_max_size = 48):
+            self.object_container = object_container
+            self.depth_to_show = depth_to_show
+            self.label_font_size = label_font_size
+            self.point_max_size = point_max_size
+
+            self.plotter = plotter or Plotter()
+            self.plotter.add_key_event('r', self._handle_reset_view)
+            self.plotter.enable_fly_to_right_click()
+            self.plotter.enable_point_picking(self._handle_clicked_point, show_message=False, left_clicking=True)
+
+            self._oc_from_point = {}
+            self._parent_oc = [self.object_container]
+
+            self._update_plotter()
+
+        def show(self, *args, **kwargs):
+            self.plotter.show(*args, **kwargs)
+
+        def _handle_reset_view(self):
+            self.plotter.reset_camera()
+
+        def _handle_clicked_point(self, point):
+            self.plotter.fly_to(point)
+            if oc := self._oc_from_point.get(tuple(point)):
+                self._update_plotter(oc)
+
+        def _handle_button_clicked(self, _):
+            if not self._parent_oc:
+                self._parent_oc = [self.object_container]
+            else:
+                self._parent_oc.pop()
+            self._update_plotter(self._parent_oc[-1])
+
+        def _update_plotter(self, base_oc=None):
+            base_oc = base_oc or self.object_container
+
+            self.plotter.clear()
+            self._oc_from_point.clear()
+
+            if base_oc is not self.object_container:
+                if base_oc not in self._parent_oc:
+                    self._parent_oc.append(base_oc)
+                self.plotter.add_checkbox_button_widget(self._handle_button_clicked, value=True)
+
+            points_at_size = {}
+
+            def add_children(obj, d, s):
+                if d < 0:
+                    return
+                name = getattr(obj, 'display_name', obj.name)
+                point = tuple(getattr(obj, 'universal_position', (0, 0, 0)))
+                self._oc_from_point[point] = obj
+                points_at_size.setdefault(s, []).append((point, name))
+                for child in obj.children.values():
+                    add_children(child, d - 1, max(5, s - 10))
+
+            self.plotter.add_text(getattr(base_oc, 'display_name', base_oc.name))
+            add_children(base_oc, d=max(self.depth_to_show, 1), s=self.point_max_size)
+
+            for size in points_at_size:
+                points, names = zip(*points_at_size[size])
+                self.plotter.add_point_labels(points, names, font_size=self.label_font_size, pickable=True,
+                                              reset_camera=True, point_size=size, shape='rounded_rect')
+            self.plotter.show_bounds()
+            # plotter.enable_joystick_style()
+            self.plotter.show_grid()
+
+except ImportError:
+    class ObjectContainerPlotter:
+        def __init__(self):
+            from pyvista import Plotter  # trigger import error

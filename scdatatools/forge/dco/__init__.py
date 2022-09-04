@@ -1,4 +1,4 @@
-from . import tags
+from . import components
 from . import entities
-
-from .common import dco_from_guid, DataCoreObject
+from . import tags
+from .common import dco_from_guid, DataCoreRecordObject

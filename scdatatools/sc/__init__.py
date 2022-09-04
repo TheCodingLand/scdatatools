@@ -13,6 +13,7 @@ from scdatatools.forge.tags import TagDatabase
 from scdatatools.p4k import P4KFile
 from scdatatools.utils import get_size, xxhash32, xxhash32_file
 from scdatatools.wwise import WwiseManager
+from .component_manager import AttachableComponentManager
 from .config import Profile
 from .localization import SCLocalization
 from .object_container import ObjectContainerManager
@@ -65,10 +66,9 @@ class StarCitizen:
             raise ValueError(f"Could not find p4k file {self.p4k_file}")
 
         # setup initial empty caches
-        self._datacore = (
-            self._tag_database
-        ) = self._wwise_manager = self._localization = self._profile = None
-        self._prefab_manager = self._oc_manager = None
+        self._datacore = self._tag_database = self._wwise_manager = None
+        self._localization = self._profile = self._prefab_manager = None
+        self._attachable_component_manager = self._oc_manager = None
 
         for ver_file in TRY_VERSION_FILES:
             if (self.game_folder / ver_file).is_file():
@@ -117,6 +117,8 @@ class StarCitizen:
         assert self.tag_database is not None
         assert self.prefab_manager is not None
         assert self.oc_manager is not None
+        assert self.attachable_component_manager is not None
+        # self.attachable_component_manager.load_attachable_components()
 
     def generate_inventory(
         self,
@@ -204,6 +206,13 @@ class StarCitizen:
             self._localization = SCLocalization(self, cache_dir=self.cache_dir)
             self._is_loaded["localization"] = True
         return self._localization
+
+    @property
+    def attachable_component_manager(self):
+        if self._attachable_component_manager is None:
+            self._attachable_component_manager = AttachableComponentManager(self)
+            self._is_loaded["attachable_component_manager"] = True
+        return self._attachable_component_manager
 
     @property
     def oc_manager(self):

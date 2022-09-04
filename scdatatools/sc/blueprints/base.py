@@ -9,7 +9,7 @@ from pyquaternion import Quaternion
 
 from scdatatools.engine.cryxml import dict_from_cryxml_file, CryXmlConversionFormat
 from scdatatools.engine.model_utils import Vector3D
-from scdatatools.forge.dco import DataCoreObject
+from scdatatools.forge.dco import DataCoreRecordObject
 from scdatatools.forge.dftypes import Record, GUID
 from scdatatools.utils import SCJSONEncoder
 from scdatatools.utils import norm_path
@@ -452,7 +452,7 @@ class Blueprint:
 
     def geometry_for_record(
         self,
-        record: typing.Union[DataCoreObject, Record, GUID, str],
+        record: typing.Union[DataCoreRecordObject, Record, GUID, str],
         base: bool = False,
     ) -> typing.Union[typing.Dict[str, BlueprintGeometry], BlueprintGeometry, None]:
         """Returns all the `BlueprintGeometry`s associated with a given `record`.
@@ -468,7 +468,7 @@ class Blueprint:
         """
         if record is None:
             return None
-        if isinstance(record, DataCoreObject):
+        if isinstance(record, DataCoreRecordObject):
             guid = record.guid
         elif isinstance(record, Record):
             guid = record.id.value

@@ -1,9 +1,9 @@
-import typing
 import logging
+import typing
 
+from scdatatools.forge.dco import DataCoreRecordObject
 from scdatatools.forge.dftypes import Record
 from scdatatools.sc.blueprints.base import Blueprint
-from scdatatools.forge.dco import DataCoreObject, dco_from_guid
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ if typing.TYPE_CHECKING:
 
 def blueprint_from_datacore_entity(
     sc: "StarCitizen",
-    record_or_guid: typing.Union[Record, DataCoreObject, str],
+    record_or_guid: typing.Union[Record, DataCoreRecordObject, str],
     bp: Blueprint = None,
     monitor: typing.Callable = None,
 ) -> "Blueprint":
@@ -32,7 +32,7 @@ def blueprint_from_datacore_entity(
     """
     if isinstance(record_or_guid, str):
         record = sc.datacore.records_by_guid[record_or_guid]
-    elif isinstance(record_or_guid, DataCoreObject):
+    elif isinstance(record_or_guid, DataCoreRecordObject):
         record = record_or_guid.record
     else:
         record = record_or_guid

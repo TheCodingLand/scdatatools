@@ -1,9 +1,11 @@
 import re
 import typing
 
-from scdatatools.forge.dftypes import GUID, Record
+from scdatatools.forge.dftypes import GUID, Record, StrongPointer, StructureInstance
 
 RECORD_HANDLER = {}
+STRONG_POINTER_HANDLER = {}
+STRUCTURE_INSTANCE_HANDLER = {}
 
 
 def register_record_handler(dco_type, filename_match=".*"):
@@ -24,24 +26,83 @@ def register_record_handler(dco_type, filename_match=".*"):
     return _record_handler_wrapper
 
 
-def dco_from_guid(datacore, guid: typing.Union[str, GUID]) -> "DataCoreObject":
+def register_strong_pointer_handler(dco_type):
+    """
+    Registers a class handler for the specified `dco_type`.
+    """
+
+    def _record_handler_wrapper(handler_class):
+        if dco_type in STRONG_POINTER_HANDLER:
+            raise Exception(f'Handler already defined for {handler_class}')
+        STRONG_POINTER_HANDLER[dco_type] = handler_class
+        return handler_class
+    return _record_handler_wrapper
+
+
+def register_structure_instance_handler(dco_type):
+    """
+    Registers a class handler for the specified `dco_type`.
+    """
+
+    def _record_handler_wrapper(handler_class):
+        if dco_type in STRUCTURE_INSTANCE_HANDLER:
+            raise Exception(f'Handler already defined for {handler_class}')
+        STRUCTURE_INSTANCE_HANDLER[dco_type] = handler_class
+        return handler_class
+    return _record_handler_wrapper
+
+
+def dco_from_datacore(sc, object: typing.Union[Record, StrongPointer]) -> typing.Any:
+    if isinstance(object, Record):
+        matched = {"": DataCoreRecordObject}
+        if object.type in RECORD_HANDLER:
+            # find every matching record handler and store them
+            for check in sorted(RECORD_HANDLER[object.type], key=len, reverse=True):
+                if re.match(check, object.filename):
+                    matched[check] = RECORD_HANDLER[object.type][check]
+
+        # use the record handler with the most specific (longest) filename check
+        return matched[sorted(matched, key=len, reverse=True)[0]](sc, object)
+    elif isinstance(object, StrongPointer):
+        return STRONG_POINTER_HANDLER.get(object.type, DataCoreObject)(sc, object)
+    elif isinstance(object, StructureInstance):
+        return STRUCTURE_INSTANCE_HANDLER.get(object.type, DataCoreObject)(sc, object)
+    return object
+
+
+def dco_from_guid(sc, record: typing.Union[str, GUID, Record, StrongPointer]) -> typing.Any:
     """
     Takes a :str:`guid` and returns a :class:`DataCoreObject` created from the proper DCO subclass for the record type
     """
-    record = datacore.records_by_guid[str(guid)]
-    matched = {"": DataCoreObject}
-
-    if record.type in RECORD_HANDLER:
-        # find every matching record handler and store them
-        for check in sorted(RECORD_HANDLER[record.type], key=len, reverse=True):
-            if re.match(check, record.filename):
-                matched[check] = RECORD_HANDLER[record.type][check]
-
-    # use the record handler with the most specific (longest) filename check
-    return matched[sorted(matched, key=len, reverse=True)[0]](datacore, record)
+    if not isinstance(record, Record):
+        record = sc.datacore.records_by_guid[str(record)]
+    return dco_from_datacore(sc, record)
 
 
 class DataCoreObject:
+    def __init__(self, sc, object: typing.Union[Record, StrongPointer, StructureInstance]):
+        self._sc = sc
+        self._datacore = sc.datacore
+        self.object = object
+
+    @property
+    def properties(self):
+        return self.object.properties
+        # return {k: dco_from_datacore(self._datacore, v) for k, v in self.object.properties.items()}
+
+    def __getattr__(self, item):
+        return self.properties[item]
+
+    @property
+    def name(self):
+        return self.object.name
+
+    @property
+    def type(self):
+        return self.object.type
+
+
+class DataCoreRecordObject(DataCoreObject):
     """
     A handy Python representation of a :class:`Record` from a `DataForge`. This base class is subclassed with
     record `type` specific classes that have more convenience functionality for those specific types. The preferred
@@ -49,34 +110,22 @@ class DataCoreObject:
     automagically use the correct subclass for the :class:`Record` type.
     """
 
-    def __init__(self, datacore, guid_or_dco: typing.Union[str, GUID, Record]):
-        self.record = guid_or_dco if isinstance(guid_or_dco, Record) else str(guid_or_dco)
-        self._datacore = datacore
-
     @property
     def guid(self):
-        return self.record.id.value
-
-    @property
-    def name(self):
-        return self.record.name
-
-    @property
-    def type(self):
-        return self.record.type
+        return self.object.id.value
 
     @property
     def filename(self):
-        return self.record.filename
+        return self.object.filename
 
     def to_dict(self, depth=100):
-        return self.record.dcb.record_to_dict(self.record, depth=depth)
+        return self.object.dcb.record_to_dict(self.record, depth=depth)
 
     def to_json(self, depth=100):
-        return self.record.dcb.dump_record_json(self.record, depth=depth)
+        return self.object.dcb.dump_record_json(self.record, depth=depth)
 
     def to_etree(self, depth=100):
-        return self.record.dcb.record_to_etree(self.record, depth=depth)
+        return self.object.dcb.record_to_etree(self.record, depth=depth)
 
     def to_xml(self, depth=100):
-        return self.record.dcb.dump_record_xml(self.record, depth=depth)
+        return self.object.dcb.dump_record_xml(self.record, depth=depth)

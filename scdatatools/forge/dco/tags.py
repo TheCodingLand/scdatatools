@@ -1,8 +1,8 @@
-from .common import DataCoreObject, register_record_handler
+from .common import DataCoreRecordObject, register_record_handler
 
 
 @register_record_handler("Tag")
-class Tag(DataCoreObject):
+class Tag(DataCoreRecordObject):
     def __init__(self, datacore, tag_guid):
         super().__init__(datacore, tag_guid)
         assert self.record.type == "Tag"

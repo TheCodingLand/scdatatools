@@ -130,7 +130,7 @@ class DataCoreBinary:
         self._string_cache = {}
         self.records_by_guid = {}
         self.record_types = set()
-        self.entities = {}
+        self.entities: dict[str, Record] = {}
         for r in self.records:
             if r.type == "EntityClassDefinition":
                 self.entities[r.name] = r

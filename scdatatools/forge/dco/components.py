@@ -60,6 +60,6 @@ class AttachableComponent(DataCoreObject):
         return self.AttachDef.properties['Type']
 
     @property
-    def attachable_sub_type(self):
-        return self.AttachDef.properties['SubType']
+    def attachable_sub_types(self):
+        return self.AttachDef.properties['SubType'].split(',')
 

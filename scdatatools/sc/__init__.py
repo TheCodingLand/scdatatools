@@ -118,7 +118,7 @@ class StarCitizen:
         assert self.prefab_manager is not None
         assert self.oc_manager is not None
         assert self.attachable_component_manager is not None
-        # self.attachable_component_manager.load_attachable_components()
+        self.attachable_component_manager.load_attachable_components()
 
     def generate_inventory(
         self,

@@ -10,11 +10,14 @@ from pyquaternion import Quaternion
 from scdatatools.engine.cryxml import dict_from_cryxml_file, CryXmlConversionFormat
 from scdatatools.engine.model_utils import Vector3D
 from scdatatools.forge.dco import DataCoreRecordObject
+from scdatatools.forge.dco import dco_from_datacore
+from scdatatools.forge.dco.entities import Vehicle
 from scdatatools.forge.dftypes import Record, GUID
 from scdatatools.utils import SCJSONEncoder
 from scdatatools.utils import norm_path
 from .extractor import extract_blueprint
 from .processors import process_p4kfile, process_datacore_object
+from .processors.datacore.entity_class import load_item_port
 
 if typing.TYPE_CHECKING:
     from scdatatools.sc import StarCitizen
@@ -151,11 +154,12 @@ class Blueprint:
         self.record_geometry = {}
         self.converted_files = {}
 
-        self.entity = None
+        self._entity = None
         self.entity_geom = ""
         self.asset_info = {}
         self.p4k_files = set()
         self._extract_filter = set()
+        self.hardpoints = {}
         self.geometry = {}
         self.socs = {}
         self.records = set()
@@ -165,6 +169,16 @@ class Blueprint:
         self.current_container = self.containers["base"]
 
         self.sc.p4k.expand_subarchives()  # ensure all the subarchives are expanded/available
+
+    @property
+    def entity(self):
+        return self._entity
+
+    @entity.setter
+    def entity(self, record):
+        self._entity = record
+        e = dco_from_datacore(self.sc, record)
+        self.hardpoints = {hp: {} for hp in e.hardpoints.keys()} if isinstance(e, Vehicle) else {}
 
     @property
     def extract_filter(self) -> set:
@@ -197,6 +211,7 @@ class Blueprint:
             "socs": self.socs,
             "asset_info": self.asset_info,
             "bone_names": sorted(_ for _ in self.bone_names if _),
+            "hardpoints": self.hardpoints,
             "geometry": {geom: self.geometry[geom] for geom in sorted(self.geometry)},
             "tint_palettes": []
             if not self.entity_geom
@@ -343,17 +358,26 @@ class Blueprint:
             else:
                 self.converted_files[outrec] = record.dcb.dump_record_json(record)
 
-    @staticmethod
-    def get_or_create_item_port(name: str, parent: dict) -> dict:
+    def get_or_create_item_port(self, name: str, parent: dict) -> dict:
         """Gets or creates an `item_port` loadout configuration for a `loadout` `parent`.
 
         :param name: name of the item_port (key name)
         :param parent: The `parent` `loadout` within a `BlueprintGeometry`
         :returns: `dict` of the `loadout` named `name` in the `parent` loadout
         """
-        if name not in parent:
+        if name in self.hardpoints:
+            if name not in parent:
+                parent[name] = {"hardpoint": name}
+            parent = self.hardpoints
+
+        if not parent.get(name, {}):
             parent[name] = {"geometry": set()}
         return parent[name]
+
+    def update_hardpoint(self, name: str, record: typing.Union[str, GUID, Record]):
+        del self.hardpoints[name]   # trigger key error if it doesnt exist
+        self.hardpoints[name] = {}
+        return load_item_port(self, name, record)
 
     def get_or_create_geom(
         self,

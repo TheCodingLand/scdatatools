@@ -576,6 +576,8 @@ class SCBlueprintImporter:
 
         def _build_loadouts(parent, loadout):
             for port_name, props in loadout.items():
+                if 'hardpoint' in props:
+                    props = self.bp['hardpoints'][props['hardpoint']]
                 for geom_name in props["geometry"]:
                     if geom_name not in self.bp["geometry"]:
                         continue

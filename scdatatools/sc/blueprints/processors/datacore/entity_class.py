@@ -5,6 +5,7 @@ from pyquaternion import Quaternion
 
 from scdatatools.engine.cryxml import dict_from_cryxml_file
 from scdatatools.engine.model_utils import Vector3D, ang3_to_quaternion
+from scdatatools.forge.dftypes import Record
 from scdatatools.sc.blueprints.processors import datacore_type_processor
 from scdatatools.sc.blueprints.processors import process_datacore_object
 from scdatatools.utils import norm_path, dict_search
@@ -46,13 +47,16 @@ def _search_record(bp, record):
 
 @datacore_type_processor("SGeometryResourceParams")
 def process_geometry_resource_params(
-    bp: "Blueprint", component, record: "Record", tags="", *args, **kwargs
+        bp: "Blueprint", component, record: "Record", tags="", *args, **kwargs
 ) -> bool:
     if component.name == "SGeometryDataParams":
         mtl = component.properties["Material"].properties["path"]
         geom_path = component.properties["Geometry"].properties["path"]
-        bp.add_file_to_extract(mtl)
-        attrs = {"tags": tags}
+        if mtl == 'objects/vfx/mesheffects/particle_transparent_meshes/fx_transparent_material.mtl':
+            geom_path = ''
+        else:
+            bp.add_file_to_extract(mtl)
+            attrs = {"tags": tags}
 
         if geom_path:
             if bp.entity is not None and record.id.value == bp.entity.id.value:
@@ -112,9 +116,49 @@ def process_geometry_resource_params(
     return True
 
 
+def load_item_port(bp: "Blueprint", item_port_name: str, record: Record, parent_geometry=None, parent_loadout=None):
+    if parent_geometry is None:
+        if not bp.entity:
+            raise ValueError(f'Must specify parent_geometry or have a bp.entity set')
+        parent_geometry = bp.geometry[bp.entity_geom]
+
+    if parent_loadout is None:
+        parent_loadout = parent_geometry['loadout']
+
+    bp.add_record_to_extract(record.id)
+
+    def _geom_for_port(port):
+        ipe_geom = bp.geometry_for_record(record)
+        for tag in ipe_geom:
+            if tag and tag.lower() in port.lower():
+                return ipe_geom[tag]
+        return ipe_geom.get("", [])
+
+    if item_port_name in parent_geometry["helpers"]:
+        helper = parent_geometry["helpers"][item_port_name]
+        for geom_path in _geom_for_port(helper["name"]):
+            bp.get_or_create_geom(
+                geom_path,
+                parent=parent_geometry,
+                create_params={
+                    "pos": helper["pos"],
+                    "rotation": helper["rotation"],
+                    "attrs": {"bone_name": helper["name"].lower()},
+                },
+            )
+        bp.bone_names.add(helper["name"].lower())
+    else:
+        # assign record to be instanced at the set itemPortName
+        item_port_name = item_port_name.lower()
+        item_port = bp.get_or_create_item_port(item_port_name, parent=parent_loadout)
+        item_port["geometry"].update(_geom_for_port(item_port_name))
+        bp.bone_names.add(item_port_name)
+        return item_port
+
+
 @datacore_type_processor("SEntityComponentDefaultLoadoutParams")
 def process_component_loadouts(
-    bp: "Blueprint", component, record: "Record", parent_loadout=None, *args, **kwargs
+        bp: "Blueprint", component, record: "Record", parent_loadout=None, *args, **kwargs
 ) -> bool:
     geom_path = bp.geometry_for_record(record, base=True)
     parent_geom, _ = bp.get_or_create_geom(geom_path)
@@ -137,43 +181,18 @@ def process_component_loadouts(
                     )
                     continue
 
-                ipe = bp.sc.datacore.entities[entry.properties["entityClassName"]]
-                bp.add_record_to_extract(ipe.id)
+                item_port_entity = bp.sc.datacore.entities[entry.properties["entityClassName"]]
                 port_name = entry.properties["itemPortName"]
 
-                def _geom_for_port(port):
-                    ipe_geom = bp.geometry_for_record(ipe)
-                    for tag in ipe_geom:
-                        if tag and tag.lower() in port.lower():
-                            return ipe_geom[tag]
-                    return ipe_geom.get("", [])
-
-                if port_name in parent_geom["helpers"]:
-                    helper = parent_geom["helpers"][port_name]
-                    for geom_path in _geom_for_port(helper["name"]):
-                        bp.get_or_create_geom(
-                            geom_path,
-                            parent=parent_geom,
-                            create_params={
-                                "pos": helper["pos"],
-                                "rotation": helper["rotation"],
-                                "attrs": {"bone_name": helper["name"].lower()},
-                            },
-                        )
-                    bp.bone_names.add(helper["name"].lower())
-                else:
-                    # assign record to be instanced at the set itemPortName
-                    port_name = port_name.lower()
-                    ip = bp.get_or_create_item_port(port_name, parent=parent_loadout)
-                    ip["geometry"].update(_geom_for_port(port_name))
-                    bp.bone_names.add(port_name)
-                    if entry.properties["loadout"]:
-                        process_component_loadouts(
-                            bp,
-                            entry,
-                            record,
-                            parent_loadout=ip.setdefault("loadout", {}),
-                        )
+                item_port = load_item_port(bp=bp, item_port_name=port_name, record=item_port_entity,
+                                           parent_geometry=parent_geom, parent_loadout=parent_loadout)
+                if item_port is not None and entry.properties["loadout"]:
+                    process_component_loadouts(
+                        bp,
+                        entry,
+                        record,
+                        parent_loadout=item_port.setdefault("loadout", {}),
+                    )
             except Exception as e:
                 bp.log(
                     f"processing component SEntityComponentDefaultLoadoutParams",
@@ -191,7 +210,7 @@ def process_component_loadouts(
 
 @datacore_type_processor("SItemPortContainerComponentParams")
 def process_item_port_component_params(
-    bp: "Blueprint", component, record: "Record", *args, **kwargs
+        bp: "Blueprint", component, record: "Record", *args, **kwargs
 ) -> bool:
     helpers = {}
     for port in component.properties["Ports"]:
@@ -304,7 +323,7 @@ def _handle_vehicle_definition(bp, rec, def_p4k_path):
 
 @datacore_type_processor("VehicleComponentParams")
 def process_vehicle_components(
-    bp: "Blueprint", component, record: "Record", *args, **kwargs
+        bp: "Blueprint", component, record: "Record", *args, **kwargs
 ) -> bool:
     vc = component
     for prop in ["landingSystem"]:
@@ -362,7 +381,7 @@ def process_entity_class(bp: "Blueprint", record: "Entity") -> bool:
 
 @datacore_type_processor("SAnimationControllerParams")
 def process_animation_controller_params(
-    bp: "Blueprint", component, record: "Record", *args, **kwargs
+        bp: "Blueprint", component, record: "Record", *args, **kwargs
 ) -> bool:
     # TODO: to better at handling this (remove dict_search)
     d = bp.sc.datacore.record_to_dict(component)

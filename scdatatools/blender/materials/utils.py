@@ -75,6 +75,8 @@ def tint_palette_node_group_for_entity(entity_name):
             tint_group.outputs[output].default_value = 0.5
             tint_group.outputs[output].min_value = 0
             tint_group.outputs[output].max_value = 1
+        elif out_type == "NodeSocketColor":
+            tint_group.outputs[output].default_value = (.18, .18, .18, 1)
 
     tint_output_group.location = (500, 0)
 

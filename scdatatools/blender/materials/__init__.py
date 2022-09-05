@@ -617,16 +617,15 @@ class MTLLoader:
             shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
         )
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
-        shadergroup.inputs["ddna Alpha"].default_value = mat.roughness
-        #shadergroup.inputs["Emission"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
+        shadergroup.inputs["ddna Alpha"].default_value = float(mtl_attrs["Shininess"])/255
+        # shadergroup.inputs["Emissive"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
         try:
             shadergroup.inputs["Glow"].default_value = float(
-                mtl_attrs.get("Glow", 0)) * pow (2,6)
+                mtl_attrs.get("Glow", 0)) * pow (2,4)
         except:
             pass
         try:
-            shadergroup.inputs["Emissive"].default_value = reversed(
-                make_tuple(mtl_attrs.get("Emissive")))
+            shadergroup.inputs["Emissive"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
         except:
             pass
         shaderout.location.x += 200
@@ -907,10 +906,11 @@ class MTLLoader:
                 logger.warning(f"missing texture for mat %s: %s", mat.name, filename)
                 continue
 
-            if "diff" in img.name or "spec" in img.name:
-                img.colorspace_settings.name = "sRGB"
-            else:
-                img.colorspace_settings.name = "Non-Color"
+            #if "diff" in img.name or "spec" in img.name:
+            #    img.colorspace_settings.name = "sRGB"
+            #else:
+            #    img.colorspace_settings.name = "Non-Color"
+            img.colorspace_settings.name = "Non-Color"
 
             img.alpha_mode = "PREMUL"
             texnode = nodes.get(img.name) or nodes.new(type="ShaderNodeTexImage")
@@ -1107,6 +1107,16 @@ def load_tint_palette(palette_file, tint_palette_node_group, data_dir=""):
         return
 
     logger.debugscbp(f"loading tint palette {palette_file} for {tint_palette_node_group.name}")
+    
+    try:
+        t['type'] = 'tint_palette'
+    except:
+        pass
+
+    try:
+        t['filename'] = p
+    except:
+        pass
 
     t = tint_palette_node_group
     name_map = {

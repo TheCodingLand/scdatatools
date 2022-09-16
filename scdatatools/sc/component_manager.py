@@ -29,12 +29,12 @@ class AttachableComponentManager:
                     continue
                 self.attachable_components[entity.name] = entity
                 ac = entity.components['SAttachableComponentParams']
-                self.by_size.setdefault(ac.size, []).append(entity)
-                self.by_type.setdefault(ac.attachable_type, []).append(entity)
+                self.by_size.setdefault(ac.size, set()).add(entity)
+                self.by_type.setdefault(ac.attachable_type, set()).add(entity)
                 for sub_type in ac.attachable_sub_types:
-                    self.by_sub_type.setdefault(sub_type, []).append(entity)
+                    self.by_sub_type.setdefault(sub_type, set()).add(entity)
                 for tag in ac.tags:
-                    self.by_tag.setdefault(tag, []).append(entity)
+                    self.by_tag.setdefault(tag, set()).add(entity)
             except Exception as e:
                 logger.exception(f'Failed to process attachable component {record.filename}', exc_info=e)
         self._loaded = True
@@ -43,17 +43,17 @@ class AttachableComponentManager:
         if not self._loaded:
             self.load_attachable_components()
 
-        entities = self.attachable_components.values()
+        entities = set(self.attachable_components.values())
         if name is not None:
             entities = [_ for _ in entities if name in _]
         if size is not None:
-            entities = [_ for _ in self.by_size.get(size, []) if _ in entities]
+            entities &= self.by_size.setdefault(size, set())
         if type is not None:
-            entities = [_ for _ in self.by_type.get(type, []) if _ in entities]
+            entities &= self.by_type.setdefault(type, set())
         if sub_types is not None:
             for sub_type in sub_types:
-                entities = [_ for _ in self.by_sub_type.get(sub_type, []) if _ in entities]
+                entities &= self.by_sub_type.setdefault(sub_type, set())
         if tags is not None:
             for tag in tags:
-                entities = [_ for _ in self.by_tag.get(tag, []) if _ in entities]
+                entities &= self.by_tag.setdefault(tag, set())
         return entities

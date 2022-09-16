@@ -85,6 +85,24 @@ class Vehicle(Entity):
     def editable_hardpoints(self):
         return {k: v for k, v in self.hardpoints.items() if 'uneditable' not in v.get('ItemPort', {}).get('@flags', '')}
 
+    @cached_property
+    def default_loadout(self):
+        editable_hardpoints = list(self.editable_hardpoints.keys())
+        loadout = {}
+        for entry in self.components['SEntityComponentDefaultLoadoutParams'].properties["loadout"].properties.get("entries", []):
+            try:
+                port_name = entry.properties["itemPortName"]
+                if not entry.properties["entityClassName"] or port_name not in editable_hardpoints:
+                    continue
+
+                loadout[port_name] = entry.properties['entityClassName']
+            except Exception as e:
+                logger.exception(
+                    f"processing component SEntityComponentDefaultLoadoutParams",
+                    exc_info=e,
+                )
+        return loadout
+
 
 @register_record_handler(
     "EntityClassDefinition",

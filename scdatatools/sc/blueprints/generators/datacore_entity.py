@@ -48,6 +48,6 @@ def blueprint_from_datacore_entity(
     bp.add_record_to_extract(record.id)
 
     if processs:
-        bp._process()
+        bp._process(limit_processing=1, skip_ocs=True)
 
     return bp

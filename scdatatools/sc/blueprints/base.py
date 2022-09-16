@@ -38,17 +38,17 @@ class BlueprintGeometry(dict):
     """
 
     def __init__(
-        self,
-        blueprint: "Blueprint",
-        name,
-        geom_file,
-        pos=None,
-        rotation=None,
-        scale=None,
-        materials=None,
-        attrs=None,
-        helpers=None,
-        parent=None,
+            self,
+            blueprint: "Blueprint",
+            name,
+            geom_file,
+            pos=None,
+            rotation=None,
+            scale=None,
+            materials=None,
+            attrs=None,
+            helpers=None,
+            parent=None,
     ):
         super().__init__()
         self._blueprint = blueprint
@@ -74,14 +74,14 @@ class BlueprintGeometry(dict):
         )
 
     def add_instance(
-        self,
-        name,
-        pos,
-        rotation=None,
-        scale=None,
-        materials=None,
-        attrs=None,
-        soc: dict = None,
+            self,
+            name,
+            pos,
+            rotation=None,
+            scale=None,
+            materials=None,
+            attrs=None,
+            soc: dict = None,
     ):
         if soc is not None:
             inst = soc.setdefault("instances", {}).setdefault(self["name"], {})
@@ -120,11 +120,11 @@ class BlueprintGeometry(dict):
 
 class Blueprint:
     def __init__(
-        self,
-        name,
-        sc: "StarCitizen",
-        monitor: typing.Callable = None,
-        convert_cryxml_fmt: CryXmlConversionFormat = "xml",
+            self,
+            name,
+            sc: "StarCitizen",
+            monitor: typing.Callable = None,
+            convert_cryxml_fmt: CryXmlConversionFormat = "xml",
     ):
         """
         Utility for generating a `StarCitizen Blueprint` (`.scbp`) file and extracting required assets for objects
@@ -279,7 +279,7 @@ class Blueprint:
             self.add_file_to_extract(path, no_process=True)
 
     def add_file_to_extract(
-        self, path: typing.Union[str, list, tuple, set, Path], no_process=False
+            self, path: typing.Union[str, list, tuple, set, Path], no_process=False
     ) -> str:
         """Add an additional file to be extracted from the Data.p4k
 
@@ -374,17 +374,18 @@ class Blueprint:
             parent[name] = {"geometry": set()}
         return parent[name]
 
-    def update_hardpoint(self, name: str, record: typing.Union[str, GUID, Record]):
-        del self.hardpoints[name]   # trigger key error if it doesnt exist
+    def update_hardpoint(self, name: str, record: str | GUID | Record | None):
+        del self.hardpoints[name]  # trigger key error if it doesnt exist
         self.hardpoints[name] = {}
-        return load_item_port(self, name, record)
+        if record is not None:
+            return load_item_port(self, name, record)
 
     def get_or_create_geom(
-        self,
-        geom_path: typing.Union[str, Path],
-        parent: BlueprintGeometry = None,
-        create_params: dict = None,
-        sub_geometry: dict = None,
+            self,
+            geom_path: typing.Union[str, Path],
+            parent: BlueprintGeometry = None,
+            create_params: dict = None,
+            sub_geometry: dict = None,
     ) -> (BlueprintGeometry, bool):
         """
         Gets, or creates, the `BlueprintGeometry` for `geom_path` within the `Blueprint`
@@ -475,9 +476,9 @@ class Blueprint:
         return self.socs[soc_path], True
 
     def geometry_for_record(
-        self,
-        record: typing.Union[DataCoreRecordObject, Record, GUID, str],
-        base: bool = False,
+            self,
+            record: typing.Union[DataCoreRecordObject, Record, GUID, str],
+            base: bool = False,
     ) -> typing.Union[typing.Dict[str, BlueprintGeometry], BlueprintGeometry, None]:
         """Returns all the `BlueprintGeometry`s associated with a given `record`.
 
@@ -600,13 +601,13 @@ class Blueprint:
             self.log(f"processing {path}: {e}", logging.ERROR, exc_info=e)
             raise
 
-    def _process(self):
+    def _process(self, limit_processing=-1, skip_ocs=False):
         """Process any files/records that are waiting to be processed until the list is empty"""
         from .generators.object_containers import blueprint_from_socpak
 
         sentry_sdk.set_context("blueprint", {"name": self.name})
         while self._entities_to_process or self._containers_to_process:
-            if self._containers_to_process:
+            if not skip_ocs and self._containers_to_process:
                 # if there are containers to process, process the next one
                 # TODO: this is a temporary migratory solution
                 #       ^ does anyone remember what this fool was talking about? - vent
@@ -623,6 +624,9 @@ class Blueprint:
                         )
 
             cur_entities_to_process = self._entities_to_process - self._processed_entities
+            if limit_processing == 0 or (skip_ocs and not cur_entities_to_process):
+                break
+
             self._entities_to_process = set()
             for ent_type, entity in cur_entities_to_process:
                 sentry_sdk.set_context(
@@ -639,3 +643,4 @@ class Blueprint:
                             entity
                         )  # processed files could add more files to process
             self._processed_entities |= cur_entities_to_process
+            limit_processing -= 1

@@ -339,11 +339,11 @@ class SCJSONEncoder(json.JSONEncoder):
 
 
 @contextmanager
-def log_time(msg: str = "", handler: typing.Callable = print, threshold=0):
+def log_time(msg: str = "", handler: typing.Callable = print, threshold=0, finish_only=False):
     """Context manager that will log the time it took to run the inner context via the callable `handler`
     (Defaults to `print`)
     """
-    if msg and threshold == 0:
+    if not finish_only and msg and threshold == 0:
         handler(msg)
     start_time = datetime.now()
     yield

@@ -94,9 +94,28 @@ class IncludedObjectType1(IncludedObjectType):
         return f"<{self.__class__.__name__} id:{self.id}>"
 
 
+class IncludedObjectType7(IncludedObjectType):
+    # TODO: figure this chunk out
+    _pack_ = 1
+    _fields_ = [
+        ("object_type", ctypes.c_uint32),
+        ("unknown", ctypes.c_byte * 148),
+    ]
+
+
+class IncludedObjectType10(IncludedObjectType):
+    # TODO: figure this chunk out
+    _pack_ = 1
+    _fields_ = [
+        ("object_type", ctypes.c_uint32),
+        ("unknown", ctypes.c_byte * 132),
+    ]
+
+
 INCLUDED_OBJECT_TYPES = {
-    # 0x00000000: IncludedObjectType0,
     0x00000001: IncludedObjectType1,
+    0x00000007: IncludedObjectType7,
+    0x00000010: IncludedObjectType10,
     # TODO: other ICOs
     #   0x00000007?
     #   0x00000010?

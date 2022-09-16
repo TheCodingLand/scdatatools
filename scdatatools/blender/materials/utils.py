@@ -171,10 +171,12 @@ def create_light_texture(texture: Path):
     # new_node_texture.image.colorspace_settings.name = "Non-Color"
     new_node_texture.image.colorspace_settings.name = "sRGB"
 
-    new_node_mapping = new_node.nodes.new("ShaderNodeMapping")
-    new_node_mapping.location = (200, 0)
-    new_node_mapping.inputs["Location"].default_value = (0.5, 0.5, 0)
-    new_node_mapping.inputs["Scale"].default_value = (1, 1, 0)
+    #new_node_mapping = new_node.nodes.new("ShaderNodeMapping") 
+    new_node_geometry = new_node.nodes.new("ShaderNodeNewGeometry")
+    new_node_geometry.location = (200, 0)
+    #new_node_mapping.location = (200, 0)
+    #new_node_mapping.inputs["Location"].default_value = (0.5, 0.5, 0)
+    #new_node_mapping.inputs["Scale"].default_value = (1, 1, 0)
 
     new_node_texcoord = new_node.nodes.new("ShaderNodeTexCoord")
     new_node_texcoord.location = (0, 0)
@@ -182,8 +184,9 @@ def create_light_texture(texture: Path):
     new_node.links.new(mix_node.outputs["Color"], new_node_output.inputs["Color"])
     new_node.links.new(new_node_texture.outputs["Color"], mix_node.inputs["Color1"])
     new_node.links.new(new_node_input.outputs["Color"], mix_node.inputs["Color2"])
-    new_node.links.new(new_node_input.outputs["Scale"], new_node_mapping.inputs["Scale"])
-    new_node.links.new(new_node_mapping.outputs["Vector"], new_node_texture.inputs["Vector"])
-    new_node.links.new(new_node_texcoord.outputs["Normal"], new_node_mapping.inputs["Vector"])
+    #new_node.links.new(new_node_input.outputs["Scale"], new_node_mapping.inputs["Scale"])
+    #new_node.links.new(new_node_mapping.outputs["Vector"], new_node_texture.inputs["Vector"])
+    #new_node.links.new(new_node_texcoord.outputs["Normal"], new_node_mapping.inputs["Vector"])
+    new_node.links.new(new_node_geometry.outputs["Parametric"], new_node_texture.inputs["Vector"])
 
     return new_node

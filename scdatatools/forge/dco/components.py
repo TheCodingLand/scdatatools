@@ -1,4 +1,4 @@
-from .common import DataCoreObject, register_strong_pointer_handler
+from .common import DataCoreObject, register_strong_pointer_handler, dco_from_guid
 
 
 @register_strong_pointer_handler("SAttachableComponentParams")
@@ -41,7 +41,10 @@ class AttachableComponent(DataCoreObject):
 
     @property
     def manufacturer(self):
-        return self.AttachDef.properties['Manufacturer']
+        try:
+            return dco_from_guid(self._sc, self.AttachDef.properties['Manufacturer'])
+        except KeyError:
+            return None
 
     @property
     def required_tags(self):

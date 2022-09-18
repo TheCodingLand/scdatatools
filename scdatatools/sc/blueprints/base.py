@@ -202,9 +202,10 @@ class Blueprint:
         finally:
             self.monitor = cur_monitor
 
-    def to_dict(self):
+    def to_dict(self, process=True):
         """Return the `Blueprint` as a dictionary"""
-        self._process()
+        if process:
+            self._process()
         return {
             "name": self.name,
             "entity_geom": self.entity_geom,
@@ -219,17 +220,17 @@ class Blueprint:
             "containers": self.containers,
         }
 
-    def dumps(self, indent=2, *args, **kwargs):
+    def dumps(self, indent=2, process=True, *args, **kwargs):
         """Dump the `Blueprint` to a `json` string"""
         if "cls" not in kwargs:
             kwargs["cls"] = SCJSONEncoder
-        return json.dumps(self.to_dict(), indent=indent, *args, **kwargs)
+        return json.dumps(self.to_dict(process=process), indent=indent, *args, **kwargs)
 
-    def dump(self, fp, indent=2, *args, **kwargs):
+    def dump(self, fp, indent=2, process=True, *args, **kwargs):
         """Dump the `Blueprint` to the given file `fp` as `json`"""
         if "cls" not in kwargs:
             kwargs["cls"] = SCJSONEncoder
-        return json.dump(self.to_dict(), fp, indent=indent, *args, **kwargs)
+        return json.dump(self.to_dict(process=process), fp, indent=indent, *args, **kwargs)
 
     def log(self, msg, progress=None, total=None, level=logging.INFO, exc_info=None):
         """Internal logging tool that can be used by generators/processors as the bp is being processed. This will

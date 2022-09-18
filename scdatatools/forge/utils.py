@@ -36,12 +36,13 @@ def geometry_for_record(record, data_root: typing.Union[P4KFile, Path] = None, b
     def _geom_from_geometry_node(geom_node):
         geom_path = geom_node.properties["Geometry"].properties["Geometry"].properties["path"]
         if geom_path:
+            geom_path = Path(geom_path).as_posix()
             if isinstance(data_root, Path):
                 geom_path = data_root / Path(geom_path)
             elif isinstance(data_root, P4KFile):
                 try:
                     geom_path = data_root.getinfo(
-                        geom_path if geom_path.lower().startswith("data") else f"data/{geom_path}"
+                        geom_path if geom_path.casefold().startswith("data") else f"data/{geom_path}"
                     )
                 except KeyError:
                     pass

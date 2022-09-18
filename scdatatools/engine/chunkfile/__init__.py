@@ -130,7 +130,7 @@ class GeometryChunkFile(ChunkFile):
     def __init__(
         self,
         chunk_file: typing.Union[str, Path, P4KInfo, P4KExtFile],
-        data_dir: typing.Union[Path, P4KFile] = None,
+        data_root: typing.Union[Path, P4KFile] = None,
         auto_load_mesh: bool = False,
         *args,
         **kwargs,
@@ -150,21 +150,21 @@ class GeometryChunkFile(ChunkFile):
         else:
             chunk_file = main_geom
 
-        super().__init__(chunk_file, *args, **kwargs)
+        super().__init__(chunk_file, data_root=data_root, *args, **kwargs)
 
         self.mesh_file = mesh_file
         self.mesh_component = None
         self.skeleton = {}
         self.joints = []
 
-        self._data = data_dir
+        self._data = data_root
         if self._data is None and self._p4kinfo is not None:
             self._data = self._p4kinfo.p4k
         if self._data is None and filename.is_file():
             # try and determine the data directory from the given path
-            data_dir = search_for_data_dir_in_path(filename)
-            if data_dir and data_dir.is_dir():
-                self._data = data_dir
+            data_root = search_for_data_dir_in_path(filename)
+            if data_root and data_root.is_dir():
+                self._data = data_root
 
         mtl_names = []
 

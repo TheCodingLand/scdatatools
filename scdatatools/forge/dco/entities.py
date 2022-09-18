@@ -2,6 +2,7 @@ import logging
 from functools import cached_property
 
 from scdatatools.engine.cryxml import dict_from_cryxml_file
+from scdatatools.utils import generate_free_key
 from .common import DataCoreRecordObject, register_record_handler, dco_from_datacore
 
 logger = logging.getLogger(__name__)
@@ -13,11 +14,8 @@ class Entity(DataCoreRecordObject):
         super().__init__(datacore, guid)
 
         self.components = {}
-        for c in sorted(self.object.properties["Components"], key=lambda c: c.name):
-            if c.name in self.components:
-                print(f"WARNING: Duplicate component for entity, shouldnt be possible? {c.name}")
-                continue
-            self.components[c.name] = dco_from_datacore(datacore, c)
+        for c in sorted(self.object.properties["Components"], key=lambda _: _.name):
+            self.components[generate_free_key(c.name, self.components.keys())] = dco_from_datacore(datacore, c)
         self.tags = [
             dco_from_datacore(self._datacore, t) for t in self.object.properties["tags"] if t.name
         ]

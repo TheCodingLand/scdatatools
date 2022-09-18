@@ -220,7 +220,7 @@ class MTLLoader:
                     new_mat = self.create_proxy_material(attrs)
                 elif shader_type == "hardsurface":
                     new_mat = self.create_hard_surface(attrs)
-                elif shader_type in ("illum", "meshdecal", "decal"):
+                elif shader_type in ("illum", "meshdecal", "decal", "cloth"):
                     new_mat = self.create_illum_surface(attrs)
                 elif shader_type in ("glass", "glasspbr"):
                     new_mat = self.create_glass_surface(attrs)
@@ -284,7 +284,8 @@ class MTLLoader:
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             viewport_trans = True
         elif "rtt_text_to_decal" in matname.lower():
-            #shadergroup.inputs["diff Alpha"].default_value = 0
+            shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
+            shadergroup.inputs["diff Alpha"].default_value = 0
             #shadergroup.inputs["UseAlpha"].default_value = 1
             viewport_trans = True
         else:

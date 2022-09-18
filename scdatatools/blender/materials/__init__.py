@@ -775,7 +775,7 @@ class MTLLoader:
                 elif node.name in ["TexSlot2"]:
                     mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["ddna Color"])
                     mat.links.new(imagenodealphaout, mat.nodes["Tint"].inputs["ddna Alpha"])
-                elif node.name in ["TexSlot3", "TexSlot2A"]:
+                elif node.name == "TexSlot3" or node.name == "TexSlot2A":
                     mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["ddna Alpha"])
                 elif node.name in ["TexSlot6", "_spec"]:
                     mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["spec Color"])
@@ -900,7 +900,7 @@ class MTLLoader:
                 newtex.set("Map", "TexSlot2A")
                 textures.append(newtex)
 
-            if tex.get("Map") in ["TexSlot3", "TexSlot2A"]:
+            if tex.get("Map") == "TexSlot3" or tex.get("Map") == "TexSlot2A":
                 filename = filename.replace("ddna", "ddna.glossmap")
             try:
                 img = image_for_texture(filename, self.data_dir)
@@ -993,10 +993,8 @@ class MTLLoader:
                         )
                     except:
                         pass
-            elif tex.get("Map") in [
-                "TexSlot2A",
-                "Glossmap",
-            ]:  # this is a glossmap made during the texture conversion
+            elif tex.get("Map") == "TexSlot2A" or tex.get("Map") == "Glossmap":
+            # this is a glossmap made during the texture conversion
                 try:
                     mat.node_tree.links.new(
                         texnode.outputs["Color"], shadergroup.inputs["ddna Alpha"]
@@ -1012,10 +1010,10 @@ class MTLLoader:
                     except:
                         # logger.error("failed to link DDNA Map")
                         pass
-            elif tex.get("Map") in ["TexSlot3"]:  # this is a ddn map
+            elif tex.get("Map") in ["TexSlot3"]:  # this is a gloss map
                 try:
                     mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["ddna Color"]
+                        texnode.outputs["Color"], shadergroup.inputs["ddna Alpha"]
                     )
                 except:
                     pass

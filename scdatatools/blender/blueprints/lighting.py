@@ -33,20 +33,29 @@ def set_linked_light(obj_name, color, temp=None, source=None):
     for obj in find_obj_by_name(obj_name, True):
         # if obj.type != "MESH":
         #    continue
-        obj["light_link"] = [0, 0, 0]
+        obj["light_link"] = [1.0, 1.0, 1.0]
         if temp:
             obj["light_link_temp"] = temp
-        if not "_RNA_UI" in obj:
-            obj["_RNA_UI"] = {}
-        rna_ui = obj.get("_RNA_UI")
-        rna_ui.update({"light_link": obj["light_link"]})
-        obj["_RNA_UI"]["light_link"] = {
-            "softmin": 0.0,
-            "softmax": 1.0,
-            "default": [0.0, 0.0, 0.0],
-            "subtype": "COLOR_GAMMA",
-            "description": "node_outline_prop",
-        }
+        if (3, 2, 0) <= bpy.app.version:
+            # get or create the UI object for the property
+            ui = obj.id_properties_ui("light_link")
+            ui.update(description = "light_link value")
+            ui.update(default = [0.0, 0.0, 0.0])
+            ui.update(min = 0.0, soft_min = 0.0)
+            ui.update(max = 10.0, soft_max = 10.0)
+            ui.update(subtype = "COLOR_GAMMA")
+        else:
+            if not "_RNA_UI" in obj:
+                obj["_RNA_UI"] = {}
+            rna_ui = obj.get("_RNA_UI")
+            rna_ui.update({"light_link": obj["light_link"]})
+            obj["_RNA_UI"]["light_link"] = {
+                "softmin": 0.0,
+                "softmax": 1.0,
+                "default": [0.0, 0.0, 0.0],
+                "subtype": "COLOR_GAMMA",
+                "description": "node_outline_prop",
+            }
         obj["light_link"] = [color[0], color[1], color[2]]  # RGB
         obj["light_link_source"] = source
     return
@@ -76,6 +85,8 @@ def create_light(
     lightType = light["EntityComponentLight"]["@lightType"]
     bulbRadius = float(light["EntityComponentLight"]["sizeParams"].get("@bulbRadius", 0.01))
     lightRadius = float(light["EntityComponentLight"]["sizeParams"].get("@lightRadius", 1))
+    planeWidth = float(light["EntityComponentLight"]["sizeParams"].get("@planeWidth", 1))
+    planeHeight = float(light["EntityComponentLight"]["sizeParams"].get("@planeHeight", 1))
     use_temperature = bool(int(light["EntityComponentLight"].get("@useTemperature", 1)))
     texture = light["EntityComponentLight"]["projectorParams"].get("@texture", "")
     fov = float(light["EntityComponentLight"]["projectorParams"].get("@FOV", 179))
@@ -92,14 +103,15 @@ def create_light(
 
     if lightType == "Projector":
         # Spot lights
-        light_data = bpy.data.lights.new(name=light_group_collection.name, type="SPOT")
-        light_data.spot_size = math.radians(fov)
-        light_data.spot_blend = bulbRadius
-        light_data.shadow_soft_size = bulbRadius
+        #light_data = bpy.data.lights.new(name=light_group_collection.name, type="SPOT")
+        #light_data.spot_size = math.radians(fov)
+        #light_data.spot_blend = bulbRadius
+        #light_data.shadow_soft_size = bulbRadius
         # set to zero for hard IES light edges, increase for softness
-        # light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
-        # light_data.spread = math.radians(fov)
-        # light_data.size = bulbRadius
+         light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
+         light_data.spread = math.radians(fov)
+         light_data.size = bulbRadius
+         #light_data.shape = 'RECTANGLE'         
     else:
         # Point Lights
         light_data = bpy.data.lights.new(name=name, type="POINT")
@@ -110,6 +122,8 @@ def create_light(
     light_obj = bpy.data.objects.new(name=name, object_data=light_data)
     light_obj["use_temperature"] = use_temperature
     light_obj["states"] = {}
+    light_obj.scale[0] = planeHeight
+    light_obj.scale[1] = planeWidth
     # light_obj.show_axis = True #for debugging. Remove before flight
 
     for key, val in light["EntityComponentLight"].items():
@@ -248,7 +262,7 @@ def create_light(
         Quaternion(str_to_tuple(light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float))
     )
 
-    light_obj.scale = (0.01, 0.01, 0.01)
+    #light_obj.scale = (0.01, 0.01, 0.01)
 
     light_group_collection.objects.link(light_obj)
 

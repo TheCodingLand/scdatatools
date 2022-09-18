@@ -284,8 +284,8 @@ class MTLLoader:
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             viewport_trans = True
         elif "rtt_text_to_decal" in matname.lower():
-            shadergroup.inputs["diff Alpha"].default_value = 0
-            shadergroup.inputs["UseAlpha"].default_value = 1
+            #shadergroup.inputs["diff Alpha"].default_value = 0
+            #shadergroup.inputs["UseAlpha"].default_value = 1
             viewport_trans = True
         else:
             shadergroup.node_tree = bpy.data.node_groups["_Illum"]
@@ -370,8 +370,9 @@ class MTLLoader:
                 pass
 
         if "USE_SPECULAR_MAPS" in mtl_attrs["StringGenMask"]:
-            shadergroup.inputs["Metallic"].default_value = 1
-            shadergroup.inputs["Anisotropic"].default_value = 0.5
+            #shadergroup.inputs["Metallic"].default_value = 1
+            #shadergroup.inputs["Anisotropic"].default_value = 0.5
+            pass
         else:
             shadergroup.inputs["Metallic"].default_value = 0
             shadergroup.inputs["Anisotropic"].default_value = 0
@@ -450,8 +451,9 @@ class MTLLoader:
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
         shadergroup.inputs["Primary ddna Alpha"].default_value = mat.roughness
         if "USE_SPECULAR_MAPS" in mtl_attrs["StringGenMask"]:
-            shadergroup.inputs["Metallic"].default_value = 1
-            shadergroup.inputs["Anisotropic"].default_value = 0.5
+            #shadergroup.inputs["Metallic"].default_value = 1
+            #shadergroup.inputs["Anisotropic"].default_value = 0.5 
+            pass
         else:
             shadergroup.inputs["Metallic"].default_value = 0
             shadergroup.inputs["Anisotropic"].default_value = 0
@@ -617,7 +619,7 @@ class MTLLoader:
             shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
         )
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
-        shadergroup.inputs["ddna Alpha"].default_value = float(mtl_attrs["Shininess"])/255
+        shadergroup.inputs["ddna Alpha"].default_value = float(mtl_attrs.get("Shininess", 128))/255
         # shadergroup.inputs["Emissive"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
         try:
             shadergroup.inputs["Glow"].default_value = float(
@@ -741,10 +743,10 @@ class MTLLoader:
 
         # mat['filename'] = mtl_path.as_posix()
 
-        mat.nodes["Tint"].inputs["diff Color"].default_value = make_tuple(
-            mtl_attrs.get("Diffuse", ".5,.5,.5") + ",1"
+        mat.nodes["Tint"].inputs["Diffuse"].default_value = make_tuple(
+            mtl_attrs.get("Diffuse", "1,1,1") + ",1"
         )
-        mat.nodes["Tint"].inputs["spec Color"].default_value = make_tuple(
+        mat.nodes["Tint"].inputs["Specular"].default_value = make_tuple(
             mtl_attrs.get("Specular", ".5,.5,.5") + ",1"
         )
         mat.nodes["detail Scale"].outputs[0].default_value = float(
@@ -912,7 +914,7 @@ class MTLLoader:
             #    img.colorspace_settings.name = "Non-Color"
             img.colorspace_settings.name = "Non-Color"
 
-            img.alpha_mode = "PREMUL"
+            img.alpha_mode = "CHANNEL_PACKED"
             texnode = nodes.get(img.name) or nodes.new(type="ShaderNodeTexImage")
             texnode.image = img
             texnode.label = img.name

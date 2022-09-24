@@ -1,6 +1,7 @@
 import concurrent.futures
 import hashlib
 import logging
+from math import radians
 import os
 import shutil
 import subprocess
@@ -26,7 +27,9 @@ SUPPORTED_PYTHON_VERSIONS = ">=3.10.2,<3.11"
 
 
 def available_blender_installations(
-        include_paths: typing.List[Path] = None, compatible_only=False, supported_versions=SUPPORTED_PYTHON_VERSIONS,
+    include_paths: typing.List[Path] = None,
+    compatible_only=False,
+    supported_versions=SUPPORTED_PYTHON_VERSIONS,
 ) -> dict:
     """Return a dictionary of discovered Blender Installations where each value is the `Path` to the installation and
     a `bool` of whether the version's Python is compatible with scdatatools.
@@ -91,9 +94,9 @@ def available_blender_installations(
                     "pyver": versions[0][1],
                 }
         except (
-                subprocess.CalledProcessError,
-                StopIteration,
-                subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            StopIteration,
+            subprocess.TimeoutExpired,
         ):
             pass
         return None
@@ -215,9 +218,9 @@ def import_cleanup(context, option_offsetdecals=False):
                         vg = obj.vertex_groups.new(name=slot.material.name)
                     vg.add(verts, 1.0, "ADD")
                 if (
-                        ("pom" in slot.material.name)
-                        or ("decal" in slot.material.name)
-                        and option_offsetdecals
+                    ("pom" in slot.material.name)
+                    or ("decal" in slot.material.name)
+                    and option_offsetdecals
                 ):
                     mod_name = slot.material.name + " tweak"
                     if not obj.modifiers.get(mod_name):
@@ -295,3 +298,109 @@ def apply_transform(obj):
     for c in obj.children:
         c.matrix_local = mb @ c.matrix_local
     obj.matrix_basis.identity()
+
+
+def fixe_bones_position() -> bool:
+    """Fixe bones position of .chr part with .skin informations"""
+
+    starFabScene = bpy.data.scenes.get("StarFab")
+    if starFabScene is None:
+        return False
+
+    backupActiveScence = bpy.context.window.scene
+    backupActiveObject = bpy.context.view_layer.objects.active
+
+    bpy.context.window.scene = starFabScene
+
+    # get collections from .skin and .chr files
+    skinCollections = [_ for _ in bpy.data.collections if _.name.endswith(".skin")]
+    chrCollections = [_ for _ in bpy.data.collections if _.name.endswith(".chr")]
+
+    # remove collection without armature
+    skinCollections = [_ for _ in skinCollections if _.objects and _.objects[0].type == "ARMATURE"]
+    chrCollections = [_ for _ in chrCollections if _.objects and _.objects[0].type == "ARMATURE"]
+
+    # match .chr armature to .skin armature and copy bones position
+    for chr in track(chrCollections, description="Fixe bones position: processing Armatures"):
+        chrParent = get_parent_collection(chr)
+        if chrParent is None:
+            continue
+
+        skinsInSameParent = []
+        for skin in skinCollections:
+            skinParent = get_parent_collection(skin)
+            if skinParent == chrParent:
+                skinsInSameParent.append(skin)
+
+        for skin in skinsInSameParent:
+            if compare_armature(chr.objects[0], skin.objects[0]):
+                rotate_bones_arround_origin(chr.objects[0])
+
+                copy_bones_matrix(chr.objects[0], skin.objects[0])
+                chr.hide_viewport = True
+
+    bpy.context.window.scene = backupActiveScence
+    bpy.context.view_layer.objects.active = backupActiveObject
+
+    return True
+
+
+def get_parent_collection(collection):
+    collections = bpy.data.collections
+    for parentCollection in collections:
+        if collection in parentCollection.children.values():
+            return parentCollection
+
+    return None
+
+
+def compare_armature(armatureA, armatureB) -> bool:
+    bonesA = armatureA.data.bones
+    bonesB = armatureB.data.bones
+
+    if len(bonesA) != len(bonesB):
+        return False
+
+    bonesBNames = []
+
+    for boneB in bonesB:
+        bonesBNames.append(boneB.name)
+
+    for boneA in bonesA:
+        if boneA.name in bonesBNames == False:
+            return False
+
+    return True
+
+
+def rotate_bones_arround_origin(armature):
+    bpy.context.view_layer.objects.active = armature
+
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.armature.select_all(action="SELECT")
+
+    bpy.ops.transform.rotate(value=radians(-90), orient_axis="Y", center_override=(0, 0, 0))
+    return
+
+
+def copy_bones_matrix(armatureSource, armatureTarget):
+    sourcesMatrix = {}
+    bpy.context.view_layer.objects.active = armatureSource
+    bpy.ops.object.mode_set(mode="EDIT")
+
+    for sourceBone in armatureSource.data.edit_bones:
+        sourcesMatrix[sourceBone.name] = sourceBone.matrix.copy()
+
+    bpy.context.view_layer.objects.active = armatureTarget
+    bpy.ops.object.mode_set(mode="EDIT")
+
+    for targetBone in armatureTarget.data.edit_bones:
+        sourceMatrix = sourcesMatrix.get(targetBone.name)
+
+        if type(sourceMatrix) is not None:
+            targetBone.matrix = sourceMatrix
+        else:
+            print("Bone " + targetBone.name + " was ignored")
+
+    bpy.ops.object.mode_set(mode="OBJECT")
+    return

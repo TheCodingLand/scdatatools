@@ -843,6 +843,7 @@ class SCBlueprintImporter:
                     data_dir=self.data_dir,
                 )
 
+            # Only for small import, can fail with bigger. Maybe due to blender loading flow
             if self.auto_fixe_bones:
                 with log_time("Removing proxy mesh objects", logger.info):
                     fixe_bones_position()
@@ -929,8 +930,8 @@ class ImportStarFabBlueprint(Operator, ImportHelper):
 
     auto_fixe_bones: BoolProperty(
         name="Auto-fixe bones",
-        description="Automatically fixe bones position",
-        default=True,
+        description="Automatically fixe bones position.\nOnly for small import, can fail with bigger",
+        default=False,
     )
 
     def __init__(self, *args, **kwargs):

@@ -230,6 +230,8 @@ class MTLLoader:
                     new_mat = self.create_layer_node(attrs)
                 elif shader_type in ("hologram", "hologramcig"):
                     new_mat = self.create_hologram_surface(attrs)
+                elif shader_type in ("humanskin_v2"):
+                    new_mat = self.create_skin_surface(attrs)
                 elif shader_type in ("monitor", "displayscreen", "uiplane"):
                     new_mat = self.create_proxy_material(attrs)
                 elif shader_type == "nodraw":
@@ -596,6 +598,33 @@ class MTLLoader:
         # shadergroup.inputs['ddna Alpha'].default_value = mat.roughness
         # shadergroup.inputs['spec Color'].default_value = mat.specular_color[0]/2
         shadergroup.inputs["IOR"].default_value = 1.45
+        shaderout.location.x += 200
+
+        self.load_textures(mtl_attrs["Textures"], mat, shadergroup)
+
+        return mat
+    
+    def create_skin_surface(self, mtl_attrs):
+        mat, created = self.get_or_create_shader_material(mtl_attrs["Name"])
+        if not created:
+            return
+
+        nodes = mat.node_tree.nodes
+        shaderout = mat.node_tree.nodes[SN_OUT]
+        shadergroup = mat.node_tree.nodes[SN_GROUP]
+
+        # Viewport material values
+        set_viewport(mat, mtl_attrs, True)
+
+        shadergroup.node_tree = bpy.data.node_groups["_HumanSkin_V2"]
+        mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
+        mat.node_tree.links.new(
+            shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
+        )
+        shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
+        # shadergroup.inputs['ddna Alpha'].default_value = mat.roughness
+        # shadergroup.inputs['spec Color'].default_value = mat.specular_color[0]/2
+        #shadergroup.inputs["IOR"].default_value = 1.45
         shaderout.location.x += 200
 
         self.load_textures(mtl_attrs["Textures"], mat, shadergroup)

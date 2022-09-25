@@ -177,7 +177,13 @@ def get_or_create_geometry(
         move_obj_to_collection(obj, gc)
         obj["orig_name"] = obj.name.rsplit(".", maxsplit=1)[0]
         obj["source_file"] = geom_file.as_posix()
-        obj.name = hashed_path_key(Path(geom_key) / obj.name)
+        if obj.type == "ARMATURE":
+            armatureName = geom_key.rsplit(".", maxsplit=1)[0].split("_", maxsplit=1)[1]
+            armatureName = hashed_path_key(Path(geom_key) / armatureName)
+            obj.name = armatureName + "_armature"
+            obj.data.bones.data.name = "Armature." + armatureName
+        else:
+            obj.name = hashed_path_key(Path(geom_key) / obj.name)
         if obj["orig_name"].lower() in bone_names:
             gc["item_ports"][obj["orig_name"].lower()] = obj.name
         if obj.parent is None:

@@ -1,5 +1,6 @@
 import logging
 import typing
+from decimal import Decimal
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -15,6 +16,40 @@ if TYPE_CHECKING:
     from scdatatools.sc import StarCitizen
 
 logger = logging.getLogger(__name__)
+
+
+def reduce_pos(point):
+    # maximum place value discovered was 11 with shortest non-zero value as 4
+    # for i in points_at_size[14]: print(len(str(i[0][0]).split('.')[0].replace('-',''))) for x & for i in points_at_size[14]: print(len(str(i[0][1]).split('.')[0].replace('-',''))) for y
+    print("point in:", point)
+
+    def shift_reduce(pos):
+        shift_delta = 2
+        print("shift reduce pos :", pos)
+        shift = len(str(pos).split('.')[0].replace('-', '')) / shift_delta
+        print("shift value: ", shift)
+        return float(Decimal.shift(Decimal(round(pos)), round(-shift)))
+
+    np = []
+    for i in point:
+        print("iteration of point :", i)
+        if i != 0.0:
+            if i < 0.0:
+                i = shift_reduce(i)
+            elif i > 0.0:
+                i = shift_reduce(i)
+        print("value of p returned:", i)
+        np.append(i)
+    print("point out:", (np[0], np[1], np[2]))
+
+    return (np[0], np[1], np[2])
+
+
+def reduce_size(object_container):
+    r = 0.0033
+    object_container.size = object_container.size * r
+    if object_container.size < 0.0:
+        object_container.size = object_container.size / (r * 10)
 
 
 class StreamingObjectContainer:
@@ -101,6 +136,28 @@ class ObjectContainerInstance:
 
         self.label = self._attrs.get("label", self.entdata.get("@Name", Path(self.name).stem))
         self.position = vector_from_csv(self._attrs.get("position", "0,0,0"))
+
+        try:
+            self.hidden = self._sc.datacore.records_by_guid[self.attrs['starMapRecord']].properties.hideInStarmap
+        except (KeyError, AttributeError):
+            self.hidden = False
+        try:
+            self.size = self._sc.datacore.records_by_guid[self.attrs['starMapRecord']].properties.size
+        except (KeyError, AttributeError):
+            self.size = 0
+        try:
+            self.icon = self._sc.datacore.records_by_guid[self.attrs['starMapRecord']].properties.navIcon
+        except (KeyError, AttributeError):
+            self.icon = None
+        try:
+            self.geom = self._sc.datacore.records_by_guid[self.attrs['starMapRecord']].properties.starMapGeomPath
+        except (KeyError, AttributeError):
+            self.geom = None
+        try:
+            self.mtl = self._sc.datacore.records_by_guid[self.attrs['starMapRecord']].properties.starMapMaterialPath
+        except (KeyError, AttributeError):
+            self.mtl = None
+
         self.rotation = quaternion_from_csv(self._attrs.get("rotation", "1,0,0,0"))
         if "entity_name" not in self._attrs:
             self._attrs["entity_name"] = ""
@@ -180,11 +237,15 @@ class ObjectContainerInstance:
             {
                 "name": self.name,
                 "container": self.container,
+                "hidden": self.hidden,
                 "universal_positional": self.universal_position,
                 "universal_rotation": self.universal_rotation,
                 "position": self.position,
                 "rotation": self.rotation,
-                "parent": self.parent,
+                "geom": self.geom,
+                "mtl": self.mtl,
+                "size": self.size,
+                "icon": self.icon,
                 "root": self.root,
             }
         )
@@ -327,7 +388,10 @@ class ObjectContainerManager:
 
 try:
     from pyvistaqt import QtInteractor
+    import pyvista as pv
+    from pyvista import examples
 
+    cubemap = examples.download_cubemap_space_16k()
 
     class ObjectContainerPlotter(QtInteractor):
         def __init__(self, object_container, depth_to_show=1, label_font_size=48, point_max_size=48,
@@ -343,6 +407,8 @@ try:
             # self.plotter.add_key_event('r', self._handle_reset_view)
             # self.plotter.enable_fly_to_right_click()
             # self.plotter.enable_point_picking(self._handle_clicked_point, show_message=False, left_clicking=True)
+
+
             self.add_key_event('r', self._handle_reset_view)
             self.enable_fly_to_right_click()
             self.enable_point_picking(self._handle_clicked_point, show_message=False, left_clicking=True)
@@ -372,6 +438,8 @@ try:
 
             self.clear()
             self._oc_from_point.clear()
+            self.add_actor(cubemap.to_skybox())
+            self.set_environment_texture(cubemap, True)
 
             if base_oc is not self.object_container:
                 if base_oc not in self._parent_oc:
@@ -397,9 +465,9 @@ try:
                 points, names = zip(*points_at_size[size])
                 self.add_point_labels(points, names, font_size=self.label_font_size, pickable=True,
                                       reset_camera=True, point_size=size, shape='rounded_rect')
-            self.show_bounds()
+            # self.show_bounds()
             # plotter.enable_joystick_style()
-            self.show_grid()
+            # self.show_grid()
 
 except ImportError:
     class ObjectContainerPlotter:

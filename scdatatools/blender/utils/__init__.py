@@ -300,8 +300,8 @@ def apply_transform(obj):
     obj.matrix_basis.identity()
 
 
-def fixe_bones_position() -> bool:
-    """Fixe bones position of .chr part with .skin informations"""
+def fix_bones_position() -> bool:
+    """Fix bones position of .chr part with .skin informations"""
 
     starFabScene = bpy.data.scenes.get("StarFab")
     if starFabScene is None:
@@ -321,7 +321,7 @@ def fixe_bones_position() -> bool:
     chrCollections = [_ for _ in chrCollections if _.objects and _.objects[0].type == "ARMATURE"]
 
     # match .chr armature to .skin armature and copy bones position
-    for chr in track(chrCollections, description="Fixe bones position: processing Armatures"):
+    for chr in track(chrCollections, description="Fix bones position: processing Armatures"):
         chrParent = get_parent_collection(chr)
         if chrParent is None:
             continue

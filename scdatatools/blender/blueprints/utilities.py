@@ -2,7 +2,7 @@ import bpy
 from bpy.types import Operator
 
 from scdatatools.blender.utils import (
-    fixe_bones_position,
+    fix_bones_position,
     remove_proxy_meshes,
     deselect_all,
     remove_sc_physics_proxies,
@@ -144,15 +144,15 @@ class MakeInstanceHierarchyReal(Operator):
         return {"FINISHED"}
 
 
-class FixeBonesPosition(Operator):
-    """Fixe bones position of .chr part with .skin informations"""
+class FixBonesPosition(Operator):
+    """Fix bones position of .chr part with .skin informations"""
 
-    bl_idname = "scdt.fixe_bones"
-    bl_label = "Fixe Bones Position"
+    bl_idname = "scdt.fix_bones_position"
+    bl_label = "Fix Bones Position"
 
     def execute(self, context):
 
-        if fixe_bones_position():
+        if fix_bones_position():
             return {"FINISHED"}
         return {"CANCELLED"}
 
@@ -162,7 +162,7 @@ def register():
     bpy.utils.register_class(RemoveSCPhysicsProxies)
     bpy.utils.register_class(RemoveSCBBoxes)
     bpy.utils.register_class(RemoveSCVisArea)
-    bpy.utils.register_class(FixeBonesPosition)
+    bpy.utils.register_class(FixBonesPosition)
     bpy.utils.register_class(MakeInstanceReal)
     bpy.utils.register_class(MakeInstanceHierarchyReal)
     bpy.utils.register_class(IsolateSourceCollection)
@@ -173,7 +173,7 @@ def unregister():
     bpy.utils.unregister_class(RemoveSCPhysicsProxies)
     bpy.utils.unregister_class(RemoveSCBBoxes)
     bpy.utils.unregister_class(RemoveSCVisArea)
-    bpy.utils.unregister_class(FixeBonesPosition)
+    bpy.utils.unregister_class(FixBonesPosition)
     bpy.utils.unregister_class(MakeInstanceReal)
     bpy.utils.unregister_class(MakeInstanceHierarchyReal)
     bpy.utils.unregister_class(IsolateSourceCollection)

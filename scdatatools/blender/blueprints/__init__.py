@@ -32,7 +32,7 @@ from scdatatools.blender.utils import (
     copy_rotation,
     hashed_path_key,
     move_obj_to_collection,
-    fixe_bones_position,
+    fix_bones_position,
 )
 from scdatatools.cli.utils import track
 from scdatatools.engine.materials.mat_utils import normalize_material_name
@@ -403,7 +403,7 @@ class SCBlueprintImporter:
         remove_physics_proxies=True,
         auto_remove_proxy_mesh=True,
         import_lighting=True,
-        auto_fixe_bones=True,
+        auto_fix_bones=True,
         model_importer: callable = DEFAULT_MODEL_IMPORTER,
     ):
         self.scbp = Path(scbp_file)
@@ -414,7 +414,7 @@ class SCBlueprintImporter:
         self.remove_physics_proxies = remove_physics_proxies
         self.auto_remove_proxy_mesh = auto_remove_proxy_mesh
         self.import_lighting = import_lighting
-        self.auto_fixe_bones = auto_fixe_bones
+        self.auto_fix_bones = auto_fix_bones
         self.model_importer = model_importer
 
         self._processed_geometry = []
@@ -850,9 +850,9 @@ class SCBlueprintImporter:
                 )
 
             # Only for small import, can fail with bigger. Maybe due to blender loading flow
-            if self.auto_fixe_bones:
+            if self.auto_fix_bones:
                 with log_time("Removing proxy mesh objects", logger.info):
-                    fixe_bones_position()
+                    fix_bones_position()
 
 
 class ImportEntityContainer(Operator):
@@ -934,9 +934,9 @@ class ImportStarFabBlueprint(Operator, ImportHelper):
         default=True,
     )
 
-    auto_fixe_bones: BoolProperty(
-        name="Auto-fixe bones",
-        description="Automatically fixe bones position.\nOnly for small import, can fail with bigger",
+    auto_fix_bones: BoolProperty(
+        name="Auto-fix bones",
+        description="Automatically fix bones position.\nOnly for small import, can fail with bigger",
         default=False,
     )
 
@@ -972,7 +972,7 @@ class ImportStarFabBlueprint(Operator, ImportHelper):
                     remove_physics_proxies=self.remove_physics_proxies,
                     auto_remove_proxy_mesh=self.auto_remove_proxy_mesh,
                     import_lighting=self.auto_import_lighting,
-                    auto_fixe_bones=self.auto_fixe_bones,
+                    auto_fix_bones=self.auto_fix_bones,
                     model_importer=model_importer,
                 )
                 if importer.import_(containers=["all"] if self.import_all_containers else None):

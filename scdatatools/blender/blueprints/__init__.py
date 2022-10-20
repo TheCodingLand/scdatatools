@@ -32,6 +32,7 @@ from scdatatools.blender.utils import (
     copy_rotation,
     hashed_path_key,
     move_obj_to_collection,
+    fix_bones_position,
 )
 from scdatatools.cli.utils import track
 from scdatatools.engine.materials.mat_utils import normalize_material_name
@@ -176,7 +177,13 @@ def get_or_create_geometry(
         move_obj_to_collection(obj, gc)
         obj["orig_name"] = obj.name.rsplit(".", maxsplit=1)[0]
         obj["source_file"] = geom_file.as_posix()
-        obj.name = hashed_path_key(Path(geom_key) / obj.name)
+        if obj.type == "ARMATURE":
+            armatureName = geom_key.rsplit(".", maxsplit=1)[0].split("_", maxsplit=1)[1]
+            armatureName = hashed_path_key(Path(geom_key) / armatureName)
+            obj.name = armatureName + "_armature"
+            obj.data.bones.data.name = "Armature." + armatureName
+        else:
+            obj.name = hashed_path_key(Path(geom_key) / obj.name)
         if obj["orig_name"].lower() in bone_names:
             gc["item_ports"][obj["orig_name"].lower()] = obj.name
         if obj.parent is None:
@@ -396,6 +403,7 @@ class SCBlueprintImporter:
         remove_physics_proxies=True,
         auto_remove_proxy_mesh=True,
         import_lighting=True,
+        auto_fix_bones=True,
         model_importer: callable = DEFAULT_MODEL_IMPORTER,
     ):
         self.scbp = Path(scbp_file)
@@ -406,6 +414,7 @@ class SCBlueprintImporter:
         self.remove_physics_proxies = remove_physics_proxies
         self.auto_remove_proxy_mesh = auto_remove_proxy_mesh
         self.import_lighting = import_lighting
+        self.auto_fix_bones = auto_fix_bones
         self.model_importer = model_importer
 
         self._processed_geometry = []
@@ -576,8 +585,8 @@ class SCBlueprintImporter:
 
         def _build_loadouts(parent, loadout):
             for port_name, props in loadout.items():
-                if 'hardpoint' in props:
-                    props = self.bp['hardpoints'][props['hardpoint']]
+                if "hardpoint" in props:
+                    props = self.bp["hardpoints"][props["hardpoint"]]
                 for geom_name in props["geometry"]:
                     if geom_name not in self.bp["geometry"]:
                         continue
@@ -840,6 +849,11 @@ class SCBlueprintImporter:
                     data_dir=self.data_dir,
                 )
 
+            # Only for small import, can fail with bigger. Maybe due to blender loading flow
+            if self.auto_fix_bones:
+                with log_time("Removing proxy mesh objects", logger.info):
+                    fix_bones_position()
+
 
 class ImportEntityContainer(Operator):
     """Import an additional container from an already loaded SCBP"""
@@ -920,6 +934,12 @@ class ImportStarFabBlueprint(Operator, ImportHelper):
         default=True,
     )
 
+    auto_fix_bones: BoolProperty(
+        name="Auto-fix bones",
+        description="Automatically fix bones position.\nOnly for small import, can fail with bigger",
+        default=False,
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -952,6 +972,7 @@ class ImportStarFabBlueprint(Operator, ImportHelper):
                     remove_physics_proxies=self.remove_physics_proxies,
                     auto_remove_proxy_mesh=self.auto_remove_proxy_mesh,
                     import_lighting=self.auto_import_lighting,
+                    auto_fix_bones=self.auto_fix_bones,
                     model_importer=model_importer,
                 )
                 if importer.import_(containers=["all"] if self.import_all_containers else None):

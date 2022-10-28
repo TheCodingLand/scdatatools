@@ -10,6 +10,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+FILTERED_COMPONENTS = [
+    "_lowpoly",
+    "_test_inf_ammo",
+    "_test_inf_ammo_dummy",
+    "_turret",
+]
+
+
 class AttachableComponentManager:
     def __init__(self, sc: "StarCitizen"):
         self.sc = sc
@@ -26,6 +34,9 @@ class AttachableComponentManager:
             try:
                 entity: Entity = dco_from_guid(self.sc, record)
                 if 'SAttachableComponentParams' not in entity.components:
+                    continue
+                name = entity.name.casefold()
+                if any(name.endswith(_) for _ in FILTERED_COMPONENTS):
                     continue
                 self.attachable_components[entity.name] = entity
                 ac = entity.components['SAttachableComponentParams']

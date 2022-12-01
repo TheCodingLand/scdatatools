@@ -26,7 +26,7 @@ def open_sc_dir(sc_dir: typing.Union[str, Path]) -> StarCitizen:
     program if it fails to open the given `sc_dir`.
     """
     installed_versions = get_installed_sc_versions()
-    if sc_dir.upper() in installed_versions and not Path(sc_dir).is_dir():
+    if str(sc_dir).upper() in installed_versions and not Path(sc_dir).is_dir():
         sc_dir = installed_versions[sc_dir.upper()]
         logger.debug(f"Using installed version {sc_dir}")
 

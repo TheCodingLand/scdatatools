@@ -375,7 +375,7 @@ class Blueprint:
             parent[name] = {"geometry": set()}
         return parent[name]
 
-    def update_hardpoint(self, name: str, record: str | GUID | Record | None):
+    def update_hardpoint(self, name: str, record: typing.Union[str, GUID, Record, None]):
         del self.hardpoints[name]  # trigger key error if it doesnt exist
         self.hardpoints[name] = {}
         if record is not None:
@@ -387,7 +387,7 @@ class Blueprint:
             parent: BlueprintGeometry = None,
             create_params: dict = None,
             sub_geometry: dict = None,
-    ) -> (BlueprintGeometry, bool):
+    ) -> typing.Union[BlueprintGeometry, bool]:
         """
         Gets, or creates, the `BlueprintGeometry` for `geom_path` within the `Blueprint`
 

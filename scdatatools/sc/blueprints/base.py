@@ -387,7 +387,7 @@ class Blueprint:
             parent: BlueprintGeometry = None,
             create_params: dict = None,
             sub_geometry: dict = None,
-    ) -> typing.Union[BlueprintGeometry, bool]:
+    ) -> typing.Tuple[BlueprintGeometry, bool]:
         """
         Gets, or creates, the `BlueprintGeometry` for `geom_path` within the `Blueprint`
 

@@ -68,10 +68,20 @@ def find_obj_by_name(obj_name, get_children=False):
         if obj_name in obj.name.lower():
             found_objs.append(obj)
             if get_children:
-                for child_obj in obj.children:
+                for child_obj in find_children(obj):
                     found_objs.append(child_obj)
     return found_objs
 
+def find_children(objs):
+    if type(objs) != list:
+        objs = [objs]
+    child_objs = []    
+    for obj in objs:
+        for obj in obj.children:
+            child_objs.append(obj)
+            for child_obj in find_children(obj):
+                child_objs.append(obj)                           
+    return child_objs
 
 def create_light(
     name,
@@ -83,10 +93,10 @@ def create_light(
     data_dir: Path = None,
 ):
     lightType = light["EntityComponentLight"]["@lightType"]
-    bulbRadius = float(light["EntityComponentLight"]["sizeParams"].get("@bulbRadius", 0.01))
+    bulbRadius = float(light["EntityComponentLight"]["sizeParams"].get("@bulbRadius", 1))
     lightRadius = float(light["EntityComponentLight"]["sizeParams"].get("@lightRadius", 1))
-    planeWidth = float(light["EntityComponentLight"]["sizeParams"].get("@planeWidth", 1))
-    planeHeight = float(light["EntityComponentLight"]["sizeParams"].get("@planeHeight", 1))
+    planeWidth = float(light["EntityComponentLight"]["sizeParams"].get("@planeWidth", 0))
+    planeHeight = float(light["EntityComponentLight"]["sizeParams"].get("@planeHeight", 0))
     use_temperature = bool(int(light["EntityComponentLight"].get("@useTemperature", 1)))
     texture = light["EntityComponentLight"]["projectorParams"].get("@texture", "")
     fov = float(light["EntityComponentLight"]["projectorParams"].get("@FOV", 179))
@@ -110,21 +120,23 @@ def create_light(
         # set to zero for hard IES light edges, increase for softness
          light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
          light_data.spread = math.radians(fov)
-         light_data.size = bulbRadius
+         light_data.size = .01         
          #light_data.shape = 'RECTANGLE'         
     else:
         # Point Lights
         light_data = bpy.data.lights.new(name=name, type="POINT")
-        light_data.shadow_soft_size = bulbRadius
+        #light_data = bpy.data.lights.new(name=name, type="AREA")
+        #light_data.size = .01
+        light_data.shadow_soft_size = bulbRadius *.01
 
     light_data.use_nodes = True
 
     light_obj = bpy.data.objects.new(name=name, object_data=light_data)
     light_obj["use_temperature"] = use_temperature
     light_obj["states"] = {}
-    light_obj.scale[0] = planeHeight
-    light_obj.scale[1] = planeWidth
-    # light_obj.show_axis = True #for debugging. Remove before flight
+    light_obj.scale[0] = planeWidth
+    light_obj.scale[1] = planeHeight
+    #light_obj.show_axis = True #for debugging. Remove before flight
 
     for key, val in light["EntityComponentLight"].items():
         if not key.endswith("State") or key == "offState":

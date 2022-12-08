@@ -603,7 +603,7 @@ class MTLLoader:
         self.load_textures(mtl_attrs["Textures"], mat, shadergroup)
 
         return mat
-    
+
     def create_skin_surface(self, mtl_attrs):
         mat, created = self.get_or_create_shader_material(mtl_attrs["Name"])
         if not created:
@@ -713,7 +713,7 @@ class MTLLoader:
                     float(submat.get("UVTiling")),
                 ]
             if tint_group is not None:
-                if submat.get("PaletteTint", "0") == "1":
+                if submat.get("PaletteTint", "0") == "2":
                     mat.node_tree.links.new(
                         tint_group.outputs["Primary"],
                         newbasegroup.inputs["tint diff Color"],
@@ -726,7 +726,7 @@ class MTLLoader:
                         tint_group.outputs["Primary Glossiness"],
                         newbasegroup.inputs["tint gloss"],
                     )
-                elif submat.get("PaletteTint", "0") == "2":
+                elif submat.get("PaletteTint", "0") == "1":
                     mat.node_tree.links.new(
                         tint_group.outputs["Secondary"],
                         newbasegroup.inputs["tint diff Color"],
@@ -773,10 +773,10 @@ class MTLLoader:
 
         # mat['filename'] = mtl_path.as_posix()
 
-        mat.nodes["Tint"].inputs["Diffuse"].default_value = make_tuple(
+        mat.nodes["Tint"].inputs["diff Color"].default_value = make_tuple(
             mtl_attrs.get("Diffuse", "1,1,1") + ",1"
         )
-        mat.nodes["Tint"].inputs["Specular"].default_value = make_tuple(
+        mat.nodes["Tint"].inputs["spec Color"].default_value = make_tuple(
             mtl_attrs.get("Specular", ".5,.5,.5") + ",1"
         )
         mat.nodes["detail Scale"].outputs[0].default_value = float(

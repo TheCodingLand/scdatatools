@@ -503,7 +503,7 @@ class P4KFile(zipfile.ZipFile):
         :param exclude: List of filenames that should be excluded from the results.
             This must be an exact match (although honors ignore_case).
         :param mode: Method of performing a match. Valid values are:
-            `re`:   Compiles `file_filters` into a regular expression - `re.match(filename)`
+            `re`:   File matching glob compiled into a regular expression - `re.match(filename)`
             `startswith`:  Uses the string `startswith` function - if any(filename.startswith(_) for _ in file_filters)
             `endswith`:  Uses the string `startswith` function - if any(filename.endswith(_) for _ in file_filters)
             `in`:   Performs and `in` check - filename in file_filters
@@ -558,7 +558,11 @@ class P4KFile(zipfile.ZipFile):
                 if any(fn.endswith(_) for _ in file_filters) and fn not in exclude
             ]
         elif mode == "in":
-            return [info for fn, info in walk_items() if fn in file_filters and fn not in exclude]
+            return [
+                info
+                for fn, info in walk_items()
+                if any(_ in fn for _ in file_filters) and fn not in exclude
+            ]
         elif mode == "in_strip":
             return [
                 info

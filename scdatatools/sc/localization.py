@@ -34,13 +34,14 @@ class SCLocalization:
             p4k = _get_p4k()
             localization_files = p4k.search("Data/Localization/*/global.ini")
 
+        lower_key = lambda trans: (trans[0].lower(), trans[1])
         for l in localization_files:
             logging.debug(f"processing {l}")
             with l.open("rb") as f:
                 lang = Path(f.name).parts[-2]
                 self.languages.append(lang)
                 self.translations[lang] = dict(
-                    _.split("=", 1) for _ in f.read().decode("utf-8").split("\r\n") if "=" in _
+                    lower_key(_.split("=", 1)) for _ in f.read().decode("utf-8").split("\r\n") if "=" in _
                 )
                 self.keys.update(self.translations[lang].keys())
         self.keys = sorted(self.keys)
@@ -58,6 +59,7 @@ class SCLocalization:
             if (language is None or language not in self.languages)
             else language
         )
+        key = key.lower()
         trans = self.translations.get(language, {}).get(key, "")
         if not trans and key.startswith("@"):
             trans = self.translations.get(language, {}).get(key[1:], "")

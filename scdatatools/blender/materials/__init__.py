@@ -218,13 +218,13 @@ class MTLLoader:
                 new_mat = None
                 if attrs["Name"].casefold().endswith("proxy"):
                     new_mat = self.create_proxy_material(attrs)
-                elif shader_type == "hardsurface":
+                elif shader_type in("hardsurface"):
                     new_mat = self.create_hard_surface(attrs)
                 elif shader_type in ("illum", "meshdecal", "decal", "cloth"):
                     new_mat = self.create_illum_surface(attrs)
                 elif shader_type in ("glass", "glasspbr"):
                     new_mat = self.create_glass_surface(attrs)
-                elif shader_type == "layerblend":
+                elif shader_type in("layerblend", "organic"):
                     new_mat = self.create_layer_blend_surface(attrs)
                 elif shader_type == "layer":
                     new_mat = self.create_layer_node(attrs)

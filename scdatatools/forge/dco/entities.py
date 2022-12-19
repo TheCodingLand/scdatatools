@@ -19,6 +19,16 @@ class Entity(DataCoreRecordObject):
         self.tags = [
             dco_from_datacore(self._datacore, t) for t in self.object.properties["tags"] if t.name
         ]
+        self.geom_hash = None
+
+    @property
+    def label(self):
+        try:
+            key_label = self.components['SAttachableComponentParams'].properties['AttachDef'].properties['Localization'].properties['Name'][1:]
+            label = self._sc.localization.gettext(key_label)
+            return label
+        except:
+            return None
 
 
 class Vehicle(Entity):
@@ -118,3 +128,37 @@ class Ship(Vehicle):
 class GroundVehicle(Vehicle):
     def __repr__(self):
         return f"<DCO GroundVehicle {self.name}>"
+
+@register_record_handler(
+    "EntityClassDefinition",
+    filename_match="libs/foundry/records/entities/scitem/.*",
+)
+class Carryable(Entity):
+    def __init__(self, datacore, guid):
+        super().__init__(datacore, guid)
+        try:
+            geom = self.components['SGeometryResourceParams'].object.properties['Geometry'].properties['Geometry']
+            self.geometry_path = geom.properties['Geometry'].properties['path']
+            self.geom_hash = hash(self.geometry_path)
+        except:
+            self.geometry_path = None
+        
+    def __repr__(self):
+        return f"<DCO Carryable {self.name} '{self.label}'>"
+
+@register_record_handler(
+    "EntityClassDefinition",
+    filename_match="libs/foundry/records/entities/scitem/characters/.*",
+)
+class Crateable(Carryable):
+    def __init__(self, datacore, guid):
+        super().__init__(datacore, guid)
+        try:
+            subs = self.components['SGeometryResourceParams'].object.properties['Geometry'].properties['SubGeometry']
+            self.sub_geometry_path = [x.properties['Geometry'].properties['Geometry'].properties.path for x in subs]
+            self.geom_hash = hash(''.join(self.sub_geometry_path))
+        except:
+            self.sub_geometry_path = []
+        
+    def __repr__(self):
+        return f"<DCO Crateable {self.name} '{self.label}'>"

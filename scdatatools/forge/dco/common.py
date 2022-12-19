@@ -3,6 +3,10 @@ import typing
 
 from scdatatools.forge.dftypes import GUID, Record, StrongPointer, StructureInstance
 
+if typing.TYPE_CHECKING:
+    from scdatatools.sc import StarCitizen
+
+
 RECORD_HANDLER = {}
 STRONG_POINTER_HANDLER = {}
 STRUCTURE_INSTANCE_HANDLER = {}
@@ -52,7 +56,7 @@ def register_structure_instance_handler(dco_type):
     return _record_handler_wrapper
 
 
-def dco_from_datacore(sc, object: typing.Union[Record, StrongPointer]) -> typing.Any:
+def dco_from_datacore(sc: "StarCitizen", object: typing.Union[Record, StrongPointer]) -> typing.Any:
     if isinstance(object, Record):
         matched = {"": DataCoreRecordObject}
         if object.type in RECORD_HANDLER:
@@ -70,7 +74,7 @@ def dco_from_datacore(sc, object: typing.Union[Record, StrongPointer]) -> typing
     return object
 
 
-def dco_from_guid(sc, record: typing.Union[str, GUID, Record, StrongPointer]) -> typing.Any:
+def dco_from_guid(sc: "StarCitizen", record: typing.Union[str, GUID, Record, StrongPointer]) -> typing.Any:
     """
     Takes a :str:`guid` and returns a :class:`DataCoreObject` created from the proper DCO subclass for the record type
     """
@@ -80,7 +84,7 @@ def dco_from_guid(sc, record: typing.Union[str, GUID, Record, StrongPointer]) ->
 
 
 class DataCoreObject:
-    def __init__(self, sc, object: typing.Union[Record, StrongPointer, StructureInstance]):
+    def __init__(self, sc: "StarCitizen", object: typing.Union[Record, StrongPointer, StructureInstance]):
         self._sc = sc
         self._datacore = sc.datacore
         self.object = object

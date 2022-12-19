@@ -97,7 +97,7 @@ class ObjectContainerInstance:
         "label": "label",
         "class": "container_class",
         "tags": "tags",
-        "visible": "visible",
+        # "visible": "visible",     # removed in 3.18
         "guid": "guid",
         "pos": "position",
         "rot": "rotation",
@@ -130,6 +130,9 @@ class ObjectContainerInstance:
                 self._attrs[v] = kwargs.pop(k)
             elif v in kwargs:
                 self._attrs[v] = kwargs.pop(v)  # from a duplicated instance
+            else:
+                logger.debug(f"OC Instance Args no longer exists in {self}: {k}")
+                continue
             setattr(self, v, self._attrs[v])
 
         self.attrs = kwargs

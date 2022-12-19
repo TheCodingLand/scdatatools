@@ -3,7 +3,7 @@ from functools import cached_property
 
 from scdatatools.engine.cryxml import dict_from_cryxml_file
 from scdatatools.utils import generate_free_key
-from .common import DataCoreRecordObject, register_record_handler, dco_from_datacore
+from .common import DataCoreRecordObject, register_record_handler, dco_from_datacore, register_strong_pointer_handler
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,36 @@ class Entity(DataCoreRecordObject):
             return label
         except:
             return None
+
+
+@register_strong_pointer_handler('SEntityComponentDefaultLoadoutParams')
+class SEntityDefaultLoadoutParams(DataCoreRecordObject):
+    @cached_property
+    def loadout(self):
+        def proc_loadout(entries):
+            lo = {}
+            for entry in entries:
+                try:
+                    entity = entry.properties['entityClassName']
+                    sublo = entry.properties.get('loadout', {})
+                    if sublo:
+                        sublo = proc_loadout(sublo.properties.get("entries", []))
+                    if ac := self._sc.attachable_component_manager.attachable_components.get(entity):
+                        entity = ac
+                        try:
+                            entity.set_loadout(sublo)
+                        except AttributeError:
+                            pass  # entity doesn't support setting a loadout
+                    port_name = entry.properties["itemPortName"]
+                    lo[port_name] = {'entity': entity, 'loadout': sublo}
+                except Exception as e:
+                    logger.exception(
+                        f"processing component SEntityComponentDefaultLoadoutParams",
+                        exc_info=e,
+                    )
+            return lo
+
+        return proc_loadout(self.properties["loadout"].properties.get("entries", []))
 
 
 class Vehicle(Entity):
@@ -75,6 +105,7 @@ class Vehicle(Entity):
     @cached_property
     def hardpoints(self):
         hps = {}
+
         def _walk_parts(d):
             if isinstance(d, list):
                 for part in d:
@@ -95,21 +126,10 @@ class Vehicle(Entity):
 
     @cached_property
     def default_loadout(self):
-        editable_hardpoints = list(self.editable_hardpoints.keys())
-        loadout = {}
-        for entry in self.components['SEntityComponentDefaultLoadoutParams'].properties["loadout"].properties.get("entries", []):
-            try:
-                port_name = entry.properties["itemPortName"]
-                if not entry.properties["entityClassName"] or port_name not in editable_hardpoints:
-                    continue
-
-                loadout[port_name] = entry.properties['entityClassName']
-            except Exception as e:
-                logger.exception(
-                    f"processing component SEntityComponentDefaultLoadoutParams",
-                    exc_info=e,
-                )
-        return loadout
+        return {
+            k: v for k, v in self.components['SEntityComponentDefaultLoadoutParams'].loadout.items()
+            if k in self.editable_hardpoints
+        }
 
 
 @register_record_handler(
@@ -162,3 +182,11 @@ class Crateable(Carryable):
         
     def __repr__(self):
         return f"<DCO Crateable {self.name} '{self.label}'>"
+
+@register_record_handler(
+    "EntityClassDefinition",
+    filename_match="libs/foundry/records/entities/scitem/ships/weapon_mounts/gimbal/.*",
+)
+class GimbalMount(Entity):
+    def __repr__(self):
+        return f"<GimbalMount {self.name}>"

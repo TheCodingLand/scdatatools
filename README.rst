@@ -48,9 +48,9 @@ Read a DataForge database (.dcb)
 
     from scdatatools.forge import DataCoreBinary
     dcb = DataCoreBinary('research/Game.dcb.3.9.1-ptu.5229583')
+    # Find all records containing a patterh
     jav_records = dcb.search_filename('*javelin.xml')
     print(dcb.dump_record_json(jav_records[-1]))
-
 
 Use the `StarCitizen` class:
 
@@ -60,6 +60,18 @@ Use the `StarCitizen` class:
     sc = StarCitizen('D:/Path/To/LIVE')
     sc.p4k.search('idris')
     sc.datacore.records[0]
+
+    # Read all entities
+    sc.attachable_component_manager.load_attachable_components()
+    cmgr = sc.attachable_component_manager
+    # Get all entity types
+    cmgr.by_type.keys()
+    # Get the English name of the first torso armor
+    list(cmgr.by_type['Char_Armor_Torso'])[0].label
+    # Get the labels of all items in the family 'behr_rifle_ballistic_01'
+    [x.label for x in cmgr.by_geom[cmgr.attachable_components['behr_rifle_ballistic_01'].geom_hash]]
+    # Find entities by in-game name
+    [x for x in cmgr.attachable_components.values() if 'Drake Cutlass' in x.label]
 
 
 .. image:: https://gitlab.com/scmodding/frameworks/scdatatools/-/raw/devel/docs/assets/MadeByTheCommunity_Black.png

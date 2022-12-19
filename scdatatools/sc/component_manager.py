@@ -27,6 +27,7 @@ class AttachableComponentManager:
         self.by_sub_type = {}
         self.by_size = {}
         self.by_tag = {}
+        self.by_geom = {}
         self._loaded = False
 
     def load_attachable_components(self):
@@ -42,6 +43,8 @@ class AttachableComponentManager:
                 ac = entity.components['SAttachableComponentParams']
                 self.by_size.setdefault(ac.size, set()).add(entity)
                 self.by_type.setdefault(ac.attachable_type, set()).add(entity)
+                if (entity.geom_hash is not None):
+                    self.by_geom.setdefault(entity.geom_hash, set()).add(entity)
                 for sub_type in ac.attachable_sub_types:
                     self.by_sub_type.setdefault(sub_type, set()).add(entity)
                 for tag in ac.tags:

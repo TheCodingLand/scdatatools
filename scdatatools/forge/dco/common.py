@@ -119,13 +119,13 @@ class DataCoreRecordObject(DataCoreObject):
         return self.object.filename
 
     def to_dict(self, depth=100):
-        return self.object.dcb.record_to_dict(self.record, depth=depth)
+        return self.object.dcb.record_to_dict(self.object, depth=depth)
 
     def to_json(self, depth=100):
-        return self.object.dcb.dump_record_json(self.record, depth=depth)
+        return self.object.dcb.dump_record_json(self.object, depth=depth)
 
     def to_etree(self, depth=100):
-        return self.object.dcb.record_to_etree(self.record, depth=depth)
+        return self.object.dcb.record_to_etree(self.object, depth=depth)
 
     def to_xml(self, depth=100):
-        return self.object.dcb.dump_record_xml(self.record, depth=depth)
+        return self.object.dcb.dump_record_xml(self.object, depth=depth)

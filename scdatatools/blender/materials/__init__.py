@@ -218,13 +218,13 @@ class MTLLoader:
                 new_mat = None
                 if attrs["Name"].casefold().endswith("proxy"):
                     new_mat = self.create_proxy_material(attrs)
-                elif shader_type in("hardsurface"):
+                elif shader_type == "hardsurface":
                     new_mat = self.create_hard_surface(attrs)
                 elif shader_type in ("illum", "meshdecal", "decal", "cloth"):
                     new_mat = self.create_illum_surface(attrs)
                 elif shader_type in ("glass", "glasspbr"):
                     new_mat = self.create_glass_surface(attrs)
-                elif shader_type in("layerblend", "organic"):
+                elif shader_type == "layerblend":
                     new_mat = self.create_layer_blend_surface(attrs)
                 elif shader_type == "layer":
                     new_mat = self.create_layer_node(attrs)
@@ -453,7 +453,7 @@ class MTLLoader:
         )
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
         shadergroup.inputs["Primary ddna Alpha"].default_value = mat.roughness
-        if "USE_SPECULAR_MAPS" in mtl_attrs["StringGenMask"]:
+        if "SPECULAR" in mtl_attrs["StringGenMask"]:
             #shadergroup.inputs["Metallic"].default_value = 1
             #shadergroup.inputs["Anisotropic"].default_value = 0.5 
             pass

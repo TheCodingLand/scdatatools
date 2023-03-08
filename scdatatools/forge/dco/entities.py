@@ -190,3 +190,11 @@ class Crateable(Carryable):
 class GimbalMount(Entity):
     def __repr__(self):
         return f"<GimbalMount {self.name}>"
+
+@register_record_handler(
+    "EntityClassDefinition",
+    filename_match="libs/foundry/records/transitsystem/transitcarriage/.*",
+)
+class TransitCarriage(Entity):
+    def __repr__(self):
+        return f"<TransitCarriage {self.name}>"

@@ -8,7 +8,9 @@ from scdatatools.blender.utils import hashed_path_key
 logger = logging.getLogger(__name__)
 
 SCSHARDERS_BLEND = Path(__file__).parent / "SCShaders.blend"
-REQUIRED_SHADER_NODE_GROUPS = [    
+REQUIRED_SHADER_NODE_GROUPS = [
+    ".specular global",
+    ".roughness global",
     "_Parallax (UV)",
     "_TintDecalConverter",
     "_Glass",

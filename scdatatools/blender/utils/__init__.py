@@ -229,6 +229,10 @@ def import_cleanup(context, option_offsetdecals=False):
                         obj.modifiers[mod_name].strength = 0.001
                         obj.modifiers[mod_name].mid_level = 0
 
+            if not obj.modifiers.get("Weld"):
+                obj.modifiers.new("Weld", "WELD")
+                obj.modifiers["Weld"].merge_threshold = .003
+            
             if not obj.modifiers.get("Weighted Normal"):
                 obj.modifiers.new("Weighted Normal", "WEIGHTED_NORMAL")
                 obj.modifiers["Weighted Normal"].keep_sharp = True

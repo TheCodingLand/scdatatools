@@ -192,6 +192,10 @@ def get_or_create_geometry(
         if obj.type == "MESH":
             obj.data.use_auto_smooth = True
 
+            if not obj.modifiers.get("Weld"):
+                obj.modifiers.new("Weld", "WELD")
+                obj.modifiers["Weld"].merge_threshold = .003
+
             if not obj.modifiers.get("Weighted Normal"):
                 obj.modifiers.new("Weighted Normal", "WEIGHTED_NORMAL")
                 obj.modifiers["Weighted Normal"].keep_sharp = True

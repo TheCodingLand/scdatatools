@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 PREFAB_OBJECT_TYPES_TO_PROCESS = {
     "AreaBox",
     "Brush",
-    "Decal",
-    "Designer",
+    "Decal",    
     "GeomEntity",
     "Group",
     "Ledge",
@@ -33,7 +32,7 @@ PREFAB_OBJECT_TYPES_TO_PROCESS = {
     "ProceduralLayoutSecondaryElement",
     "Shape"
     # Ignored Types
-    # 'AudioAreaAmbience', 'AudioTriggerSpot', 'EnvironmentProbe', 'PrefabPivot', 'ParticleEffect', 'VisArea'
+    # 'AudioAreaAmbience', 'AudioTriggerSpot', "Designer", 'EnvironmentProbe', 'PrefabPivot', 'ParticleEffect', 'VisArea'
 }
 PREFAB_ENTITY_TYPES_TO_PROCESS = {
     "Light",

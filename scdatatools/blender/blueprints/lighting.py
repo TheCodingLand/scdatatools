@@ -102,12 +102,13 @@ def create_light(
     fov = float(light["EntityComponentLight"]["projectorParams"].get("@FOV", 179))
     focusedBeam = float(light["EntityComponentLight"]["projectorParams"].get("@focusedBeam", 1))
     shadowCasting = float(light["EntityComponentLight"]["shadowParams"].get("@shadowCasting", 1))
+    maxShadowDistance = float(light["EntityComponentLight"]["shadowParams"].get("@maxShadowCastDist", None))
     projectorNearPlane = float(
         light["EntityComponentLight"]["shadowParams"].get("@projectorNearPlane", None)
     )
-    maxDistance = float(light["EntityComponentLight"]["fadeParams"].get("@maxDistance", None))
-    maxShadowDistance = float(light["EntityComponentLight"]["shadowParams"].get("@maxShadowCastDist", None))
-
+    if light["EntityComponentLight"].get("fadeParams"):
+        maxDistance = float(light["EntityComponentLight"]["fadeParams"].get("@maxDistance", None))    
+    
     # TODO: EntityComponentLight.defaultState.lightStyle?
     # TODO: use shadowParams.@shadowCasting?
 

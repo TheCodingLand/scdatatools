@@ -302,6 +302,7 @@ class MTLLoader:
         if "pom" in matname.lower():
             shadergroup.inputs["Base Color"].default_value = (0.18, 0.18, 0.18, 1)
             shadergroup.inputs["n Strength"].default_value = 1
+            shadergroup.inputs["POM normal"].default_value = (0.5, 0.5, 1)
             shadergroup.inputs["Metallic"].default_value = 1
         else:
             shadergroup.inputs["Base Color"].default_value = make_tuple(
@@ -627,7 +628,7 @@ class MTLLoader:
         #shadergroup.inputs["IOR"].default_value = 1.45
         shaderout.location.x += 200
 
-        self.load_textures(mtl_attrs["Textures"], mat, shadergroup)
+        self.load_textures(mtl_attrs.get("Textures", []), mat, shadergroup)
 
         return mat
 
@@ -676,7 +677,7 @@ class MTLLoader:
 
         # loadMaterials(mtl["MatLayers"])
 
-        self.load_textures(mtl_attrs["Textures"], mat, shadergroup)
+        self.load_textures(mtl_attrs.get("Textures", []), mat, shadergroup)
 
         y = -300
 
@@ -774,7 +775,7 @@ class MTLLoader:
         # mat['filename'] = mtl_path.as_posix()
 
         mat.nodes["Tint"].inputs["diff Color"].default_value = make_tuple(
-            mtl_attrs.get("Diffuse", "1,1,1") + ",1"
+            mtl_attrs.get("Diffuse", ".18,.18,.18") + ",1"
         )
         mat.nodes["Tint"].inputs["spec Color"].default_value = make_tuple(
             mtl_attrs.get("Specular", ".5,.5,.5") + ",1"
@@ -942,8 +943,8 @@ class MTLLoader:
             #    img.colorspace_settings.name = "sRGB"
             #else:
             #    img.colorspace_settings.name = "Non-Color"
-            img.colorspace_settings.name = "Non-Color"
-
+            #img.colorspace_settings.name = "Non-Color"
+            
             img.alpha_mode = "CHANNEL_PACKED"
             texnode = nodes.get(img.name) or nodes.new(type="ShaderNodeTexImage")
             texnode.image = img
@@ -953,6 +954,9 @@ class MTLLoader:
             texnode.location.x -= 300
             texnode.location.y = y
             y -= 330
+
+            # Set interpolation
+            texnode.interpolation = 'Smart'
 
             if list(tex):
                 texmod = tex[0]
@@ -1007,22 +1011,6 @@ class MTLLoader:
                     except:
                         # logger.error("failed to link Diffuse Map")
                         pass
-            elif tex.get("Map") in ["TexSlot2"]:  # this should be a ddna map
-                try:
-                    mat.node_tree.links.new(
-                        texnode.outputs["Color"], shadergroup.inputs["ddna Color"]
-                    )
-                    mat.node_tree.links.new(
-                        texnode.outputs["Alpha"], shadergroup.inputs["ddna Alpha"]
-                    )
-                except:
-                    try:
-                        mat.node_tree.links.new(
-                            texnode.outputs["Color"],
-                            shadergroup.inputs["Primary ddna Color"],
-                        )
-                    except:
-                        pass
             elif tex.get("Map") == "TexSlot2A" or tex.get("Map") == "Glossmap":
             # this is a glossmap made during the texture conversion
                 try:
@@ -1039,6 +1027,22 @@ class MTLLoader:
                         # mat.node_tree.links.new(texnode.outputs['Alpha'], shadergroup.inputs['Primary ddna Alpha'])
                     except:
                         # logger.error("failed to link DDNA Map")
+                        pass
+            elif tex.get("Map") in ["TexSlot2"]:  # this should be a ddna map
+                try:
+                    mat.node_tree.links.new(
+                        texnode.outputs["Color"], shadergroup.inputs["ddna Color"]
+                    )
+                    mat.node_tree.links.new(
+                        texnode.outputs["Alpha"], shadergroup.inputs["ddna Alpha"]
+                    )
+                except:
+                    try:
+                        mat.node_tree.links.new(
+                            texnode.outputs["Color"],
+                            shadergroup.inputs["Primary ddna Color"],
+                        )
+                    except:
                         pass
             elif tex.get("Map") in ["TexSlot3"]:  # this is a gloss map
                 try:

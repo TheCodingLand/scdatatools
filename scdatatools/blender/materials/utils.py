@@ -55,6 +55,7 @@ def tint_palette_node_group_for_entity(entity_name):
     ensure_node_groups_loaded()
 
     tint_group = bpy.data.node_groups.new(tint_group_name, "ShaderNodeTree")
+    tint_group['Type'] = 'tint_pallette'
     outputs = {
         "Decal Color": "NodeSocketColor",
         "Decal Alpha": "NodeSocketFloatFactor",

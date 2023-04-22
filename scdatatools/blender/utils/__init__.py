@@ -231,7 +231,7 @@ def import_cleanup(context, option_offsetdecals=False):
 
             if not obj.modifiers.get("Weld"):
                 obj.modifiers.new("Weld", "WELD")
-                obj.modifiers["Weld"].merge_threshold = .003
+                obj.modifiers["Weld"].merge_threshold = 0
             
             if not obj.modifiers.get("Weighted Normal"):
                 obj.modifiers.new("Weighted Normal", "WEIGHTED_NORMAL")

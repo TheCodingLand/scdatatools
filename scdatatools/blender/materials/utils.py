@@ -172,8 +172,8 @@ def create_light_texture(texture: Path):
         texture.as_posix()
     )
     new_node_texture.extension = "CLIP"
-    # new_node_texture.image.colorspace_settings.name = "Non-Color"
-    new_node_texture.image.colorspace_settings.name = "sRGB"
+    new_node_texture.image.colorspace_settings.name = "Non-Color"
+    #new_node_texture.image.colorspace_settings.name = "sRGB"
 
     #new_node_mapping = new_node.nodes.new("ShaderNodeMapping") 
     new_node_geometry = new_node.nodes.new("ShaderNodeNewGeometry")

@@ -302,7 +302,7 @@ class MTLLoader:
         if "pom" in matname.lower():
             shadergroup.inputs["Base Color"].default_value = (0.18, 0.18, 0.18, 1)
             shadergroup.inputs["n Strength"].default_value = 1
-            shadergroup.inputs["POM normal"].default_value = (0.5, 0.5, 1)
+            #shadergroup.inputs["POM normal"].default_value = (0.5, 0.5, 1)
             shadergroup.inputs["Metallic"].default_value = 1
         else:
             shadergroup.inputs["Base Color"].default_value = make_tuple(
@@ -939,11 +939,10 @@ class MTLLoader:
                 logger.warning(f"missing texture for mat %s: %s", mat.name, filename)
                 continue
 
-            #if "diff" in img.name or "spec" in img.name:
-            #    img.colorspace_settings.name = "sRGB"
-            #else:
-            #    img.colorspace_settings.name = "Non-Color"
-            #img.colorspace_settings.name = "Non-Color"
+            if "diff" in img.name or "spec" in img.name:
+                img.colorspace_settings.name = "sRGB"
+            else:
+                img.colorspace_settings.name = "Non-Color"                
             
             img.alpha_mode = "CHANNEL_PACKED"
             texnode = nodes.get(img.name) or nodes.new(type="ShaderNodeTexImage")
@@ -990,7 +989,7 @@ class MTLLoader:
 
                 # link everything up
             if tex.get("Map") in ["TexSlot1", "Diffuse"]:
-                texnode.image.colorspace_settings.name = "sRGB"
+                #texnode.image.colorspace_settings.name = "sRGB"
                 try:
                     mat.node_tree.links.new(
                         texnode.outputs["Color"], shadergroup.inputs["diff Color"]
@@ -1052,7 +1051,7 @@ class MTLLoader:
                 except:
                     pass
             elif tex.get("Map") in ["TexSlot4", "Specular"]:
-                texnode.image.colorspace_settings.name = "sRGB"
+                #texnode.image.colorspace_settings.name = "sRGB"
                 try:
                     mat.node_tree.links.new(
                         texnode.outputs["Color"], shadergroup.inputs["spec Color"]

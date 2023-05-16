@@ -107,22 +107,18 @@ def create_light(
         light["EntityComponentLight"]["shadowParams"].get("@projectorNearPlane", None)
     )
     if light["EntityComponentLight"].get("fadeParams"):
-        maxDistance = float(light["EntityComponentLight"]["fadeParams"].get("@maxDistance", None))    
+        maxDistance = float(light["EntityComponentLight"]["fadeParams"].get("@maxDistance", None))
+    else: 
+        maxDistance = None    
     
     # TODO: EntityComponentLight.defaultState.lightStyle?
     # TODO: use shadowParams.@shadowCasting?
 
-    if lightType == "Projector":
-        # Spot lights
-        #light_data = bpy.data.lights.new(name=light_group_collection.name, type="SPOT")
-        #light_data.spot_size = math.radians(fov)
-        #light_data.spot_blend = bulbRadius
-        #light_data.shadow_soft_size = bulbRadius
-        # set to zero for hard IES light edges, increase for softness
-         light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
-         light_data.spread = math.radians(fov)
-         light_data.size = .01         
-         #light_data.shape = 'RECTANGLE'         
+    #if lightType == "Projector":
+    if planeWidth != 1 and planeHeight != 1:        
+        light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
+        light_data.spread = math.radians(fov)
+        light_data.size = 1        
     else:
         # Point Lights
         light_data = bpy.data.lights.new(name=name, type="POINT")
@@ -136,7 +132,7 @@ def create_light(
     light_obj["use_temperature"] = use_temperature
     light_obj["states"] = {}
     light_obj.scale[0] = planeWidth
-    light_obj.scale[1] = planeHeight
+    light_obj.scale[1] = planeHeight    
     #light_obj.show_axis = True #for debugging. Remove before flight
 
     for key, val in light["EntityComponentLight"].items():

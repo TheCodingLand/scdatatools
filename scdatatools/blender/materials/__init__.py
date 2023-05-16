@@ -50,8 +50,8 @@ def set_viewport(mat, mtl_attrs, trans=False):
     mat.diffuse_color = make_tuple(mtl_attrs.get("Diffuse", "1,1,1") + ",1")
     mat.roughness = 1 - (float(mtl_attrs.get("Shininess", 128)) / 255)
     if trans:
-        mat.blend_method = "HASHED"
-        mat.shadow_method = "CLIP"
+        mat.blend_method = "BLEND"
+        mat.shadow_method = "NONE"
         mat.show_transparent_back = True
         mat.cycles.use_transparent_shadow = True
         mat.use_screen_refraction = True
@@ -301,8 +301,7 @@ class MTLLoader:
 
         if "pom" in matname.lower():
             shadergroup.inputs["Base Color"].default_value = (0.18, 0.18, 0.18, 1)
-            shadergroup.inputs["n Strength"].default_value = 1
-            #shadergroup.inputs["POM normal"].default_value = (0.5, 0.5, 1)
+            shadergroup.inputs["n Strength"].default_value = 1            
             shadergroup.inputs["Metallic"].default_value = 1
         else:
             shadergroup.inputs["Base Color"].default_value = make_tuple(
@@ -373,16 +372,15 @@ class MTLLoader:
             except:
                 pass
 
-        if "USE_SPECULAR_MAPS" in mtl_attrs["StringGenMask"]:
-            #shadergroup.inputs["Metallic"].default_value = 1
+        if "SPECULAR_MAP" in mtl_attrs["StringGenMask"]:
+            shadergroup.inputs["Metallic"].default_value = 1
             #shadergroup.inputs["Anisotropic"].default_value = 0.5
-            pass
         else:
             shadergroup.inputs["Metallic"].default_value = 0
             shadergroup.inputs["Anisotropic"].default_value = 0
 
-        # if "USE_OPACITY_MAP" in mtl_attrs["StringGenMask"]:
-        #    shadergroup.inputs['UseAlpha'].default_value = 1
+        if "USE_OPACITY_MAP" in mtl_attrs["StringGenMask"]:
+            shadergroup.inputs['UseAlpha'].default_value = 1
 
         shaderout.location.x += 200
 
@@ -498,6 +496,12 @@ class MTLLoader:
             # newbasegroup.node_tree.label = submat.get("Name")
             newbasegroup.inputs["tint diff Color"].default_value = make_tuple(
                 submat.get("TintColor") + ",1"
+            )
+            newbasegroup.inputs["tint spec Color"].default_value = make_tuple(
+                ".25, .25, .25, 1"
+            )
+            newbasegroup.inputs["tint gloss"].default_value = make_tuple(
+                submat.get("GlossMult", .5)
             )
             newbasegroup.inputs["UV Scale"].default_value = [
                 float(submat.get("UVTiling")),
@@ -705,8 +709,15 @@ class MTLLoader:
             # newbasegroup.node_tree.label = submat.get("Name")
             if submat.get("TintColor"):
                 newbasegroup.inputs["tint diff Color"].default_value = make_tuple(
-                    submat.get("TintColor") + ",1"
+                    submat.get("TintColor", "0, 0, 0") + ",1"
                 )
+            
+            newbasegroup.inputs["tint spec Color"].default_value = make_tuple(
+                ".25, .25, .25, 1"
+            )
+            newbasegroup.inputs["tint gloss"].default_value = make_tuple(
+                submat.get("GlossMult", .5)
+            )
             if submat.get("UVTiling"):
                 newbasegroup.inputs["UV Scale"].default_value = [
                     float(submat.get("UVTiling")),
@@ -714,7 +725,7 @@ class MTLLoader:
                     float(submat.get("UVTiling")),
                 ]
             if tint_group is not None:
-                if submat.get("PaletteTint", "0") == "2":
+                if submat.get("PaletteTint", "0") == "1":
                     mat.node_tree.links.new(
                         tint_group.outputs["Primary"],
                         newbasegroup.inputs["tint diff Color"],
@@ -727,7 +738,7 @@ class MTLLoader:
                         tint_group.outputs["Primary Glossiness"],
                         newbasegroup.inputs["tint gloss"],
                     )
-                elif submat.get("PaletteTint", "0") == "1":
+                elif submat.get("PaletteTint", "0") == "2":
                     mat.node_tree.links.new(
                         tint_group.outputs["Secondary"],
                         newbasegroup.inputs["tint diff Color"],

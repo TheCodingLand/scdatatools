@@ -13,13 +13,16 @@ from scdatatools.blender.utils import str_to_tuple
 
 logger = logging.getLogger(__name__)
 
+def gamma_correct(rgb, gamma):
+    corrected_rgb = tuple(pow(channel, gamma) for channel in rgb)
+    return corrected_rgb
 
 def set_light_state(light_obj, state):
     if "states" not in light_obj or state not in light_obj["states"]:
         logger.debug(f"could not set light state {state} for {light_obj.name}")
         return
 
-    light_obj.data.color = light_obj["states"][state]["color"]
+    light_obj.data.color = gamma_correct(light_obj["states"][state]["color"], 2.2)
     # adjust intensity by +4EV; make this a user settings later
     light_obj.data.energy = light_obj["states"][state]["intensity"] * pow(
         2, 6
@@ -58,6 +61,7 @@ def set_linked_light(obj_name, color, temp=None, source=None):
             }
         obj["light_link"] = [color[0], color[1], color[2]]  # RGB
         obj["light_link_source"] = source
+        obj["light_link_strength"] = 1
     return
 
 
@@ -122,6 +126,8 @@ def create_light(
     else:
         # Point Lights
         light_data = bpy.data.lights.new(name=name, type="POINT")
+        # Spot Lights
+        # light_data = bpy.data.lights.new(name=name, type="SPOT")
         #light_data = bpy.data.lights.new(name=name, type="AREA")
         #light_data.size = .01
         light_data.shadow_soft_size = bulbRadius *.01
@@ -181,6 +187,8 @@ def create_light(
                         spot_size,
                         spot_size,
                     )
+                if ies_group.inputs.get('Angle'):
+                    ies_group.inputs['Angle'].default_value = fov
 
     if use_temperature:
         bb_node = light_obj.data.node_tree.nodes.new(type="ShaderNodeBlackbody")
@@ -281,7 +289,7 @@ def create_light(
         if light["GeomLink"].get("@SubObjectName"):
             light_obj["GeomLink"] = light["GeomLink"].get("@SubObjectName")
             set_linked_light(
-                light["GeomLink"].get("@SubObjectName"), light_obj.data.color, None, light_obj.name
+                light["GeomLink"].get("@SubObjectName"), light_obj.data.color, None, light_obj.data.name
             )
 
     logger.debugscbp(f"created light {light_obj.name} in {light_group_collection.name}")

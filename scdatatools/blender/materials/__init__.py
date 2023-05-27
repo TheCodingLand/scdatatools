@@ -282,7 +282,7 @@ class MTLLoader:
                 shadergroup.inputs["geom link"].default_value = 1
             shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]
             shadergroup.inputs["emit Strength"].default_value = 4
-        elif "DECAL" in mtl_attrs["StringGenMask"]:  # or "decal" in matname.lower():
+        elif "%DECAL%" in mtl_attrs["StringGenMask"]:  # or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             viewport_trans = True
         elif "rtt_text_to_decal" in matname.lower():
@@ -356,6 +356,13 @@ class MTLLoader:
         except:
             pass
         try:
+            shadergroup.inputs["BlendFalloff"].default_value = float(
+                mtl_attrs["PublicParams"].get("BlendFalloff", 0)
+            )
+        except:
+            pass
+        
+        try:
             shadergroup.inputs["HeightBias"].default_value = float(
                 mtl_attrs["PublicParams"].get("HeightBias", 0.5)
             )
@@ -372,7 +379,7 @@ class MTLLoader:
             except:
                 pass
 
-        if "SPECULAR_MAP" in mtl_attrs["StringGenMask"]:
+        if "USE_SPECULAR_MAP" in mtl_attrs["StringGenMask"]:
             shadergroup.inputs["Metallic"].default_value = 1
             #shadergroup.inputs["Anisotropic"].default_value = 0.5
         else:
@@ -791,6 +798,9 @@ class MTLLoader:
         mat.nodes["Tint"].inputs["spec Color"].default_value = make_tuple(
             mtl_attrs.get("Specular", ".5,.5,.5") + ",1"
         )
+        mat.nodes["LayerTiling"].outputs[0].default_value = float(
+            mtl_attrs["PublicParams"].get("LayerTiling", 1)
+        )
         mat.nodes["detail Scale"].outputs[0].default_value = float(
             mtl_attrs["PublicParams"].get("DetailTiling", 1)
         )
@@ -821,7 +831,7 @@ class MTLLoader:
                     mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["ddna Alpha"])
                 elif node.name in ["TexSlot6", "_spec"]:
                     mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["spec Color"])
-                elif node.name in ["TexSlot7", "detail"]:
+                elif node.name in ["TexSlot7", "_detail"]:
                     mat.links.new(imagenodecolorout, mat.nodes["Tint"].inputs["detail Color"])
                     mat.links.new(imagenodealphaout, mat.nodes["Tint"].inputs["detail Alpha"])
                     mat.links.new(imagenodein, detailmapnodeout)
@@ -950,7 +960,7 @@ class MTLLoader:
                 logger.warning(f"missing texture for mat %s: %s", mat.name, filename)
                 continue
 
-            if "diff" in img.name or "spec" in img.name:
+            if "diff" in img.name:
                 img.colorspace_settings.name = "sRGB"
             else:
                 img.colorspace_settings.name = "Non-Color"                
@@ -978,6 +988,7 @@ class MTLLoader:
                         float(texmod.get("TileV")),
                         1,
                     )
+                    mapnode.vector_type = 'POINT'
                     if mapnode.inputs["Scale"].default_value == [0, 0, 1]:
                         mapnode.inputs["Scale"].default_value = [1, 1, 1]
                     try:

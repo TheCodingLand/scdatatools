@@ -9,6 +9,8 @@ logger = logging.getLogger(__name__)
 
 SCSHARDERS_BLEND = Path(__file__).parent / "SCShaders.blend"
 REQUIRED_SHADER_NODE_GROUPS = [
+    ".IES mapping",
+    ".diffuse global",
     ".specular global",
     ".roughness global",
     "_Parallax (UV)",
@@ -144,7 +146,7 @@ def create_light_texture(texture: Path):
     if not texture.is_file():
         print(f"Could not find light texture {texture}")
         return None
-
+    
     tex_node_name = hashed_path_key(texture)
     if tex_node_name in bpy.data.node_groups:
         return bpy.data.node_groups[tex_node_name]
@@ -157,8 +159,8 @@ def create_light_texture(texture: Path):
     new_node_input = new_node.nodes.new("NodeGroupInput")
     new_node.inputs.new("NodeSocketColor", "Color")
     new_node.inputs["Color"].default_value = (1, 1, 1, 1)
-    new_node.inputs.new("NodeSocketVector", "Scale")
-    new_node.inputs["Scale"].default_value = (1, 1, 1)
+    new_node.inputs.new("NodeSocketFloat", "Angle")
+    new_node.inputs["Angle"].default_value = 180
     new_node_input.location = (500, -200)
 
     mix_node = new_node.nodes.new(type="ShaderNodeMixRGB")
@@ -179,18 +181,26 @@ def create_light_texture(texture: Path):
     new_node_geometry = new_node.nodes.new("ShaderNodeNewGeometry")
     new_node_geometry.location = (200, 0)
     #new_node_mapping.location = (200, 0)
-    #new_node_mapping.inputs["Location"].default_value = (0.5, 0.5, 0)
+    #new_node_mapping.inputs["Location"].default_value = (-0.5, -0.5, 0)
     #new_node_mapping.inputs["Scale"].default_value = (1, 1, 0)
 
+    ensure_node_groups_loaded()
+    new_node_IES_mapping = new_node.nodes.new("ShaderNodeGroup")
+    new_node_IES_mapping.node_tree = bpy.data.node_groups['.IES mapping']
+
     new_node_texcoord = new_node.nodes.new("ShaderNodeTexCoord")
-    new_node_texcoord.location = (0, 0)
+    new_node_texcoord.location[0] += -300
 
-    new_node.links.new(mix_node.outputs["Color"], new_node_output.inputs["Color"])
-    new_node.links.new(new_node_texture.outputs["Color"], mix_node.inputs["Color1"])
-    new_node.links.new(new_node_input.outputs["Color"], mix_node.inputs["Color2"])
-    #new_node.links.new(new_node_input.outputs["Scale"], new_node_mapping.inputs["Scale"])
-    #new_node.links.new(new_node_mapping.outputs["Vector"], new_node_texture.inputs["Vector"])
-    #new_node.links.new(new_node_texcoord.outputs["Normal"], new_node_mapping.inputs["Vector"])
-    new_node.links.new(new_node_geometry.outputs["Parametric"], new_node_texture.inputs["Vector"])
-
+    new_node.links.new(mix_node.outputs["Color"], 
+                       new_node_output.inputs["Color"])
+    new_node.links.new(new_node_texture.outputs["Color"], 
+                       mix_node.inputs["Color1"])
+    new_node.links.new(new_node_input.outputs["Color"], 
+                       mix_node.inputs["Color2"])
+    new_node.links.new(new_node_input.outputs["Angle"],
+                       new_node_IES_mapping.inputs["Angle"])                       
+    new_node.links.new(new_node_texcoord.outputs["Normal"], 
+                       new_node_IES_mapping.inputs["Vector"])
+    new_node.links.new(new_node_IES_mapping.outputs["Vector"], 
+                       new_node_texture.inputs["Vector"])
     return new_node

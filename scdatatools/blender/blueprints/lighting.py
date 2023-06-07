@@ -60,7 +60,7 @@ def set_linked_light(obj_name, color, temp=None, source=None):
                 "description": "node_outline_prop",
             }
         obj["light_link"] = [color[0], color[1], color[2]]  # RGB
-        obj["light_link_source"] = source
+        if source: obj["light_link_source"] = source
         obj["light_link_strength"] = 1
     return
 

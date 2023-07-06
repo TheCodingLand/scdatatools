@@ -37,13 +37,20 @@ class SCLocalization:
         lower_key = lambda trans: (trans[0].lower(), trans[1])
         for l in localization_files:
             logging.debug(f"processing {l}")
-            with l.open("rb") as f:
-                lang = Path(f.name).parts[-2]
-                self.languages.append(lang)
-                self.translations[lang] = dict(
-                    lower_key(_.split("=", 1)) for _ in f.read().decode("utf-8").split("\r\n") if "=" in _
-                )
-                self.keys.update(self.translations[lang].keys())
+            try:
+                with l.open("rb") as f:
+                    lang = Path(f.name).parts[-2]
+                    content = f.read()
+                    content.lstrip(b'\xef\xbb\xbf')  # TODO: unknown header/version? does not seem to correlate to size
+                    self.languages.append(lang)
+                    self.translations[lang] = dict(
+                        lower_key(_.split("=", 1))
+                        for _ in content.decode("utf-8", errors="ignore").split("\r\n")
+                        if "=" in _
+                    )
+                    self.keys.update(self.translations[lang].keys())
+            except UnicodeDecodeError:
+                logger.error(f'failed to load localization for {l.filename}')
         self.keys = sorted(self.keys)
 
     def gettext(self, key, language=None, default_response=None) -> str:

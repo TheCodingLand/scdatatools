@@ -224,7 +224,7 @@ class MTLLoader:
                     new_mat = self.create_illum_surface(attrs)
                 elif shader_type in ("glass", "glasspbr"):
                     new_mat = self.create_glass_surface(attrs)
-                elif shader_type == "layerblend":
+                elif shader_type in ("layerblend", "layerblend_v2"):
                     new_mat = self.create_layer_blend_surface(attrs)
                 elif shader_type == "layer":
                     new_mat = self.create_layer_node(attrs)
@@ -275,13 +275,13 @@ class MTLLoader:
             viewport_trans = True
         elif "glow" in matname.lower() and "link" in matname.lower():  #
             shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]
-            shadergroup.inputs["emit Strength"].default_value = 4
+            shadergroup.inputs["emit Strength"].default_value = 8
             if "unlink" in matname.lower():
                 shadergroup.inputs["geom link"].default_value = 0
             else:
                 shadergroup.inputs["geom link"].default_value = 1
             shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]
-            shadergroup.inputs["emit Strength"].default_value = 4
+            shadergroup.inputs["emit Strength"].default_value = 8
         elif "%DECAL%" in mtl_attrs["StringGenMask"]:  # or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             viewport_trans = True
@@ -720,10 +720,10 @@ class MTLLoader:
                 )
             
             newbasegroup.inputs["tint spec Color"].default_value = make_tuple(
-                ".25, .25, .25, 1"
+                "0, 0, 0, 1"
             )
             newbasegroup.inputs["tint gloss"].default_value = make_tuple(
-                submat.get("GlossMult", .5)
+                submat.get("GlossMult", 0)
             )
             if submat.get("UVTiling"):
                 newbasegroup.inputs["UV Scale"].default_value = [

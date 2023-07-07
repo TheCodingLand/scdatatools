@@ -233,7 +233,7 @@ class MTLLoader:
                 elif shader_type in ("humanskin_v2"):
                     new_mat = self.create_skin_surface(attrs)
                 elif shader_type in ("monitor", "displayscreen", "uiplane"):
-                    new_mat = self.create_proxy_material(attrs)
+                    new_mat = self.create_display_surface(attrs)
                 elif shader_type == "nodraw":
                     new_mat = self.create_proxy_material(attrs)
                 elif shader_type == "simple":
@@ -273,16 +273,13 @@ class MTLLoader:
         if "pom" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.pom"]
             viewport_trans = True
-        elif "glow" in matname.lower() and "link" in matname.lower():  #
-            shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]
-            shadergroup.inputs["emit Strength"].default_value = 8
+        elif "glow" in matname.lower() and "link" in matname.lower(): #
+            shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]            
             if "unlink" in matname.lower():
                 shadergroup.inputs["geom link"].default_value = 0
             else:
                 shadergroup.inputs["geom link"].default_value = 1
-            shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]
-            shadergroup.inputs["emit Strength"].default_value = 8
-        elif "%DECAL%" in mtl_attrs["StringGenMask"]:  # or "decal" in matname.lower():
+        elif "%DECAL" in mtl_attrs["StringGenMask"]:  # or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             viewport_trans = True
         elif "rtt_text_to_decal" in matname.lower():
@@ -300,13 +297,17 @@ class MTLLoader:
         )
 
         if "pom" in matname.lower():
-            shadergroup.inputs["Base Color"].default_value = (0.18, 0.18, 0.18, 1)
+            shadergroup.inputs["Base Color"].default_value = (0, 0, 0, 1)
             shadergroup.inputs["n Strength"].default_value = 1            
             shadergroup.inputs["Metallic"].default_value = 1
         else:
             shadergroup.inputs["Base Color"].default_value = make_tuple(
                 mtl_attrs.get("Diffuse") + ",1"
             )
+
+        if "bare_metal" in matname.lower():            
+            shadergroup.inputs["Metallic"].default_value = 1
+
         try:
             shadergroup.inputs["spec Color"].default_value = make_tuple(
                 mtl_attrs.get("Specular") + ",1"
@@ -327,7 +328,7 @@ class MTLLoader:
             pass
 
         try:
-            shadergroup.inputs["Glow"].default_value = float(mtl_attrs.get("Glow", 0)) * pow (2,6)
+            shadergroup.inputs["Glow"].default_value = float(mtl_attrs.get("Glow")) * pow (2,6)
         except:
             pass
 
@@ -339,13 +340,13 @@ class MTLLoader:
             pass
         try:
             shadergroup.inputs["BlendLayer2SpecularColor"].default_value = make_tuple(
-                mtl_attrs["PublicParams"].get("BlendLayer2SpecularColor", "0.5,0.5,0.5") + ",1"
+                mtl_attrs["PublicParams"].get("BlendLayer2SpecularColor", "1,1,1") + ",1"
             )
         except:
             pass
         try:
             shadergroup.inputs["BlendLayer2Glossiness"].default_value = (
-                int(mtl_attrs["PublicParams"].get("BlendLayer2Glossiness", 128)) / 255
+                int(mtl_attrs["PublicParams"].get("BlendLayer2Glossiness", 255)) / 255
             )
         except:
             pass
@@ -505,10 +506,10 @@ class MTLLoader:
                 submat.get("TintColor") + ",1"
             )
             newbasegroup.inputs["tint spec Color"].default_value = make_tuple(
-                ".25, .25, .25, 1"
+                "0, 0, 0, 1"
             )
             newbasegroup.inputs["tint gloss"].default_value = make_tuple(
-                submat.get("GlossMult", .5)
+                submat.get("GlossMult", 0)
             )
             newbasegroup.inputs["UV Scale"].default_value = [
                 float(submat.get("UVTiling")),
@@ -601,7 +602,7 @@ class MTLLoader:
         # Viewport material values
         set_viewport(mat, mtl_attrs, True)
 
-        shadergroup.node_tree = bpy.data.node_groups["_Display"]
+        shadergroup.node_tree = bpy.data.node_groups["_DisplayScreen"]
         mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
         mat.node_tree.links.new(
             shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
@@ -609,7 +610,7 @@ class MTLLoader:
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
         # shadergroup.inputs['ddna Alpha'].default_value = mat.roughness
         # shadergroup.inputs['spec Color'].default_value = mat.specular_color[0]/2
-        shadergroup.inputs["IOR"].default_value = 1.45
+        #shadergroup.inputs["IOR"].default_value = 1.45
         shaderout.location.x += 200
 
         self.load_textures(mtl_attrs["Textures"], mat, shadergroup)

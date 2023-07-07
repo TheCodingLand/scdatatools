@@ -19,16 +19,22 @@ def get_library_folder(rsilauncher_log_file: typing.Union[Path, str] = None) -> 
             try:
                 log = '{' + log.strip().strip(',').lstrip('{') + "}"
                 event = json.loads(log)
-                event_type = event.get("info", {}).get("event", "")
+                if 'info' in event:
+                    info_key = 'info'
+                elif '[browser][info] ' in event:
+                    info_key = '[browser][info] '
+                else:
+                    continue
+                event_type = event.get(info_key, {}).get("event", "")
                 library_folder = None
                 if event_type == "INSTALLER@INSTALL":
-                    library_folder = Path(event['info']['data']['gameInformation']['libraryFolder'])
+                    library_folder = Path(event[info_key]['data']['gameInformation']['libraryFolder'])
                 elif event_type == "CHANGE_LIBRARY_FOLDERS":
-                    library_folder = Path(event['info']['data']['filePaths'][0])
+                    library_folder = Path(event[info_key]['data']['filePaths'][0])
                 if (library_folder is not None and library_folder.is_dir() and
                         (library_folder / 'StarCitizen').is_dir()):
                     return library_folder
-            except (KeyError, IndexError, JSONDecodeError, AttributeError):
+            except (KeyError, IndexError, JSONDecodeError, AttributeError) as e:
                 pass
 
     # could not determine the library folder from the launcher log, try the default path

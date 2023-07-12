@@ -316,7 +316,7 @@ class MTLLoader:
             pass
 
         try:
-            shadergroup.inputs["ddna Alpha"].default_value = float(mtl_attrs.get("Shininess", 128))/255
+            shadergroup.inputs["ddna Alpha"].default_value = float(mtl_attrs.get("Shininess", 255))/255
         except:
             pass
 
@@ -467,7 +467,7 @@ class MTLLoader:
         else:
             shadergroup.inputs["Metallic"].default_value = 0
             shadergroup.inputs["Anisotropic"].default_value = 0
-        shadergroup.inputs["Emission"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
+        shadergroup.inputs["Emissive"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
         shaderout.location.x += 200
 
         tint_group = None
@@ -662,7 +662,7 @@ class MTLLoader:
             shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
         )
         shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
-        shadergroup.inputs["ddna Alpha"].default_value = float(mtl_attrs.get("Shininess", 128))/255
+        shadergroup.inputs["ddna Alpha"].default_value = float(mtl_attrs.get("Shininess", 255))/255
         # shadergroup.inputs["Emissive"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
         try:
             shadergroup.inputs["Glow"].default_value = float(

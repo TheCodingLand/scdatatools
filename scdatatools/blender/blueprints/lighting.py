@@ -137,8 +137,8 @@ def create_light(
     light_obj = bpy.data.objects.new(name=name, object_data=light_data)
     light_obj["use_temperature"] = use_temperature
     light_obj["states"] = {}
-    light_obj.scale[0] = planeWidth
-    light_obj.scale[1] = planeHeight    
+    light_obj.scale[0] = planeHeight
+    light_obj.scale[1] = planeWidth    
     #light_obj.show_axis = True #for debugging. Remove before flight
 
     for key, val in light["EntityComponentLight"].items():
@@ -272,7 +272,7 @@ def create_light(
     light_obj.rotation_quaternion = rotation_quaternion
     light_obj.rotation_quaternion = light_obj.matrix_world.to_quaternion().cross(
         bpy_extras.io_utils.axis_conversion(
-            from_forward="X", from_up="Y", to_forward="Y", to_up="-Z"
+            from_forward="Y", from_up="X", to_forward="Y", to_up="Z"
         ).to_quaternion()
     )
     light_obj.rotation_quaternion.rotate(

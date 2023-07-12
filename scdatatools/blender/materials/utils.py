@@ -154,22 +154,27 @@ def create_light_texture(texture: Path):
     new_node = bpy.data.node_groups.new(tex_node_name, "ShaderNodeTree")
     new_node_output = new_node.nodes.new("NodeGroupOutput")
     new_node.outputs.new("NodeSocketColor", "Color")
-    new_node_output.location = (900, 0)
+    new_node_output.location = (928, -116)
 
     new_node_input = new_node.nodes.new("NodeGroupInput")
     new_node.inputs.new("NodeSocketColor", "Color")
     new_node.inputs["Color"].default_value = (1, 1, 1, 1)
     new_node.inputs.new("NodeSocketFloat", "Angle")
     new_node.inputs["Angle"].default_value = 180
-    new_node_input.location = (500, -200)
+    new_node_input.location = (-309, -251)
 
     mix_node = new_node.nodes.new(type="ShaderNodeMixRGB")
     mix_node.inputs[0].default_value = 1.0
     mix_node.blend_type = "MULTIPLY"
-    mix_node.location = (700, 0)
+    mix_node.location = (734, -116)
+
+    mix_up_node = new_node.nodes.new(type="ShaderNodeMixRGB")
+    mix_up_node.inputs[0].default_value = 1.0
+    mix_up_node.blend_type = "MULTIPLY"
+    mix_up_node.location = (522, 0)
 
     new_node_texture = new_node.nodes.new("ShaderNodeTexImage")
-    new_node_texture.location = (400, 0)
+    new_node_texture.location = (154, 212)
     new_node_texture.image = bpy.data.images.get(texture.name) or bpy.data.images.load(
         texture.as_posix()
     )
@@ -178,8 +183,8 @@ def create_light_texture(texture: Path):
     #new_node_texture.image.colorspace_settings.name = "sRGB"
 
     #new_node_mapping = new_node.nodes.new("ShaderNodeMapping") 
-    new_node_geometry = new_node.nodes.new("ShaderNodeNewGeometry")
-    new_node_geometry.location = (200, 0)
+    #new_node_geometry = new_node.nodes.new("ShaderNodeNewGeometry")
+    #new_node_geometry.location = (200, 0)
     #new_node_mapping.location = (200, 0)
     #new_node_mapping.inputs["Location"].default_value = (-0.5, -0.5, 0)
     #new_node_mapping.inputs["Scale"].default_value = (1, 1, 0)
@@ -189,7 +194,7 @@ def create_light_texture(texture: Path):
     new_node_IES_mapping.node_tree = bpy.data.node_groups['.IES mapping']
 
     new_node_texcoord = new_node.nodes.new("ShaderNodeTexCoord")
-    new_node_texcoord.location[0] += -300
+    new_node_texcoord.location = (-309,0)
 
     new_node.links.new(mix_node.outputs["Color"], 
                        new_node_output.inputs["Color"])
@@ -198,7 +203,9 @@ def create_light_texture(texture: Path):
     new_node.links.new(new_node_input.outputs["Color"], 
                        mix_node.inputs["Color2"])
     new_node.links.new(new_node_input.outputs["Angle"],
-                       new_node_IES_mapping.inputs["Angle"])                       
+                       new_node_IES_mapping.inputs["Angle"])
+    new_node.links.new(new_node_IES_mapping.outputs["Up"],
+                       mix_up_node.inputs["Color2"])                       
     new_node.links.new(new_node_texcoord.outputs["Normal"], 
                        new_node_IES_mapping.inputs["Vector"])
     new_node.links.new(new_node_IES_mapping.outputs["Vector"], 

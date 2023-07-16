@@ -57,7 +57,7 @@ def tint_palette_node_group_for_entity(entity_name):
     ensure_node_groups_loaded()
 
     tint_group = bpy.data.node_groups.new(tint_group_name, "ShaderNodeTree")
-    tint_group['Type'] = 'tint_pallette'
+    tint_group['Type'] = 'tint_palette'
     outputs = {
         "Decal Color": "NodeSocketColor",
         "Decal Alpha": "NodeSocketFloatFactor",
@@ -78,11 +78,11 @@ def tint_palette_node_group_for_entity(entity_name):
     for output, out_type in outputs.items():
         tint_group.outputs.new(out_type, output)
         if out_type == "NodeSocketFloatFactor":
-            tint_group.outputs[output].default_value = 0.5
+            tint_group.outputs[output].default_value = 0
             tint_group.outputs[output].min_value = 0
             tint_group.outputs[output].max_value = 1
         elif out_type == "NodeSocketColor":
-            tint_group.outputs[output].default_value = (.18, .18, .18, 1)
+            tint_group.outputs[output].default_value = (1, 1, 1, 1)
 
     tint_output_group.location = (500, 0)
 
@@ -199,13 +199,15 @@ def create_light_texture(texture: Path):
     new_node.links.new(mix_node.outputs["Color"], 
                        new_node_output.inputs["Color"])
     new_node.links.new(new_node_texture.outputs["Color"], 
-                       mix_node.inputs["Color1"])
+                       mix_up_node.inputs["Color1"])
     new_node.links.new(new_node_input.outputs["Color"], 
                        mix_node.inputs["Color2"])
     new_node.links.new(new_node_input.outputs["Angle"],
                        new_node_IES_mapping.inputs["Angle"])
     new_node.links.new(new_node_IES_mapping.outputs["Up"],
-                       mix_up_node.inputs["Color2"])                       
+                       mix_up_node.inputs["Color2"])
+    new_node.links.new(mix_up_node.outputs["Color"],
+                       mix_node.inputs["Color1"])                       
     new_node.links.new(new_node_texcoord.outputs["Normal"], 
                        new_node_IES_mapping.inputs["Vector"])
     new_node.links.new(new_node_IES_mapping.outputs["Vector"], 

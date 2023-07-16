@@ -279,7 +279,7 @@ class MTLLoader:
                 shadergroup.inputs["geom link"].default_value = 0
             else:
                 shadergroup.inputs["geom link"].default_value = 1
-        elif "%DECAL" in mtl_attrs["StringGenMask"]:  # or "decal" in matname.lower():
+        elif "%DECAL" in mtl_attrs["StringGenMask"]  or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             viewport_trans = True
         elif "rtt_text_to_decal" in matname.lower():
@@ -965,12 +965,17 @@ class MTLLoader:
                 img.colorspace_settings.name = "sRGB"
             else:
                 img.colorspace_settings.name = "Non-Color"                
-            
+
             img.alpha_mode = "CHANNEL_PACKED"
             texnode = nodes.get(img.name) or nodes.new(type="ShaderNodeTexImage")
             texnode.image = img
             texnode.label = img.name
             texnode.name = tex.get("Map")
+
+            if "diff" in texnode.name:
+                texnode.select = True
+            else:
+                texnode.select = False
 
             texnode.location.x -= 300
             texnode.location.y = y

@@ -281,6 +281,7 @@ class MTLLoader:
                 shadergroup.inputs["geom link"].default_value = 1
         elif "%DECAL" in mtl_attrs["StringGenMask"]  or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
+            shadergroup.inputs["diff Alpha"].default_value = 0
             viewport_trans = True
         elif "rtt_text_to_decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
@@ -503,13 +504,13 @@ class MTLLoader:
 
             # newbasegroup.node_tree.label = submat.get("Name")
             newbasegroup.inputs["tint diff Color"].default_value = make_tuple(
-                submat.get("TintColor") + ",1"
+                submat.get("TintColor",".5,.5,.5") + ",1"
             )
             newbasegroup.inputs["tint spec Color"].default_value = make_tuple(
-                "0, 0, 0, 1"
+                ".5, .5, .5, 1"
             )
             newbasegroup.inputs["tint gloss"].default_value = make_tuple(
-                submat.get("GlossMult", 0)
+                submat.get("GlossMult", .7)
             )
             newbasegroup.inputs["UV Scale"].default_value = [
                 float(submat.get("UVTiling")),

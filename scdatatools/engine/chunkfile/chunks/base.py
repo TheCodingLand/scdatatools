@@ -116,7 +116,9 @@ class Chunk900(Chunk):
 
     @property
     def id(self):
-        return self.chunk_header.type.name
+        if hasattr(self.chunk_header.type, "name"):
+            return self.chunk_header.type.name
+        return f"{self.chunk_header.type:02x}"
 
     @classmethod
     def from_buffer(cls, header, data, chunk_file):

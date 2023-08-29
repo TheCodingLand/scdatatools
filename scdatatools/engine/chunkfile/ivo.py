@@ -38,4 +38,4 @@ class IvoChunkHeader(ChunkHeader):
 
     @property
     def id(self):
-        return self.type.name
+        return self.type.name if hasattr(self.type, "name") else f"{self.type:02x}"

@@ -75,9 +75,9 @@ class ChunkType(IntEnum):
     UnknownSC9 = (0x0013,)
     UnknownSC10 = (0x0014,)
     UnknownSC11 = (0x000B,)
-    UnknownSC12 = (
-        0x4007,
-    )  # 'Data/Objects/Spaceships/Ships/ANVL/Carrack/Interior/engineering/anvl_crk_eng_walkway_railing_addon_display.cgf'
+    # 'Data/Objects/Spaceships/Ships/ANVL/Carrack/Interior/engineering/anvl_crk_eng_walkway_railing_addon_display.cgf'
+    UnknownSC12 = (0x4007,)
+    UnknownSC13 = (0x5000,)
     # endregion
     ###################################################################################################################
 

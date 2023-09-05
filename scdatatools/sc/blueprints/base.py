@@ -400,6 +400,9 @@ class Blueprint:
         if not geom_path:
             return None, False
 
+        if not isinstance(geom_path, Path):
+            geom_path = Path(geom_path)
+
         created = False
         sub_geometry = sub_geometry or {}
         if not isinstance(geom_path, Path):
@@ -451,7 +454,10 @@ class Blueprint:
             parent.add_sub_geometry(child_geom, **create_params)
             return parent, True
 
+        geom_path = norm_path(geom_path.as_posix())
+
         if geom_name not in self.geometry:
+            geom_name = norm_path(geom_name)
             self.geometry[geom_name] = BlueprintGeometry(
                 self, name=geom_name, geom_file=geom_path, **(create_params or {})
             )

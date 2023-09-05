@@ -15,6 +15,7 @@ from .chunks.defs import ChunkType
 from .chunks.geometry.nodes import Node
 from .ivo import *
 
+
 logger = logging.getLogger(__name__)
 GEOMETRY_EXTENSIONS = [
     ".cga",
@@ -73,12 +74,12 @@ class ChunkFile:
                 )
                 if (e := time.time_ns() - t) >= 2e7:
                     print(
-                        f"{humanize.precisedelta(timedelta(microseconds=e/1e+6), minimum_unit='microseconds')} - {chunk}"
+                        f"{humanize.precisedelta(timedelta(microseconds=e / 1e+6), minimum_unit='microseconds')} - {chunk}"
                     )
                 self.chunks[chunk.id] = chunk
             except Exception as e:
                 logger.exception(
-                    f"Error processing chunk {h.id} {repr(h)} in {self.filename}",
+                    f"Error processing chunk {h.id} in {self.filename}:\n{repr(h)} ",
                     exc_info=e,
                 )
                 self.chunks[h.type.name] = self._chunk_header_class.default_chunk_class.from_buffer(
@@ -99,15 +100,15 @@ class GeometryChunkFile(ChunkFile):
             try:
                 path = path.lower()
                 if f := self._data.NameToInfoLower.get(
-                    path if path.startswith("data") else f"data/{path}"
+                        path if path.startswith("data") else f"data/{path}"
                 ):
                     return f
                 elif f := self._data.getinfo((Path(self.filename).parent / path)):
                     return f
                 elif "female_v2" in self.filename and (
-                    f := self._data.getinfo(
-                        Path(self.filename.replace("female_v2", "male_v7")).parent / path
-                    )
+                        f := self._data.getinfo(
+                            Path(self.filename.replace("female_v2", "male_v7")).parent / path
+                        )
                 ):
                     # see note below...
                     return f
@@ -119,8 +120,8 @@ class GeometryChunkFile(ChunkFile):
             elif (f := self._data / Path(self.filename).parent / path).is_file():
                 return f
             elif (
-                "female_v2" in f.parts
-                and (f := Path(f.as_posix().replace("female_v2", "male_v7"))).is_file()
+                    "female_v2" in f.parts
+                    and (f := Path(f.as_posix().replace("female_v2", "male_v7"))).is_file()
             ):
                 # TODO: this one is dumb and i hate it, does star engine do this, or how does it magically figure out
                 #       the relative use of a mtl file. is there a global mtl database in game? are mtl names unique 0.o
@@ -128,12 +129,12 @@ class GeometryChunkFile(ChunkFile):
         return None
 
     def __init__(
-        self,
-        chunk_file: typing.Union[str, Path, P4KInfo, P4KExtFile],
-        data_root: typing.Union[Path, P4KFile] = None,
-        auto_load_mesh: bool = False,
-        *args,
-        **kwargs,
+            self,
+            chunk_file: typing.Union[str, Path, P4KInfo, P4KExtFile],
+            data_root: typing.Union[Path, P4KFile] = None,
+            auto_load_mesh: bool = False,
+            *args,
+            **kwargs,
     ):
         if isinstance(chunk_file, P4KExtFile):
             chunk_file = chunk_file.p4kinfo
@@ -230,8 +231,8 @@ class GeometryChunkFile(ChunkFile):
                         chunk.parent_id = self.nodes[chunk.name].parent_id
                     self.nodes[chunk.name] = chunk
                     if (
-                        chunk.parent_id >= 0
-                        and chunk.name not in (parent := self.chunks[chunk.parent_id]).children
+                            chunk.parent_id >= 0
+                            and chunk.name not in (parent := self.chunks[chunk.parent_id]).children
                     ):
                         parent.children.append(chunk.name)
                     elif chunk.parent_id == -1 and chunk.name not in self._root_node_names:
@@ -282,7 +283,7 @@ class GeometryChunkFile(ChunkFile):
 
 
 def load_chunk_file(
-    chunk_file: typing.Union[str, Path, P4KInfo, P4KExtFile], *args, **kwargs
+        chunk_file: typing.Union[str, Path, P4KInfo, P4KExtFile], *args, **kwargs
 ) -> typing.Union[ChunkFile, GeometryChunkFile]:
     """Loads a ChunkFile. Returns `Geometry` chunk file if appropriate, otherwise a ChunkFile"""
     if isinstance(chunk_file, P4KExtFile):

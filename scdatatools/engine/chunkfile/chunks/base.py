@@ -16,14 +16,14 @@ class ChunkData:
         try:
             if length is None:
                 length = len(self.data) - self._offset
-            return self.data[self._offset : self._offset + length]
+            return self.data[self._offset: self._offset + length]
         finally:
             self._offset = min(self._offset + length, len(self.data))
 
     def peek(self, length=None):
         if length is None:
             length = len(self.data) - self._offset
-        return self.data[self._offset : self._offset + length]
+        return self.data[self._offset: self._offset + length]
 
     def tell(self):
         return self._offset
@@ -50,7 +50,7 @@ class ChunkData:
 
     def np_frombuffer(self, length, dtype, *args, **kwargs):
         a = np.frombuffer(
-            self.data[self._offset : self._offset + length],
+            self.data[self._offset: self._offset + length],
             dtype=dtype,
             *args,
             **kwargs,
@@ -60,7 +60,7 @@ class ChunkData:
 
     def np_ndarray(self, length, dtype, *args, **kwargs):
         a = np.ndarray(
-            buffer=self.data[self._offset : self._offset + length],
+            buffer=self.data[self._offset: self._offset + length],
             dtype=dtype,
             *args,
             **kwargs,
@@ -77,7 +77,7 @@ class ChunkData:
 
     @classmethod
     def from_buffer(cls, header, data):
-        return cls(header, data[header.offset : header.offset + header.size])
+        return cls(header, data[header.offset: header.offset + header.size])
 
 
 class Chunk:
@@ -99,7 +99,7 @@ class Chunk:
 
     @classmethod
     def from_buffer(cls, header, data, chunk_file):
-        return cls(header, data[header.offset : header.offset + header.size], chunk_file)
+        return cls(header, data[header.offset: header.offset + header.size], chunk_file)
 
     def __repr__(self):
         return f"<{self.__class__.__name__} id:{self.id} type:{self.chunk_type}>"
@@ -123,8 +123,8 @@ class Chunk900(Chunk):
     @classmethod
     def from_buffer(cls, header, data, chunk_file):
         if cls.size > 0:
-            return cls(header, data[header.offset : header.offset + cls.size], chunk_file)
-        return cls(header, data[header.offset :], chunk_file)
+            return cls(header, data[header.offset: header.offset + cls.size], chunk_file)
+        return cls(header, data[header.offset:], chunk_file)
 
 
 class ChunkHeader(ctypes.LittleEndianStructure, StructureWithEnums):

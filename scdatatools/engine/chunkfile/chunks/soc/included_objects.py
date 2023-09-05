@@ -50,16 +50,20 @@ class IncludedObjectType1(IncludedObjectType):
         ("raw_vector2", ctypes.c_double * 3),
         ("unknown1", ctypes.c_uint64),
         ("id", ctypes.c_uint16),
-        ("temp1", ctypes.c_uint16),
+        ("unknown2", ctypes.c_uint16),
         ("raw_rotMatrix", ctypes.c_double * 12),
-        ("unknown2", ctypes.c_uint32 * 5),
+        ("unknown3", ctypes.c_uint16 * 10),
         ("flags", ctypes.c_uint32),
-        ("unknown3", ctypes.c_uint32 * 2)
+        ("unknown4", ctypes.c_uint16 * 4)
     ]
 
     @classmethod
     def from_buffer(cls, source, offset, io_chunk):
         obj = type(cls).from_buffer(cls, source, offset)
+
+        if obj.unknown4[1] == 0 and cls != IncludedObjectType1Extended:
+            return IncludedObjectType1Extended.from_buffer(source, offset, io_chunk)
+
         obj.source_offset = offset
         obj.io_chunk = io_chunk
         obj.vector1 = np.array(obj.raw_vector1)
@@ -92,6 +96,12 @@ class IncludedObjectType1(IncludedObjectType):
 
     def __repr__(self):
         return f"<{self.__class__.__name__} id:{self.id}>"
+
+
+class IncludedObjectType1Extended(IncludedObjectType1):
+    _fields_ = [
+        ("unknown5", ctypes.c_uint32 * 2)
+    ]
 
 
 class IncludedObjectType7(IncludedObjectType):
@@ -164,9 +174,13 @@ class IncludedObjects(Chunk):
 
             if obj_class is None:
                 obj_class = UnknownIncludedObjectType
-            self.objects.append(
-                obj_class.from_buffer(self.chunk_data.data, self.chunk_data.tell(), self)
-            )
+            try:
+                self.objects.append(
+                    obj_class.from_buffer(self.chunk_data.data, self.chunk_data.tell(), self)
+                )
+            except ValueError as e:
+                logger.error(f'Unable to process IncludedObject {self.chunk_header} in {self.chunk_file.filename}, bailing out: {e} ')
+                return
             obj_size = ctypes.sizeof(self.objects[-1])
             self.chunk_data.seek(obj_size)
             len_objects -= obj_size

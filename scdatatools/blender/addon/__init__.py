@@ -66,9 +66,10 @@ def register():
 
     if (pycharm_debug_port := int(os.environ.get("SCDT_PYCHARM_DEBUG", 0))) > 0:
         try:
+            print(f"Connecting to pycharm debug on {pycharm_debug_port}")
+
             import pydevd_pycharm
 
-            print(f"Connecting to pycharm debug on {pycharm_debug_port}")
             pydevd_pycharm.settrace(
                 "localhost",
                 port=pycharm_debug_port,

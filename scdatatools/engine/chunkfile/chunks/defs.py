@@ -105,6 +105,7 @@ class ChunkType(IntEnum):
     Character_SkinInfo = 0x9293B9D8
     Character_SkinMesh = 0xB875B2D9
     Character_Skeleton = 0xC201973C  # CompiledBones
+    IVO_UNKNOWN1 = 0xc2011111
     # endregion
     ###################################################################################################################
 

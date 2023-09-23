@@ -11,9 +11,13 @@ def get_library_folder(rsilauncher_log_file: typing.Union[Path, str] = None) -> 
     determined
     """
     if rsilauncher_log_file is None:
-        rsilauncher_log_file = Path(os.path.expandvars(r"%APPDATA%\rsilauncher\log.log"))
-    else:
-        rsilauncher_log_file = Path(rsilauncher_log_file)
+        app_dir = Path(os.path.expandvars(r"%APPDATA%\rsilauncher"))
+        for l in [app_dir / "log.log", app_dir / "logs" / "log.log"]:
+            if l.is_file():
+                rsilauncher_log_file = l
+                break
+        else:
+            rsilauncher_log_file = Path(rsilauncher_log_file)
     if rsilauncher_log_file.is_file():
         for log in rsilauncher_log_file.open("r", encoding="utf-8", errors="surrogateescape").read().split("},\n{")[::-1]:
             try:

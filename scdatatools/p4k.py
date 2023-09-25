@@ -209,6 +209,8 @@ class P4KFile(zipfile.ZipFile):
         self.NameToInfoLower = {}
         self.BaseNameToInfo = {}
         self.subarchives = {}
+        self.file_tree = {}
+
         if load_monitor is None:
             self._load_monitor = lambda *a, **kw: True
         else:
@@ -220,12 +222,20 @@ class P4KFile(zipfile.ZipFile):
         #       expand on the fly
         # open up sub-archives and add them to the file list
         # for filename in self.subarchives.keys():
+        self._update_file_tree()
+
+    def _update_file_tree(self):
+        for path in self.filelist:
+            parent = self.file_tree
+            for part in path.filename.split('/'):
+                parent = parent.setdefault(part, {})
 
     def expand_subarchives(self):
         """Ensures all sub-archives have been expanded"""
         for filename, info in self.subarchives.items():
             if info is None:
                 self._expand_subarchive(filename)
+        self._update_file_tree()
 
     def _expand_subarchive(self, filename):
         if self.subarchives[filename] is not None:

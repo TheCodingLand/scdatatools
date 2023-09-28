@@ -273,13 +273,13 @@ class MTLLoader:
         if "pom" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.pom"]
             viewport_trans = True
-        elif "glow" in matname.lower() and "link" in matname.lower(): #
+        elif "glow" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]            
-            if "unlink" in matname.lower():
-                shadergroup.inputs["geom link"].default_value = 0
-            else:
+            if "link" in matname.lower():
                 shadergroup.inputs["geom link"].default_value = 1
-        elif "%DECAL" in mtl_attrs["StringGenMask"]  or "decal" in matname.lower():
+            else:
+                shadergroup.inputs["geom link"].default_value = 0
+        elif "%DECAL%" in mtl_attrs["StringGenMask"]  or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             shadergroup.inputs["diff Alpha"].default_value = 0
             viewport_trans = True
@@ -311,7 +311,7 @@ class MTLLoader:
 
         try:
             shadergroup.inputs["spec Color"].default_value = make_tuple(
-                mtl_attrs.get("Specular") + ",1"
+                mtl_attrs.get("Specular") + ",.18"
             )
         except:
             pass
@@ -323,13 +323,13 @@ class MTLLoader:
 
         try:
             shadergroup.inputs["spec Color"].default_value = make_tuple(
-                mtl_attrs.get("Specular") + ",1"
+                mtl_attrs.get("Specular") + ",.18"
             )
         except:
             pass
 
         try:
-            shadergroup.inputs["Glow"].default_value = float(mtl_attrs.get("Glow")) * pow (2,6)
+            shadergroup.inputs["Glow"].default_value = float(mtl_attrs.get("Glow", 0)) * pow (2,6)
         except:
             pass
 
@@ -347,7 +347,7 @@ class MTLLoader:
             pass
         try:
             shadergroup.inputs["BlendLayer2Glossiness"].default_value = (
-                int(mtl_attrs["PublicParams"].get("BlendLayer2Glossiness", 255)) / 255
+                int(mtl_attrs["PublicParams"].get("BlendLayer2Glossiness", 1)) / 255
             )
         except:
             pass
@@ -985,27 +985,26 @@ class MTLLoader:
             # Set interpolation
             texnode.interpolation = 'Smart'
 
-            if list(tex):
-                texmod = tex[0]
+            if list(tex) or "detail" in img.name.lower():
                 mapnode = nodes.new(type="ShaderNodeMapping")
-                uvnode = nodes.new(type="ShaderNodeUVMap")
-                if texmod.get("TileU") and texmod.get("TileV"):
+                mapnode.vector_type = 'POINT'
+                uvnode = nodes.new(type="ShaderNodeUVMap")                
+                if list(tex):                    
                     mapnode.inputs["Scale"].default_value = (
-                        float(texmod.get("TileU")),
-                        float(texmod.get("TileV")),
+                        float(tex[0].get("TileU",1)),
+                        float(tex[0].get("TileV",1)),
                         1,
-                    )
-                    mapnode.vector_type = 'POINT'
-                    if mapnode.inputs["Scale"].default_value == [0, 0, 1]:
-                        mapnode.inputs["Scale"].default_value = [1, 1, 1]
-                    try:
-                        mat.node_tree.links.new(mapnode.outputs["Vector"], texnode.inputs["Vector"])
-                    except:
-                        pass
-                    try:
-                        mat.node_tree.links.new(uvnode.outputs["UV"], mapnode.inputs["Vector"])
-                    except:
-                        pass
+                    )                        
+                else:
+                    mapnode.inputs["Scale"].default_value = [8, 8, 1]
+                try:
+                    mat.node_tree.links.new(mapnode.outputs["Vector"], texnode.inputs["Vector"])
+                except:
+                    pass
+                try:
+                    mat.node_tree.links.new(uvnode.outputs["UV"], mapnode.inputs["Vector"])
+                except:
+                    pass
                 mapnode.location = texnode.location
                 mapnode.location.x -= 300
                 uvnode.location = mapnode.location

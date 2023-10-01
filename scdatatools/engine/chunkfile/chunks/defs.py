@@ -98,14 +98,21 @@ class ChunkType(IntEnum):
 
     # Types for .chr/.skin
     # From  IVO_Loader3 seems to handle .chr, .skin
-    Character_Physics = 0x90C687DC
-    Character_BShapesGPU = 0x57A3BEFD
-    Character_MaterialName = 0x8335674E
-    Character_BShapes = 0x875CCB28
-    Character_SkinInfo = 0x9293B9D8
-    Character_SkinMesh = 0xB875B2D9
-    Character_Skeleton = 0xC201973C  # CompiledBones
-    IVO_UNKNOWN1 = 0xc2011111
+    # Character_Physics = 0x90C687DC
+    # Character_BShapesGPU = 0x57A3BEFD
+    # Character_MaterialName = 0x8335674E
+    # Character_BShapes = 0x875CCB28
+    # Character_SkinInfo = 0x9293B9D8
+    # Character_SkinMesh = 0xB875B2D9
+    # Character_Skeleton = 0xC201973C  # CompiledBones
+    Character_Physics = 0x90C6  # 87DC
+    Character_BShapesGPU = 0x57A3  # BEFD
+    Character_MaterialName = 0x8335  # 674E
+    Character_BShapes = 0x875C  # CB28
+    Character_SkinInfo = 0x9293  # B9D8
+    Character_SkinInfo_320 = 0x9291
+    Character_SkinMesh = 0xB875  # B2D9
+    Character_Skeleton = 0xC201  # 973C  # CompiledBones
     # endregion
     ###################################################################################################################
 
@@ -115,7 +122,10 @@ CHUNK_HEADER_CLASSES = {}
 CHUNK_FILE_HEADER_CLASSES = {}
 
 
-def chunk_handler(chunk_type: ChunkType, versions: typing.List[int]):
+def chunk_handler(chunk_type: ChunkType, versions: typing.List[int] = None):
+    if versions is None:
+        versions = ['any']
+
     def do_register(chunk_class):
         for version in versions:
             # TODO: enable this after dev

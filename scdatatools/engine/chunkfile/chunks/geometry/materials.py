@@ -100,7 +100,7 @@ class MtlName802(MtlName, Chunk):
         )
 
 
-@defs.chunk_handler(defs.ChunkType.Character_MaterialName, versions=[0x900])
+@defs.chunk_handler(defs.ChunkType.Character_MaterialName)
 class MaterialName900(MtlName, Chunk900):
     size = 128
 

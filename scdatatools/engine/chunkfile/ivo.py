@@ -30,8 +30,9 @@ class IvoHeader(ctypes.LittleEndianStructure, FileHeaderStructure):
 class IvoChunkHeader(ChunkHeader):
     default_chunk_class = Chunk900
     _fields_ = [
-        ("type", ctypes.c_uint32),
-        ("version", ctypes.c_uint32),
+        ("id", ctypes.c_uint16),
+        ("type", ctypes.c_uint16),
+        ("ivo_version", ctypes.c_uint32),
         ("offset", ctypes.c_uint64),
     ]
     _map = {"type": defs.ChunkType}

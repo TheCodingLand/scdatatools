@@ -16,6 +16,10 @@ class IncludedObjectType(ctypes.LittleEndianStructure):
     _pack_ = 1
 
     @property
+    def chunk_size(self):
+        return ctypes.sizeof(self) + getattr(self, '_adjusted_size', 0)
+
+    @property
     def filename(self):
         return self.io_chunk.cgfs[self.id]
 
@@ -52,23 +56,27 @@ class IncludedObjectType1(IncludedObjectType):
         ("id", ctypes.c_uint16),
         ("unknown2", ctypes.c_uint16),
         ("raw_rotMatrix", ctypes.c_double * 12),
-        ("unknown3", ctypes.c_uint16 * 10),
-        ("flags", ctypes.c_uint32),
-        ("unknown4", ctypes.c_uint16 * 4)
+        ("unknown3", ctypes.c_uint64),
+        ("unknown4", ctypes.c_uint64),
+        # ("flags", ctypes.c_uint32),
+        # ("unknown4", ctypes.c_uint16 * 4)
     ]
 
     @classmethod
     def from_buffer(cls, source, offset, io_chunk):
         obj = type(cls).from_buffer(cls, source, offset)
 
-        if obj.unknown4[1] == 0 and cls != IncludedObjectType1Extended:
-            return IncludedObjectType1Extended.from_buffer(source, offset, io_chunk)
-
         obj.source_offset = offset
         obj.io_chunk = io_chunk
         obj.vector1 = np.array(obj.raw_vector1)
         obj.vector2 = np.array(obj.raw_vector2)
         obj.rotMatrix = np.array(obj.raw_rotMatrix).reshape((3, 4))
+
+        # TODO: the whole _adjusted_size thing is a workaround because we dont know the whole format. In test
+        #   this _seems_ to work across the board
+        if obj.unknown3 == 0:
+            obj._adjusted_size = 16
+
         return obj
 
     @property
@@ -98,12 +106,6 @@ class IncludedObjectType1(IncludedObjectType):
         return f"<{self.__class__.__name__} id:{self.id}>"
 
 
-class IncludedObjectType1Extended(IncludedObjectType1):
-    _fields_ = [
-        ("unknown5", ctypes.c_uint32 * 2)
-    ]
-
-
 class IncludedObjectType7(IncludedObjectType):
     # TODO: figure this chunk out
     _pack_ = 1
@@ -118,7 +120,14 @@ class IncludedObjectType10(IncludedObjectType):
     _pack_ = 1
     _fields_ = [
         ("object_type", ctypes.c_uint32),
-        ("unknown", ctypes.c_byte * 132),
+        ("raw_vector1", ctypes.c_double * 3),
+        ("raw_vector2", ctypes.c_double * 3),
+        ("unknown1", ctypes.c_uint64),
+        ("id", ctypes.c_uint16),
+        ("unknown2", ctypes.c_uint16),
+        ("raw_vector3", ctypes.c_double * 3),
+        ("raw_vector4", ctypes.c_double * 3),
+        ("raw_vector5", ctypes.c_double * 3),
     ]
 
 
@@ -141,7 +150,7 @@ class IncludedObjects(Chunk):
         self.cgfs = []
         self.materials = []
         self.tint_palettes = []
-        self.objects = []
+        self.objects: list[IncludedObjectType] = []
 
         self.chunk_data.read(4)  # first 4 bytes are 0
         # read cgfs
@@ -181,7 +190,7 @@ class IncludedObjects(Chunk):
             except ValueError as e:
                 logger.error(f'Unable to process IncludedObject {self.chunk_header} in {self.chunk_file.filename}, bailing out: {e} ')
                 return
-            obj_size = ctypes.sizeof(self.objects[-1])
+            obj_size = self.objects[-1].chunk_size
             self.chunk_data.seek(obj_size)
             len_objects -= obj_size
             #     # TODO: This is brute force-y and hack-y and i dont like it. but there seems to be a ton of variation in

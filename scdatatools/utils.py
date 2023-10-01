@@ -260,8 +260,8 @@ class StructureWithEnums:
                         return enumClass(value)
                 except ValueError:
                     pass
-            else:
-                sys.stderr.write(f'\n0x{value:x} is not valid for any of the types "{repr(classes)}"\n')
+            #else:
+            #    sys.stderr.write(f'\n0x{value:x} is not valid for any of the types "{repr(classes)}"\n')
         return value
 
     def __str__(self):

@@ -1,3 +1,4 @@
+import os
 import logging
 import typing
 from decimal import Decimal
@@ -334,11 +335,12 @@ class ObjectContainer:
                 except KeyError:
                     child_attrs["entdata"] = {}
 
-                child = ObjectContainerInstance(
-                    self._sc, child_attrs.pop("name"), root=self, parent=cur_parent, **child_attrs
-                )
-                cur_parent.add_child(child_attrs["guid"], child)
-                _parse_children(child, child_elem.find("./ChildObjectContainers"))
+                if child_attrs['name'].endswith('.socpak'):
+                    child = ObjectContainerInstance(
+                        self._sc, child_attrs.pop("name"), root=self, parent=cur_parent, **child_attrs
+                    )
+                    cur_parent.add_child(child_attrs["guid"], child)
+                    _parse_children(child, child_elem.find("./ChildObjectContainers"))
 
         _parse_children(self, oc_etree.find("./ChildObjectContainers"))
 
@@ -381,7 +383,7 @@ class ObjectContainerManager:
             socpak = norm_path(f'{"" if socpak.lower().startswith("data") else "data/"}{socpak}')
             socpak = self.sc.p4k.getinfo(socpak)
 
-        if socpak.filename in self.object_containers:
+        if socpak.filename in self.object_containers and not os.environ.get('SCDT_OC_ALWAYS_LOAD', '0') == '1':
             return self.object_containers[socpak.filename]
 
         oc = ObjectContainer(self.sc, socpak)

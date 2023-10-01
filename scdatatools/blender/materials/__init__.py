@@ -47,7 +47,7 @@ def _link_possible_node_connections(mat, output_node, input_node, input_prefix="
 
 def set_viewport(mat, mtl_attrs, trans=False):
     # Viewport material values
-    mat.diffuse_color = make_tuple(mtl_attrs.get("Diffuse", "1,1,1") + ",1")
+    mat.diffuse_color = getsRGBColor(mtl_attrs.get("Diffuse", "1,1,1") + ",1")
     mat.roughness = 1 - (float(mtl_attrs.get("Shininess", 128)) / 255)
     if trans:
         mat.blend_method = "BLEND"
@@ -311,7 +311,7 @@ class MTLLoader:
 
         try:
             shadergroup.inputs["spec Color"].default_value = make_tuple(
-                mtl_attrs.get("Specular") + ",.18"
+                mtl_attrs.get("Specular") + ",1"
             )
         except:
             pass
@@ -323,7 +323,7 @@ class MTLLoader:
 
         try:
             shadergroup.inputs["spec Color"].default_value = make_tuple(
-                mtl_attrs.get("Specular") + ",.18"
+                mtl_attrs.get("Specular") + ",1"
             )
         except:
             pass
@@ -335,14 +335,14 @@ class MTLLoader:
 
         try:
             shadergroup.inputs["BlendLayer2DiffuseColor"].default_value = make_tuple(
-                mtl_attrs["PublicParams"].get("BlendLayer2DiffuseColor", "1,1,1") + ",1"
+                    mtl_attrs["PublicParams"].get("BlendLayer2DiffuseColor", "1,1,1") + ",1"
             )
         except:
             pass
         try:
             shadergroup.inputs["BlendLayer2SpecularColor"].default_value = make_tuple(
-                mtl_attrs["PublicParams"].get("BlendLayer2SpecularColor", "1,1,1") + ",1"
-            )
+                    mtl_attrs["PublicParams"].get("BlendLayer2SpecularColor", "1,1,1") + ",1"
+                )
         except:
             pass
         try:

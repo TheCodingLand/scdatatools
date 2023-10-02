@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 import typing
 from decimal import Decimal
 from functools import cached_property
@@ -280,13 +280,15 @@ class ObjectContainer:
             self._p4k_path.parent / self._p4k_path.stem / f"{self._p4k_path.stem}.xml"
         )
 
-        base_soc_info = self._sc.p4k.getinfo(
-            (self._p4k_path.parent / self._p4k_path.stem / f"{self._p4k_path.stem}.soc").as_posix()
-        )
-        if base_soc_info:
+        try:
+            base_soc_info = self._sc.p4k.getinfo(
+                (self._p4k_path.parent / self._p4k_path.stem / f"{self._p4k_path.stem}.soc").as_posix()
+            )
             base_soc = StreamingObjectContainer(base_soc_info, self)
             if base_soc.name not in self.socs:
                 self.socs[base_soc.name] = base_soc
+        except KeyError:
+            pass  # no basic soc info
 
     def as_dict(self) -> dict:
         return self.attrs

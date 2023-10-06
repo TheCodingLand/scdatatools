@@ -504,10 +504,10 @@ class MTLLoader:
                 newbasegroup.name = submat.get("Name")
 
             # newbasegroup.node_tree.label = submat.get("Name")
-            newbasegroup.inputs["tint diff Color"].default_value = getsRGBColor(
+            newbasegroup.inputs["tint diff Color"].default_value = make_tuple(
                 submat.get("TintColor","0,0,0") + ",1"
             )
-            newbasegroup.inputs["tint spec Color"].default_value = getsRGBColor(
+            newbasegroup.inputs["tint spec Color"].default_value = make_tuple(
                 "0, 0, 0, 1"
             )
             newbasegroup.inputs["tint gloss"].default_value = make_tuple(

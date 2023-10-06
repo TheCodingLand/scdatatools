@@ -47,7 +47,7 @@ def _link_possible_node_connections(mat, output_node, input_node, input_prefix="
 
 def set_viewport(mat, mtl_attrs, trans=False):
     # Viewport material values
-    mat.diffuse_color = getsRGBColor(mtl_attrs.get("Diffuse", "1,1,1") + ",1")
+    mat.diffuse_color = make_tuple(mtl_attrs.get("Diffuse", "1,1,1") + ",1")
     mat.roughness = 1 - (float(mtl_attrs.get("Shininess", 128)) / 255)
     if trans:
         mat.blend_method = "BLEND"
@@ -267,6 +267,7 @@ class MTLLoader:
         shaderout = mat.node_tree.nodes[SN_OUT]
         shadergroup = mat.node_tree.nodes[SN_GROUP]
         matname = mtl_attrs.get("Name")
+        matname = matname.split("_mtl_")[1]
         write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
 
         viewport_trans = False
@@ -503,11 +504,11 @@ class MTLLoader:
                 newbasegroup.name = submat.get("Name")
 
             # newbasegroup.node_tree.label = submat.get("Name")
-            newbasegroup.inputs["tint diff Color"].default_value = make_tuple(
-                submat.get("TintColor",".5,.5,.5") + ",1"
+            newbasegroup.inputs["tint diff Color"].default_value = getsRGBColor(
+                submat.get("TintColor","0,0,0") + ",1"
             )
-            newbasegroup.inputs["tint spec Color"].default_value = make_tuple(
-                ".5, .5, .5, 1"
+            newbasegroup.inputs["tint spec Color"].default_value = getsRGBColor(
+                "0, 0, 0, 1"
             )
             newbasegroup.inputs["tint gloss"].default_value = make_tuple(
                 submat.get("GlossMult", .7)
@@ -593,6 +594,7 @@ class MTLLoader:
 
     def create_display_surface(self, mtl_attrs):
         mat, created = self.get_or_create_shader_material(mtl_attrs["Name"])
+        matname = mtl_attrs.get("Name")
         if not created:
             return
 
@@ -608,12 +610,13 @@ class MTLLoader:
         mat.node_tree.links.new(
             shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
         )
-        shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
-        # shadergroup.inputs['ddna Alpha'].default_value = mat.roughness
-        # shadergroup.inputs['spec Color'].default_value = mat.specular_color[0]/2
-        #shadergroup.inputs["IOR"].default_value = 1.45
-        shaderout.location.x += 200
+        #shadergroup.inputs["Base Color"].default_value = mat.diffuse_color
 
+        if "RTT_HUD" in matname:
+            shadergroup.inputs['diff Alpha'].default_value = 0
+            shadergroup.inputs['UseAlpha'].default_value = 1
+
+        shaderout.location.x += 200
         self.load_textures(mtl_attrs["Textures"], mat, shadergroup)
 
         return mat
@@ -677,6 +680,7 @@ class MTLLoader:
         shaderout.location.x += 200
 
         use_tint_node_group = False
+
         for submat in mtl_attrs.get("MatLayers", []):
             if submat.get("PaletteTint", "0") != "0":
                 use_tint_node_group = True
@@ -987,7 +991,10 @@ class MTLLoader:
 
             if list(tex) or "detail" in img.name.lower():
                 mapnode = nodes.new(type="ShaderNodeMapping")
-                mapnode.vector_type = 'POINT'
+                if "detail" in img.name.lower():
+                    mapnode.vector_type = 'POINT'    
+                else:                    
+                    mapnode.vector_type = 'TEXTURE'
                 uvnode = nodes.new(type="ShaderNodeUVMap")                
                 if list(tex):                    
                     mapnode.inputs["Scale"].default_value = (

@@ -122,7 +122,7 @@ def create_light(
     if planeWidth != 1 and planeHeight != 1:        
         light_data = bpy.data.lights.new(name=light_group_collection.name, type="AREA")
         light_data.spread = math.radians(fov)
-        light_data.size = 1        
+        light_data.size = 1
     else:
         # Point Lights
         light_data = bpy.data.lights.new(name=name, type="POINT")
@@ -258,28 +258,12 @@ def create_light(
         )
     ]
 
-    q = Quaternion(str_to_tuple(light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float))
-    rotation_quaternion = rotation_quaternion.cross(Quaternion((q)))
-
-    initial_matrix = bpy_extras.io_utils.axis_conversion(
-        from_forward="Y", from_up="Z", to_forward="Y", to_up="-X"
-    )
-    rotation_quaternion = rotation_quaternion.cross(initial_matrix.to_quaternion())
-
-    # new_lightobject.matrix_parent_inverse.identity()
     light_obj.location = location
     light_obj.rotation_mode = "QUATERNION"
-    light_obj.rotation_quaternion = rotation_quaternion
-    light_obj.rotation_quaternion = light_obj.matrix_world.to_quaternion().cross(
-        bpy_extras.io_utils.axis_conversion(
-            from_forward="Y", from_up="X", to_forward="Y", to_up="Z"
-        ).to_quaternion()
-    )
-    light_obj.rotation_quaternion.rotate(
-        Quaternion(str_to_tuple(light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float))
-    )
 
-    #light_obj.scale = (0.01, 0.01, 0.01)
+    light_obj.rotation_quaternion = Quaternion((0,.707,0,-.707))
+    light_obj.rotation_quaternion.rotate(Quaternion(str_to_tuple(light.get("@Rotate", "1,0,0,0"), float)))
+    light_obj.rotation_quaternion.rotate(Quaternion(str_to_tuple(light.get("RelativeXForm", {}).get("@rotation", "1,0,0,0"), float)))
 
     light_group_collection.objects.link(light_obj)
 

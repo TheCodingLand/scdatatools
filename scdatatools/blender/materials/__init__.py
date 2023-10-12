@@ -330,7 +330,7 @@ class MTLLoader:
             pass
 
         try:
-            shadergroup.inputs["Glow"].default_value = float(mtl_attrs.get("Glow", 0)) * pow (2,6)
+            shadergroup.inputs["Glow"].default_value = 1
         except:
             pass
 

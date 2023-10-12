@@ -307,7 +307,7 @@ class MTLLoader:
                 mtl_attrs.get("Diffuse") + ",1"
             )
 
-        if "bare_metal" in matname.lower():            
+        if "bare_metal" in matname.lower() or "raw_metal" in matname.lower():            
             shadergroup.inputs["Metallic"].default_value = 1
 
         try:
@@ -330,7 +330,9 @@ class MTLLoader:
             pass
 
         try:
-            shadergroup.inputs["Glow"].default_value = 1
+            shadergroup.inputs["Glow"].default_value = make_tuple(
+                mtl_attrs.get("Glow") + ",0"
+            )
         except:
             pass
 
@@ -469,6 +471,8 @@ class MTLLoader:
         else:
             shadergroup.inputs["Metallic"].default_value = 0
             shadergroup.inputs["Anisotropic"].default_value = 0
+        if "bare_metal" in mat_name.lower() or "raw_metal" in mat_name.lower():            
+            shadergroup.inputs["Metallic"].default_value = 1
         shadergroup.inputs["Emissive"].default_value = make_tuple(mtl_attrs["Emissive"] + ",1")
         shaderout.location.x += 200
 
@@ -798,10 +802,10 @@ class MTLLoader:
 
         # mat['filename'] = mtl_path.as_posix()
 
-        mat.nodes["Tint"].inputs["diff Color"].default_value = make_tuple(
-            mtl_attrs.get("Diffuse", ".18,.18,.18") + ",1"
+        mat.nodes["Tint"].inputs["diff Color"].default_value = getsRGBColor(
+            mtl_attrs.get("Diffuse", "1,1,1") + ",1"
         )
-        mat.nodes["Tint"].inputs["spec Color"].default_value = make_tuple(
+        mat.nodes["Tint"].inputs["spec Color"].default_value = getsRGBColor(
             mtl_attrs.get("Specular", ".5,.5,.5") + ",1"
         )
         mat.nodes["LayerTiling"].outputs[0].default_value = float(

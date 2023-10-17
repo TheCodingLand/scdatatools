@@ -47,7 +47,7 @@ class SEntityDefaultLoadoutParams(DataCoreRecordObject):
                         entity = ac
                         try:
                             entity.set_loadout(sublo)
-                        except AttributeError:
+                        except (AttributeError, KeyError):
                             pass  # entity doesn't support setting a loadout
                     port_name = entry.properties["itemPortName"]
                     lo[port_name] = {'entity': entity, 'loadout': sublo}

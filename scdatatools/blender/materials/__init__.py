@@ -91,11 +91,11 @@ def getsRGBColor(c):
 
 
 def color_srgb_to_scene_linear(c):
-    # c *= 2.4
+    # c *= 2.2
     if c < 0.04045:
         return 0.0 if c < 0.0 else c * (1.0 / 12.92)
     else:
-        return ((c + 0.055) * (1.0 / 1.055)) ** 2.4
+        return ((c + 0.055) * (1.0 / 1.055)) ** 2.2
 
 
 class MTLLoader:

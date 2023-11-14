@@ -291,7 +291,14 @@ def _handle_vehicle_definition(bp, rec, def_p4k_path):
                 "filename": part["Tread"]["@filename"],
                 "children": [_["@partName"] for _ in part["Tread"]["Wheels"]["Wheel"]],
             }
-            bp.bone_names.add(part["Tread"]["Sprocket"]["@name"].lower())
+            try:
+                bp.bone_names.add(part["Tread"]["Sprocket"]["@name"].lower())
+            except:
+                bp.log(
+                    f"could not process tread part: {part}",
+                    exc_info=e,
+                )
+                pass
             bp.add_material(part["Tread"].get("@materialName", ""))
         if "SubPart" in part and part.get("@class", "") == "SubPartWheel":
             parts[part["@name"].lower()] = part["SubPart"]["@filename"]

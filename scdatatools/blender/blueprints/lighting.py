@@ -22,7 +22,7 @@ def set_light_state(light_obj, state):
         logger.debug(f"could not set light state {state} for {light_obj.name}")
         return
 
-    light_obj.data.color = gamma_correct(light_obj["states"][state]["color"], 1.8)
+    light_obj.data.color = gamma_correct(light_obj["states"][state]["color"], 1)
     # adjust intensity by +4EV; make this a user settings later
     light_obj.data.energy = light_obj["states"][state]["intensity"] * pow(
         2, 6

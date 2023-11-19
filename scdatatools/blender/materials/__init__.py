@@ -84,18 +84,19 @@ def a_to_c(attrs, alpha=1.0):
 
 def getsRGBColor(c):
     r, g, b, a = make_tuple(c)
-    x = color_srgb_to_scene_linear(r)
-    y = color_srgb_to_scene_linear(g)
-    z = color_srgb_to_scene_linear(b)
+    x = color_srgb_to_scene_linear(r,1)
+    y = color_srgb_to_scene_linear(g,1)
+    z = color_srgb_to_scene_linear(b,1)
     return x, y, z, a
 
 
-def color_srgb_to_scene_linear(c):
+def color_srgb_to_scene_linear(c, gamma=2.4):
     # c *= 2.2
     if c < 0.04045:
         return 0.0 if c < 0.0 else c * (1.0 / 12.92)
     else:
-        return ((c + 0.055) * (1.0 / 1.055)) ** 2.2
+        return ((c + 0.055) * (1.0 / 1.055)) ** gamma
+
 
 
 class MTLLoader:
@@ -993,9 +994,9 @@ class MTLLoader:
             # Set interpolation
             texnode.interpolation = 'Smart'
 
-            if list(tex) or "detail" in img.name.lower():
+            if list(tex) or tex.get("Map") == "TexSlot7":
                 mapnode = nodes.new(type="ShaderNodeMapping")
-                if "detail" in img.name.lower():
+                if tex.get("Map") == "TexSlot7":
                     mapnode.vector_type = 'POINT'    
                 else:                    
                     mapnode.vector_type = 'TEXTURE'

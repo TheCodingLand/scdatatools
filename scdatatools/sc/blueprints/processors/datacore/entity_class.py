@@ -402,7 +402,14 @@ def process_vehicle_landing_gear(bp: "Blueprint", record: "Record", *args, **kwa
     parent_geom = bp.geometry_for_record(bp.entity, base=True)
     parent_geom, _ = bp.get_or_create_geom(parent_geom)
     for gear in record.properties["gears"]:
-        process_geometry_resource_params(bp, gear.properties["geometry"], record)
+        try:
+            process_geometry_resource_params(bp, gear.properties["geometry"], record)
+        except:
+            bp.log(
+                    f'could not process gear part: {gear}"',
+                    logging.ERROR,
+                )
+            continue
         geom, _ = bp.get_or_create_geom(gear.properties["geometry"].properties["path"])
         if geom is None:
             continue

@@ -194,7 +194,7 @@ def get_or_create_geometry(
 
             if not obj.modifiers.get("Weld"):
                 obj.modifiers.new("Weld", "WELD")
-                obj.modifiers["Weld"].merge_threshold = 0.0
+                obj.modifiers["Weld"].merge_threshold = 0.00001
 
             if not obj.modifiers.get("Weighted Normal"):
                 obj.modifiers.new("Weighted Normal", "WEIGHTED_NORMAL")

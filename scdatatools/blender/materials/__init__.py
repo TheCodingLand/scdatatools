@@ -996,7 +996,7 @@ class MTLLoader:
 
             if list(tex) or tex.get("Map") == "TexSlot7":
                 mapnode = nodes.new(type="ShaderNodeMapping")
-                if tex.get("Map") == "TexSlot7":
+                if tex.get("Map") == "TexSlot7" or "_detail." in img.name.lower():
                     mapnode.vector_type = 'POINT'    
                 else:                    
                     mapnode.vector_type = 'TEXTURE'

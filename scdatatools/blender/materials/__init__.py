@@ -731,7 +731,7 @@ class MTLLoader:
                 )
             
             newbasegroup.inputs["tint spec Color"].default_value = make_tuple(
-                "0, 0, 0, 1"
+                "1, 1, 1, 1"
             )
             newbasegroup.inputs["tint gloss"].default_value = make_tuple(
                 submat.get("GlossMult", 0)

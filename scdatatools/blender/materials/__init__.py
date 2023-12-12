@@ -510,13 +510,13 @@ class MTLLoader:
 
             # newbasegroup.node_tree.label = submat.get("Name")
             newbasegroup.inputs["tint diff Color"].default_value = make_tuple(
-                submat.get("TintColor","0,0,0") + ",1"
+                submat.get("TintColor",".001,.001,.001") + ",1"
             )
             newbasegroup.inputs["tint spec Color"].default_value = make_tuple(
-                "0, 0, 0, 1"
+                submat.get("TintColor",".001,.001,.001") + ",1"
             )
             newbasegroup.inputs["tint gloss"].default_value = make_tuple(
-                submat.get("GlossMult", .7)
+                submat.get("GlossMult", 1)
             )
             newbasegroup.inputs["UV Scale"].default_value = [
                 float(submat.get("UVTiling")),
@@ -592,6 +592,19 @@ class MTLLoader:
         # shadergroup.inputs['spec Color'].default_value = mat.specular_color[0]/2
         shadergroup.inputs["IOR"].default_value = 1.45
         shaderout.location.x += 200
+
+        if 'USE_TINT_PALETTE' in mtl_attrs["StringGenMask"]:
+            self.tinted_materials.append(mat)
+            tint_group = nodes.new("ShaderNodeGroup")
+            tint_group.node_tree = self.tint_palette_node_group
+            tint_group.location.x = -600
+            try:
+                mat.node_tree.links.new(
+                    tint_group.outputs["Glass Color"], shadergroup.inputs["Base Color"]
+                )            
+            except:
+                pass
+
 
         self.load_textures(mtl_attrs["Textures"], mat, shadergroup)
 
@@ -955,6 +968,19 @@ class MTLLoader:
                 continue
             elif filename == "$RenderToTexture":
                 continue
+            elif filename == "$TintPaletteDecal":
+                tint_group = nodes.new("ShaderNodeGroup")
+                tint_group.node_tree = self.tint_palette_node_group
+                tint_group.location.x = -800
+                try:
+                    mat.node_tree.links.new(
+                        tint_group.outputs["Decal Color"], shadergroup.inputs["diff Color"]
+                    )
+                    mat.node_tree.links.new(
+                        tint_group.outputs["Decal Alpha"], shadergroup.inputs["diff Alpha"]
+                    )
+                except:
+                    pass
 
             if (tex.get("Map") in ["TexSlot2", "Bumpmap"]) and (
                 isTexSlot3() is False

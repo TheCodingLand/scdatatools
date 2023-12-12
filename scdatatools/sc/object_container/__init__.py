@@ -280,6 +280,18 @@ class ObjectContainer:
             self._p4k_path.parent / self._p4k_path.stem / f"{self._p4k_path.stem}.xml"
         )
 
+        def _check_additional(ext: str):
+            check_path = self._p4k_path.parent / self._p4k_path.stem / f"{self._p4k_path.stem}{ext}"
+            check_lower = check_path.as_posix().lower()
+            if check_lower in sc.p4k.NameToInfoLower:
+                self.additional_data.append(ChunkFile(sc.p4k.NameToInfoLower[check_lower]))
+
+        self.additional_data: list[ChunkFile] = []
+        # TODO: Load this as needed instead of always checking/loading for all OCs
+        _check_additional(".pla")
+        _check_additional(".ale")
+        self.has_additional = len(self.additional_data) != 0
+
         try:
             base_soc_info = self._sc.p4k.getinfo(
                 (self._p4k_path.parent / self._p4k_path.stem / f"{self._p4k_path.stem}.soc").as_posix()

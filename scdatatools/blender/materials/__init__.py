@@ -143,6 +143,7 @@ class MTLLoader:
         attribute has been set. If the material does not exist at all, it will create it and setup the base node groups
         for a sc shader material
         """
+        #name = name[0:62] # Blender max material name length is 63
         if name in bpy.data.materials:
             mat = bpy.data.materials[name]
             if mat.get("filename"):
@@ -979,6 +980,7 @@ class MTLLoader:
                     mat.node_tree.links.new(
                         tint_group.outputs["Decal Alpha"], shadergroup.inputs["diff Alpha"]
                     )
+                continue
                 except:
                     pass
 
@@ -1247,7 +1249,8 @@ def load_tint_palette(palette_file, tint_palette_node_group, data_dir=""):
             t.nodes["Decal"].image = image_for_texture(decal_texture, data_dir=data_dir)
             t.nodes["Decal"].image.colorspace_settings.name = "Non-Color"
         except FileNotFoundError:
-            t.nodes["Decal"].image = None
+            #t.nodes["Decal"].image = None
+            logger.warn(f"unable to load decal {decal_texture.name}")
 
     for decalColor in ["decalColorR", "decalColorG", "decalColorB"]:
         t.nodes["DecalConverter"].inputs[decalColor].default_value = a_to_c(

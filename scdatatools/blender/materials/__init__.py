@@ -980,7 +980,7 @@ class MTLLoader:
                     mat.node_tree.links.new(
                         tint_group.outputs["Decal Alpha"], shadergroup.inputs["diff Alpha"]
                     )
-                continue
+                    continue
                 except:
                     pass
 

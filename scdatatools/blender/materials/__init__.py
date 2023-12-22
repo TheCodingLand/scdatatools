@@ -278,10 +278,8 @@ class MTLLoader:
             viewport_trans = True
         elif "glow" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]            
-            if "link" in matname.lower():
-                shadergroup.inputs["geom link"].default_value = 1
-            else:
-                shadergroup.inputs["geom link"].default_value = 0
+            if "_link" in matname.lower():
+                shadergroup.inputs["geom link"].default_value = 1            
         elif "%DECAL%" in mtl_attrs["StringGenMask"]  or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             shadergroup.inputs["diff Alpha"].default_value = 0
@@ -299,7 +297,7 @@ class MTLLoader:
         mat.node_tree.links.new(
             shadergroup.outputs["Displacement"], shaderout.inputs["Displacement"]
         )
-
+        
         if "pom" in matname.lower():
             shadergroup.inputs["Base Color"].default_value = (0, 0, 0, 1)
             shadergroup.inputs["n Strength"].default_value = 1            
@@ -332,21 +330,21 @@ class MTLLoader:
             pass
 
         try:
-            shadergroup.inputs["Glow"].default_value = make_tuple(
-                mtl_attrs.get("Glow") + ",0"
+            shadergroup.inputs["Glow"].default_value = float(
+                mtl_attrs.get("Glow", 0)
             )
-        except:
+        except:            
             pass
 
         try:
             shadergroup.inputs["BlendLayer2DiffuseColor"].default_value = make_tuple(
-                    mtl_attrs["PublicParams"].get("BlendLayer2DiffuseColor", "1,1,1") + ",1"
+                    mtl_attrs["PublicParams"].get("BlendLayer2DiffuseColor", ".01,.01,.01") + ",1"
             )
         except:
             pass
         try:
             shadergroup.inputs["BlendLayer2SpecularColor"].default_value = make_tuple(
-                    mtl_attrs["PublicParams"].get("BlendLayer2SpecularColor", "1,1,1") + ",1"
+                    mtl_attrs["PublicParams"].get("BlendLayer2SpecularColor", ".01,.01,.01") + ",1"
                 )
         except:
             pass
@@ -389,9 +387,6 @@ class MTLLoader:
         if "USE_SPECULAR_MAP" in mtl_attrs["StringGenMask"]:
             shadergroup.inputs["Metallic"].default_value = 1
             #shadergroup.inputs["Anisotropic"].default_value = 0.5
-        else:
-            shadergroup.inputs["Metallic"].default_value = 0
-            shadergroup.inputs["Anisotropic"].default_value = 0
 
         if "USE_OPACITY_MAP" in mtl_attrs["StringGenMask"]:
             shadergroup.inputs['UseAlpha'].default_value = 1
@@ -402,6 +397,33 @@ class MTLLoader:
 
         y = 0
         nodes = mat.node_tree.nodes
+
+        if "_tint_" in matname.lower() and self.tint_palette_node_group:
+            tint_output = 0
+            if "primary" in matname.lower():
+                tint_output = 2
+            elif "secondary" in matname.lower():
+                tint_output = 5
+            elif "tertiary" in matname.lower():
+                tint_output = 8        
+            if tint_output != 0:
+                tint_group = nodes.new("ShaderNodeGroup")
+                tint_group.node_tree = self.tint_palette_node_group
+                tint_group.location.x = -800
+                try:
+                    mat.node_tree.links.new(
+                        tint_group.outputs[tint_output], shadergroup.inputs["BlendLayer2DiffuseColor"]
+                    )
+                    mat.node_tree.links.new(
+                        tint_group.outputs[tint_output+1], shadergroup.inputs["BlendLayer2SpecularColor"]
+                    )
+                    mat.node_tree.links.new(
+                        tint_group.outputs[tint_output+2], shadergroup.inputs["BlendLayer2Glossiness"]
+                    )
+                except Exception as e:
+                    logger.warning(f"unable to connect tint pallette for material %s - %s", mat.name, e)
+                    pass
+
         for submat in mtl_attrs.get("MatLayers", []):
             if "WearLayer" in submat.get("Name"):
                 continue

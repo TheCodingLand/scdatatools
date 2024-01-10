@@ -68,6 +68,17 @@ def write_attrib_to_mat(mat, mtl_attrs, attr):
         mat[name] = value
         if SN_GROUP in mat.node_tree.nodes and mat.node_tree.nodes[SN_GROUP].inputs.get(name):
             mat.node_tree.nodes[SN_GROUP].inputs[name].default_value = float(value)
+    return
+
+def get_type_from_string(string):    
+    try:
+        result = make_tuple(string)        
+    except ValueError:
+        return 'string'
+    if isinstance(result, tuple): return 'tuple'
+    elif isinstance(result, float) or isinstance(result, int) : return 'float'        
+    else:
+        return 'string'
 
 
 def a_to_c(attrs, alpha=1.0):
@@ -220,6 +231,8 @@ class MTLLoader:
                 new_mat = None
                 if attrs["Name"].casefold().endswith("proxy"):
                     new_mat = self.create_proxy_material(attrs)
+                #elif shader_type:
+                #    new_mat = self.create_unknown_material(attrs)    
                 elif shader_type == "hardsurface":
                     new_mat = self.create_hard_surface(attrs)
                 elif shader_type in ("illum", "meshdecal", "decal", "cloth"):
@@ -232,14 +245,23 @@ class MTLLoader:
                     new_mat = self.create_layer_node(attrs)
                 elif shader_type in ("hologram", "hologramcig"):
                     new_mat = self.create_hologram_surface(attrs)
-                elif shader_type in ("humanskin_v2"):
-                    new_mat = self.create_skin_surface(attrs)
-                elif shader_type in ("monitor", "displayscreen", "uiplane"):
-                    new_mat = self.create_display_surface(attrs)
+                #elif shader_type in ("humanskin_v2"):
+                #    new_mat = self.create_skin_surface(attrs)
+                #elif shader_type in ("monitor", "displayscreen", "uiplane"):
+                #    new_mat = self.create_display_surface(attrs)
                 elif shader_type == "nodraw":
                     new_mat = self.create_proxy_material(attrs)
                 elif shader_type == "simple":
                     new_mat = self.create_simple_material(attrs)
+                else:
+                    new_mat = self.create_unknown_material(attrs)                    
+                
+                if new_mat is not None:
+                    logger.debugscbp("created %s mtl %s", shader_type, attrs["Name"])
+                    new_mat["filename"] = mtl_path.as_posix()
+                    new_mat["SurfaceType"] = attrs.get("SurfaceType", "None")
+                    new_mat["StringGenMask"] = attrs.get("StringGenMask")
+                    self.created_materials.append(new_mat)
                 else:
                     if shader_type:
                         logger.warning(
@@ -248,12 +270,6 @@ class MTLLoader:
                             shader_type,
                         )
                     continue
-                if new_mat is not None:
-                    logger.debugscbp("created %s mtl %s", shader_type, attrs["Name"])
-                    new_mat["filename"] = mtl_path.as_posix()
-                    new_mat["SurfaceType"] = attrs.get("SurfaceType", "None")
-                    new_mat["StringGenMask"] = attrs.get("StringGenMask")
-                    self.created_materials.append(new_mat)
             except Exception as e:
                 logger.exception(f'Error creating material {attrs["Name"]}', exc_info=e)
         self.loaded_materials.append(mtl_path)
@@ -746,7 +762,8 @@ class MTLLoader:
 
         for submat in mats:
             if (subpath := self._load_sub_material(submat.get("Path"))) is None:
-                continue
+                #continue
+                subpath = "blank"
 
             newbasegroup = nodes.new("ShaderNodeGroup")
             if subpath.stem in bpy.data.node_groups:
@@ -911,6 +928,8 @@ class MTLLoader:
 
         shadergroup.node_tree = bpy.data.node_groups["_Hologramcig"]
         mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
+        
+        self.load_textures(mtl_attrs["Textures"], mat, nodes[SN_OUT])
 
         return mat
 
@@ -969,6 +988,72 @@ class MTLLoader:
         shadernode = nodes.new("ShaderNodeBsdfTransparent")
         mat.node_tree.links.new(shadernode.outputs["BSDF"], shaderout.inputs["Surface"])
         return mat
+    
+    def create_unknown_material(self, mtl_attrs):
+        # Creates a blank shader template
+        mat, created = self.get_or_create_shader_material(mtl_attrs["Name"])
+        if not created:
+            return
+
+        shaderout = mat.node_tree.nodes[SN_OUT]
+        shadergroup = mat.node_tree.nodes[SN_GROUP]
+        matname = mtl_attrs.get("Name")
+        write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
+        nodes = mat.node_tree.nodes
+
+        # Viewport material values
+        viewport_trans = False        
+        set_viewport(mat, mtl_attrs, True)
+
+        shadername = "_" + mtl_attrs.get("Shader", "Unknown")     
+        shadergroup.node_tree = bpy.data.node_groups.get(shadername) or bpy.data.node_groups.new(shadername, 'ShaderNodeTree')
+        shadergroup.name = 'Shader'
+        output = (mat.node_tree.nodes['Shader'].node_tree.outputs.get('BSDF') or 
+                  mat.node_tree.nodes['Shader'].node_tree.outputs.new('NodeSocketShader', 'BSDF')
+        )
+        mat.node_tree.links.new(shadergroup.outputs["BSDF"], shaderout.inputs["Surface"])
+        
+        self.create_group_attrib_inputs(mtl_attrs, mat, nodes[SN_OUT])
+        if mtl_attrs.get("Textures"):
+            self.create_group_tex_inputs(mtl_attrs["Textures"], mat, nodes[SN_OUT])
+        self.create_group_attrib_inputs(mtl_attrs["PublicParams"], mat, nodes[SN_OUT])
+
+        self.load_textures(mtl_attrs["Textures"], mat, nodes[SN_OUT])
+                
+        return mat
+
+
+    def create_group_tex_inputs(self, textures, mat, shadergroup=None):
+        inputs = mat.node_tree.nodes['Shader'].node_tree.inputs
+        for tex in textures:
+            if inputs.get(tex.get("Map"), None) == None: 
+                input = inputs.new('NodeSocketColor', 'BSDF')
+                input.name = tex.get("Map")
+        return
+    
+    def create_group_attrib_inputs(self, mtl_attrs, mat, shadergroup=None):
+        inputs = mat.node_tree.nodes['Shader'].node_tree.inputs
+        if hasattr(mtl_attrs, "attrib"):
+            items = mtl_attrs.attrib.items()
+        else:
+            return       
+        for name, value in items:
+            if get_type_from_string(value) == 'tuple': 
+                nodetype = 'NodeSocketColor'
+                value = make_tuple(value+',1') #add expected alpha
+            elif get_type_from_string(value) == 'float': 
+                nodetype = 'NodeSocketFloat'
+                value = float(value)
+            else:
+                continue
+            input = (mat.node_tree.nodes['Shader'].node_tree.inputs.get(name) or 
+                mat.node_tree.nodes['Shader'].node_tree.inputs.new(nodetype, name)
+            )
+            if mat.node_tree.nodes['Shader'].inputs.get(name):
+                mat.node_tree.nodes['Shader'].inputs[name].default_value = value
+        return
+
+
 
     def load_textures(self, textures, mat, shadergroup=None):              
 

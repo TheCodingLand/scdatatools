@@ -170,9 +170,9 @@ def process_soc(bp: "Blueprint", soc, bone_name, geom_attrs):
                     )
                 else:
                     bp.log(
-                        f"WARNING: non-skipped soc EntityClass doesnt have geometry: "
+                        f"DEBUG: non-skipped soc EntityClass doesnt have geometry: "
                         f'{entity.get("@EntityClass")}',
-                        logging.WARNING,
+                        logging.DEBUG,
                     )
             except Exception as e:
                 bp.log(

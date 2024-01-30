@@ -23,7 +23,8 @@ REQUIRED_SHADER_NODE_GROUPS = [
     "_LayerMix",
     "_MaterialLayer",
     "_Hologramcig",
-    "_HumanSkin_V2"    
+    "_HumanSkin_V2",
+    "_Organic"    
 ]
 
 

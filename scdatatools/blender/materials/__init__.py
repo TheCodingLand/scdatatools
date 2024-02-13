@@ -50,7 +50,7 @@ def set_viewport(mat, mtl_attrs, trans=False):
     mat.diffuse_color = make_tuple(mtl_attrs.get("Diffuse", "1,1,1") + ",1")
     mat.roughness = 1 - (float(mtl_attrs.get("Shininess", 128)) / 255)
     if trans:
-        mat.blend_method = "BLEND"
+        mat.blend_method = "HASHED"
         mat.shadow_method = "NONE"
         mat.show_transparent_back = True
         mat.cycles.use_transparent_shadow = True
@@ -64,10 +64,11 @@ def set_viewport(mat, mtl_attrs, trans=False):
 
 
 def write_attrib_to_mat(mat, mtl_attrs, attr):
-    for name, value in mtl_attrs[attr].attrib.items():
-        mat[name] = value
-        if SN_GROUP in mat.node_tree.nodes and mat.node_tree.nodes[SN_GROUP].inputs.get(name):
-            mat.node_tree.nodes[SN_GROUP].inputs[name].default_value = float(value)
+    if mtl_attrs.get(attr):
+        for name, value in mtl_attrs[attr].attrib.items():
+            mat[name] = value
+            if SN_GROUP in mat.node_tree.nodes and mat.node_tree.nodes[SN_GROUP].inputs.get(name):
+                mat.node_tree.nodes[SN_GROUP].inputs[name].default_value = float(value)
     return
 
 def get_type_from_string(string):    
@@ -467,6 +468,7 @@ class MTLLoader:
             newbasegroup.location.y += y
             y -= 260
             _link_possible_node_connections(mat, newbasegroup, shadergroup, newbasegroup.name)
+        write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
         return mat
 
     def create_hard_surface(self, mtl_attrs):
@@ -784,7 +786,7 @@ class MTLLoader:
                 )
             
             newbasegroup.inputs["tint spec Color"].default_value = make_tuple(
-                "1, 1, 1, 1"
+                "0, 0, 0, 1"
             )
             newbasegroup.inputs["tint gloss"].default_value = make_tuple(
                 submat.get("GlossMult", 0)
@@ -840,6 +842,8 @@ class MTLLoader:
             newbasegroup.location.y += y
             y -= 300
             _link_possible_node_connections(mat, newbasegroup, shadergroup, newbasegroup.name)
+        write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
+        
         return mat
 
     def create_layer_node(self, mtl_attrs):
@@ -860,7 +864,7 @@ class MTLLoader:
             mtl_attrs.get("Diffuse", "1,1,1") + ",1"
         )
         mat.nodes["Tint"].inputs["spec Color"].default_value = getsRGBColor(
-            mtl_attrs.get("Specular", ".5,.5,.5") + ",1"
+            mtl_attrs.get("Specular", "0,0,0") + ",1"
         )
         mat.nodes["LayerTiling"].outputs[0].default_value = float(
             mtl_attrs["PublicParams"].get("LayerTiling", 1)
@@ -915,11 +919,12 @@ class MTLLoader:
         mat, created = self.get_or_create_shader_material(mtl_attrs["Name"])
         if not created:
             return
-
+        nodes = mat.node_tree.nodes
         shaderout = mat.node_tree.nodes[SN_OUT]
         shadergroup = mat.node_tree.nodes[SN_GROUP]
         matname = mtl_attrs.get("Name")
         write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
+        #self.create_group_attrib_inputs(mtl_attrs["PublicParams"], mat, nodes[SN_OUT])
 
         viewport_trans = True
 
@@ -1018,7 +1023,8 @@ class MTLLoader:
             self.create_group_tex_inputs(mtl_attrs["Textures"], mat, nodes[SN_OUT])
         self.create_group_attrib_inputs(mtl_attrs["PublicParams"], mat, nodes[SN_OUT])
 
-        self.load_textures(mtl_attrs["Textures"], mat, nodes[SN_OUT])
+        if mtl_attrs.get("Textures"):
+            self.load_textures(mtl_attrs["Textures"], mat, shadergroup)
                 
         return mat
 
@@ -1131,7 +1137,7 @@ class MTLLoader:
 
             if list(tex) or tex.get("Map") == "TexSlot7":
                 mapnode = nodes.new(type="ShaderNodeMapping")
-                if tex.get("Map") == "TexSlot7" or "_detail." in img.name.lower():
+                if tex.get("Map") == "TexSlot7" or "_detail." or "_udm." in img.name.lower():
                     mapnode.vector_type = 'POINT'    
                 else:                    
                     mapnode.vector_type = 'TEXTURE'
@@ -1202,7 +1208,7 @@ class MTLLoader:
                     except:
                         # logger.error("failed to link DDNA Map")
                         pass
-            elif tex.get("Map") in ["TexSlot2"]:  # this should be a ddna map
+            elif tex.get("Map") in ["TexSlot2"] or "_ddn." in img.name.lower():  # this should be a ddn/ddna map
                 try:
                     mat.node_tree.links.new(
                         texnode.outputs["Color"], shadergroup.inputs["ddna Color"]
@@ -1288,6 +1294,20 @@ class MTLLoader:
                     pass
                 except:
                     # logger.error("failed to link detail Map")
+                    pass
+            
+            if shadergroup.inputs.get(tex.get("Map")):
+                try:
+                    mat.node_tree.links.new(
+                        texnode.outputs["Color"], shadergroup.inputs[tex.get("Map")]
+                    )
+                except:                
+                    pass
+                try:
+                    mat.node_tree.links.new(
+                        texnode.outputs["Alpha"], shadergroup.inputs[tex.get("Map")+' Alpha']
+                    )
+                except:                
                     pass
 
         return mat

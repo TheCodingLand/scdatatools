@@ -154,9 +154,9 @@ class Blueprint:
         self.record_geometry = {}
         self.converted_files = {}
 
-        self._entity = None
+        self._entity = None        
         self.entity_geom = ""
-        self.asset_info = {}
+        self.asset_info = {"Starfab version": "0.4.9", "SC version": "unknown"}        
         self.p4k_files = set()
         self._extract_filter = set()
         self.hardpoints = {}

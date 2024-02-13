@@ -23,9 +23,9 @@ def set_light_state(light_obj, state):
         return
 
     light_obj.data.color = gamma_correct(light_obj["states"][state]["color"], 1)
-    # adjust intensity by +4EV; make this a user settings later
+    # adjust intensity by +8EV; make this a user settings later
     light_obj.data.energy = light_obj["states"][state]["intensity"] * pow(
-        2, 6
+        2, 12
     )  # +4ev? +6ev? I can't decide
     if light_obj["use_temperature"]:
         if temp_node := light_obj.data.node_tree.nodes.get("Temperature"):
@@ -165,7 +165,7 @@ def create_light(
         tex_path = data_dir / texture
         light_data["texture"] = tex_path.as_posix()
         ies_group = light_data.node_tree.nodes.new(type="ShaderNodeGroup")
-        falloff_node = light_data.node_tree.nodes.new(type="ShaderNodeLightFalloff")
+        #falloff_node = light_data.node_tree.nodes.new(type="ShaderNodeLightFalloff")
         if ies_group is not None:
             ies_group.node_tree = create_light_texture(tex_path)
             if ies_group.node_tree is not None:
@@ -173,12 +173,15 @@ def create_light(
                 light_obj.data.node_tree.links.new(
                     ies_group.outputs["Color"], temp_node.inputs["Color"]
                 )
-                falloff_node.location.y = ies_group.location.y - 150
-                falloff_node.inputs["Strength"].default_value = 8
-                temp_node.inputs["Strength"].default_value = 8
                 light_obj.data.node_tree.links.new(
-                    falloff_node.outputs["Quadratic"], temp_node.inputs["Strength"]
+                    ies_group.outputs["Strength"], temp_node.inputs["Strength"]
                 )
+                #falloff_node.location.y = ies_group.location.y - 150
+                #falloff_node.inputs["Strength"].default_value = 8
+                #temp_node.inputs["Strength"].default_value = 8
+                #light_obj.data.node_tree.links.new(
+                #    falloff_node.outputs["Quadratic"], temp_node.inputs["Strength"]
+                #)
                 temp_node = ies_group
                 if light_data.type == "SPOT":
                     spot_size = sin(light_data.spot_size) / 2  # convert radians to normal

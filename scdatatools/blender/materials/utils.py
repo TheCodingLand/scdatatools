@@ -152,6 +152,7 @@ def create_light_texture(texture: Path):
     new_node = bpy.data.node_groups.new(tex_node_name, "ShaderNodeTree")
     new_node_output = new_node.nodes.new("NodeGroupOutput")
     new_node.outputs.new("NodeSocketColor", "Color")
+    new_node.outputs.new("NodeSocketFloat", "Strength")
     new_node_output.location = (928, -116)
 
     new_node_input = new_node.nodes.new("NodeGroupInput")
@@ -171,6 +172,9 @@ def create_light_texture(texture: Path):
     mix_up_node.blend_type = "MULTIPLY"
     mix_up_node.location = (522, 0)
 
+    falloff_node = new_node.nodes.new(type="ShaderNodeLightFalloff")
+    falloff_node.location = (520, -260)
+
     new_node_texture = new_node.nodes.new("ShaderNodeTexImage")
     new_node_texture.location = (154, 212)
     new_node_texture.image = bpy.data.images.get(texture.name) or bpy.data.images.load(
@@ -178,14 +182,6 @@ def create_light_texture(texture: Path):
     )
     new_node_texture.extension = "CLIP"
     new_node_texture.image.colorspace_settings.name = "Non-Color"
-    #new_node_texture.image.colorspace_settings.name = "sRGB"
-
-    #new_node_mapping = new_node.nodes.new("ShaderNodeMapping") 
-    #new_node_geometry = new_node.nodes.new("ShaderNodeNewGeometry")
-    #new_node_geometry.location = (200, 0)
-    #new_node_mapping.location = (200, 0)
-    #new_node_mapping.inputs["Location"].default_value = (-0.5, -0.5, 0)
-    #new_node_mapping.inputs["Scale"].default_value = (1, 1, 0)
 
     ensure_node_groups_loaded()
     new_node_IES_mapping = new_node.nodes.new("ShaderNodeGroup")
@@ -210,4 +206,8 @@ def create_light_texture(texture: Path):
                        new_node_IES_mapping.inputs["Vector"])
     new_node.links.new(new_node_IES_mapping.outputs["Vector"], 
                        new_node_texture.inputs["Vector"])
+    new_node.links.new(new_node_texture.outputs["Color"], 
+                       falloff_node.inputs[0])
+    new_node.links.new(falloff_node.outputs["Quadratic"], 
+                       new_node_output.inputs["Strength"])
     return new_node

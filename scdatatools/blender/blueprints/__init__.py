@@ -194,7 +194,7 @@ def get_or_create_geometry(
 
             if not obj.modifiers.get("Weld"):
                 obj.modifiers.new("Weld", "WELD")
-                obj.modifiers["Weld"].merge_threshold = 0
+                obj.modifiers["Weld"].merge_threshold = 0.000001
 
             if not obj.modifiers.get("Weighted Normal"):
                 obj.modifiers.new("Weighted Normal", "WEIGHTED_NORMAL")
@@ -223,7 +223,8 @@ def get_or_create_geometry(
                         vg = obj.vertex_groups.new(name=slot.material.name)
                     vg.add(verts, 1.0, "ADD")
         elif obj.type == "EMPTY":
-            obj.empty_display_size = 0.1
+            obj.empty_display_type = "CUBE"
+            obj.empty_display_size = 0.01
             if "hardpoint" in obj.name:
                 obj.show_name = False
                 obj.empty_display_type = "SPHERE"

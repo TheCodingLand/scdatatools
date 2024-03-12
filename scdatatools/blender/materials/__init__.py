@@ -764,8 +764,8 @@ class MTLLoader:
 
         for submat in mats:
             if (subpath := self._load_sub_material(submat.get("Path"))) is None:
-                #continue
-                subpath = "blank"
+                continue
+                #subpath = "blank"
 
             newbasegroup = nodes.new("ShaderNodeGroup")
             if subpath.stem in bpy.data.node_groups:

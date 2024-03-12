@@ -49,6 +49,16 @@ class RemoveSCBBoxes(Operator):
             bpy.data.objects.remove(bpy.data.objects[obj])
         return {"FINISHED"}
 
+class RemoveSCDesigner(Operator):
+    """Removes SC _designer objects"""
+
+    bl_idname = "scdt.remove_sc_designer"
+    bl_label = "Remove SC _designer "
+
+    def execute(self, context):
+        for obj in [_ for _ in bpy.data.objects.keys() if "_designer_" in _.lower()]:
+            bpy.data.objects.remove(bpy.data.objects[obj])
+        return {"FINISHED"}
 
 class RemoveSCVisArea(Operator):
     """Removes SC _bbox objects"""
@@ -161,6 +171,7 @@ def register():
     bpy.utils.register_class(RemoveProxyMeshes)
     bpy.utils.register_class(RemoveSCPhysicsProxies)
     bpy.utils.register_class(RemoveSCBBoxes)
+    bpy.utils.register_class(RemoveSCDesigner)
     bpy.utils.register_class(RemoveSCVisArea)
     bpy.utils.register_class(FixBonesPosition)
     bpy.utils.register_class(MakeInstanceReal)
@@ -172,6 +183,7 @@ def unregister():
     bpy.utils.unregister_class(RemoveProxyMeshes)
     bpy.utils.unregister_class(RemoveSCPhysicsProxies)
     bpy.utils.unregister_class(RemoveSCBBoxes)
+    bpy.utils.unregister_class(RemoveSCDesigner)
     bpy.utils.unregister_class(RemoveSCVisArea)
     bpy.utils.unregister_class(FixBonesPosition)
     bpy.utils.unregister_class(MakeInstanceReal)

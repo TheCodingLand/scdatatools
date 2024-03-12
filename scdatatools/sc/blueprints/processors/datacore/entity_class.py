@@ -293,7 +293,7 @@ def _handle_vehicle_definition(bp, rec, def_p4k_path):
             }
             try:
                 bp.bone_names.add(part["Tread"]["Sprocket"]["@name"].lower())
-            except:
+            except Exception as e:
                 bp.log(
                     f"could not process tread part: {part}",
                     exc_info=e,

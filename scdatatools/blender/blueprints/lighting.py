@@ -25,7 +25,7 @@ def set_light_state(light_obj, state):
     light_obj.data.color = gamma_correct(light_obj["states"][state]["color"], 1)
     # adjust intensity by +8EV; make this a user settings later
     light_obj.data.energy = light_obj["states"][state]["intensity"] * pow(
-        2, 12
+        2, 6
     )  # +4ev? +6ev? I can't decide
     if light_obj["use_temperature"]:
         if temp_node := light_obj.data.node_tree.nodes.get("Temperature"):

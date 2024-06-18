@@ -64,7 +64,7 @@ def set_viewport(mat, mtl_attrs, trans=False):
 
 
 def write_attrib_to_mat(mat, mtl_attrs, attr):
-    if mtl_attrs.get(attr):
+    if attr in mtl_attrs:
         for name, value in mtl_attrs[attr].attrib.items():
             mat[name] = value
             if SN_GROUP in mat.node_tree.nodes and mat.node_tree.nodes[SN_GROUP].inputs.get(name):
@@ -96,13 +96,13 @@ def a_to_c(attrs, alpha=1.0):
 
 def getsRGBColor(c):
     r, g, b, a = make_tuple(c)
-    x = color_srgb_to_scene_linear(r,1)
-    y = color_srgb_to_scene_linear(g,1)
-    z = color_srgb_to_scene_linear(b,1)
+    x = color_srgb_to_scene_linear(r)
+    y = color_srgb_to_scene_linear(g)
+    z = color_srgb_to_scene_linear(b)
     return x, y, z, a
 
 
-def color_srgb_to_scene_linear(c, gamma=2.4):
+def color_srgb_to_scene_linear(c, gamma=2.2):
     # c *= 2.2
     if c < 0.04045:
         return 0.0 if c < 0.0 else c * (1.0 / 12.92)
@@ -286,8 +286,7 @@ class MTLLoader:
         shaderout = mat.node_tree.nodes[SN_OUT]
         shadergroup = mat.node_tree.nodes[SN_GROUP]
         matname = mtl_attrs.get("Name")
-        matname = matname.split("_mtl_")[1]
-        write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
+        matname = matname.split("_mtl_")[1]        
 
         viewport_trans = False
         if "pom" in matname.lower():
@@ -297,7 +296,7 @@ class MTLLoader:
             shadergroup.node_tree = bpy.data.node_groups["_Illum.emit"]            
             if "_link" in matname.lower():
                 shadergroup.inputs["geom link"].default_value = 1            
-        elif "%DECAL%" in mtl_attrs["StringGenMask"]  or "decal" in matname.lower():
+        elif "%DECAL" in mtl_attrs["StringGenMask"]  or "decal" in matname.lower():
             shadergroup.node_tree = bpy.data.node_groups["_Illum.decal"]
             shadergroup.inputs["diff Alpha"].default_value = 0
             viewport_trans = True
@@ -326,7 +325,7 @@ class MTLLoader:
 
         if "bare_metal" in matname.lower() or "raw_metal" in matname.lower():            
             shadergroup.inputs["Metallic"].default_value = 1
-
+    
         try:
             shadergroup.inputs["spec Color"].default_value = make_tuple(
                 mtl_attrs.get("Specular") + ",1"
@@ -386,7 +385,7 @@ class MTLLoader:
         
         try:
             shadergroup.inputs["HeightBias"].default_value = float(
-                mtl_attrs["PublicParams"].get("HeightBias", 0.5)
+                mtl_attrs["PublicParams"].get("PomHeightBias", 0.5)
             )
             shadergroup.inputs["PomDisplacement"].default_value = float(
                 mtl_attrs["PublicParams"].get("PomDisplacement", 0)
@@ -411,6 +410,7 @@ class MTLLoader:
         shaderout.location.x += 200
 
         self.load_textures(mtl_attrs.get("Textures", []), mat, shadergroup)
+        write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
 
         y = 0
         nodes = mat.node_tree.nodes
@@ -420,9 +420,9 @@ class MTLLoader:
             if "primary" in matname.lower():
                 tint_output = 2
             elif "secondary" in matname.lower():
-                tint_output = 5
+                tint_output = 8
             elif "tertiary" in matname.lower():
-                tint_output = 8        
+                tint_output = 5        
             if tint_output != 0:
                 tint_group = nodes.new("ShaderNodeGroup")
                 tint_group.node_tree = self.tint_palette_node_group
@@ -468,7 +468,6 @@ class MTLLoader:
             newbasegroup.location.y += y
             y -= 260
             _link_possible_node_connections(mat, newbasegroup, shadergroup, newbasegroup.name)
-        write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
         return mat
 
     def create_hard_surface(self, mtl_attrs):
@@ -525,8 +524,8 @@ class MTLLoader:
             tint_group.node_tree = self.tint_palette_node_group
             tint_group.location.x = -800
 
-        write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
         self.load_textures(mtl_attrs["Textures"], mat, shadergroup)
+        write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
 
         if not mtl_attrs.get("MatLayers"):
             return mat
@@ -677,6 +676,7 @@ class MTLLoader:
 
         shaderout.location.x += 200
         self.load_textures(mtl_attrs["Textures"], mat, shadergroup)
+        write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
 
         return mat
 
@@ -704,6 +704,7 @@ class MTLLoader:
         shaderout.location.x += 200
 
         self.load_textures(mtl_attrs.get("Textures", []), mat, shadergroup)
+        write_attrib_to_mat(mat, mtl_attrs, "PublicParams")
 
         return mat
 
@@ -793,9 +794,9 @@ class MTLLoader:
             )
             if submat.get("UVTiling"):
                 newbasegroup.inputs["UV Scale"].default_value = [
-                    float(submat.get("UVTiling")),
-                    float(submat.get("UVTiling")),
-                    float(submat.get("UVTiling")),
+                    float(submat.get("UVTiling",0)),
+                    float(submat.get("UVTiling",0)),
+                    float(submat.get("UVTiling",0)),
                 ]
             if tint_group is not None:
                 if submat.get("PaletteTint", "0") == "1":

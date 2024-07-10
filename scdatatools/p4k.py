@@ -470,7 +470,7 @@ class P4KFile(zipfile.ZipFile):
             else:
                 fname_str = fname.decode("cp437")
 
-            if fname_str != zinfo.orig_filename:
+            if fname_str.lower() != zinfo.orig_filename.lower():
                 raise zipfile.BadZipFile(
                     "File name in directory %r and header %r differ." % (zinfo.orig_filename, fname)
                 )

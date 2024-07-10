@@ -661,6 +661,8 @@ class SCBlueprintImporter:
 
             cont_root = bpy.data.objects.new(cont_root_name, None)
             cont_root["socpak"] = container.get("attrs", {}).get("socpak", "")
+            cont_root["container_name"] = name
+            cont_root.empty_display_type = "CUBE"
 
             if parent is not None:
                 cont_root.parent = parent

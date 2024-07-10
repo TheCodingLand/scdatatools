@@ -80,5 +80,6 @@ def blueprint_from_socpak(
                     },
                 )
             except Exception as e:
-                bp.log(f'Failed to load child container of {name}: {child["name"]} {e}')
+                #bp.log(f'Failed to load child container of {name}: {child["name"]} {e}')
+                bp.log(f'Failed to load child container of {name}: {e}')
     return bp

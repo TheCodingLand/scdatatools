@@ -50,6 +50,7 @@ SOC_ENTITY_CLASSES_TO_SKIP = [
     "NavigationArea",  # TODO: TBD
     "ParticleField",  # TODO: TBD
     "ParticleEffect",  # TODO: TBD
+    "PlanetAreaEntity",  # TODO: TBD
     "ProceduralPointOfInterestProxy",  # TODO: TBD
     "Room",  # Audio # TODO: TBD
     "RoomConnector",  # TODO: TBD
@@ -57,6 +58,7 @@ SOC_ENTITY_CLASSES_TO_SKIP = [
     "SafeTeleportPoint",
     "SCShop",
     "SequenceObjectItem",  # TODO: TBD
+    "ShadowRegionEntity",  # TODO: TBD
     "SurfaceRaindropsTarget",  # TODO: TBD
     "TagPoint",  # TODO: TBD
     "TransitDestination",  # TODO: TBD

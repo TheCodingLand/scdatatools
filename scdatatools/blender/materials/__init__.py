@@ -68,7 +68,10 @@ def write_attrib_to_mat(mat, mtl_attrs, attr):
         for name, value in mtl_attrs[attr].attrib.items():
             mat[name] = value
             if SN_GROUP in mat.node_tree.nodes and mat.node_tree.nodes[SN_GROUP].inputs.get(name):
-                mat.node_tree.nodes[SN_GROUP].inputs[name].default_value = float(value)
+                try:
+                    mat.node_tree.nodes[SN_GROUP].inputs[name].default_value = float(value)
+                except:
+                    pass
     return
 
 def get_type_from_string(string):    
@@ -420,9 +423,9 @@ class MTLLoader:
             if "primary" in matname.lower():
                 tint_output = 2
             elif "secondary" in matname.lower():
-                tint_output = 8
+                tint_output = 5
             elif "tertiary" in matname.lower():
-                tint_output = 5        
+                tint_output = 8        
             if tint_output != 0:
                 tint_group = nodes.new("ShaderNodeGroup")
                 tint_group.node_tree = self.tint_palette_node_group

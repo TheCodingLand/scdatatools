@@ -172,8 +172,13 @@ def create_light_texture(texture: Path):
     mix_up_node.blend_type = "MULTIPLY"
     mix_up_node.location = (522, 0)
 
-    falloff_node = new_node.nodes.new(type="ShaderNodeLightFalloff")
-    falloff_node.location = (520, -260)
+    #falloff_node = new_node.nodes.new(type="ShaderNodeLightFalloff")
+    #falloff_node.location = (520, -260)
+
+    multiply_node = new_node.nodes.new(type="ShaderNodeMath")
+    multiply_node.location = (520, -260)
+    multiply_node.operation = "MULTIPLY"
+    multiply_node.inputs[1].default_value = 1
 
     new_node_texture = new_node.nodes.new("ShaderNodeTexImage")
     new_node_texture.location = (154, 212)
@@ -181,7 +186,7 @@ def create_light_texture(texture: Path):
         texture.as_posix()
     )
     new_node_texture.extension = "CLIP"
-    new_node_texture.image.colorspace_settings.name = "Non-Color"
+    new_node_texture.image.colorspace_settings.name = "sRGB"
 
     ensure_node_groups_loaded()
     new_node_IES_mapping = new_node.nodes.new("ShaderNodeGroup")
@@ -206,8 +211,12 @@ def create_light_texture(texture: Path):
                        new_node_IES_mapping.inputs["Vector"])
     new_node.links.new(new_node_IES_mapping.outputs["Vector"], 
                        new_node_texture.inputs["Vector"])
+    #new_node.links.new(new_node_texture.outputs["Color"], 
+    #                   falloff_node.inputs[0])
+    #new_node.links.new(falloff_node.outputs["Quadratic"], 
+    #                   new_node_output.inputs["Strength"])
     new_node.links.new(new_node_texture.outputs["Color"], 
-                       falloff_node.inputs[0])
-    new_node.links.new(falloff_node.outputs["Quadratic"], 
+                       multiply_node.inputs[0])
+    new_node.links.new(multiply_node.outputs[0], 
                        new_node_output.inputs["Strength"])
     return new_node

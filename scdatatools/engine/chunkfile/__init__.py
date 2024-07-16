@@ -96,6 +96,7 @@ def _geometry_parts(filename):
 
 class GeometryChunkFile(ChunkFile):
     def _find_mtl(self, path):
+        if path.startswith('Data/'): path = path.removeprefix('Data/')
         if isinstance(self._data, P4KFile):
             try:
                 path = path.lower()

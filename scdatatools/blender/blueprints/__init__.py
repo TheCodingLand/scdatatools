@@ -17,7 +17,7 @@ from scdatatools.blender.blueprints.hooks import (
     BLENDER_REGISTER_HOOK,
     BLENDER_UNREGISTER_HOOK,
 )
-from scdatatools.blender.blueprints.lighting import create_light
+from scdatatools.blender.blueprints.lighting import create_light, create_light_parent
 from scdatatools.blender.blueprints.ui import (
     SCImportEntityPanel,
     SCImportEntityImportedContainersPanel,
@@ -768,19 +768,28 @@ class SCBlueprintImporter:
                                         f'{self.bp["name"]}_LG_{light_group_name}'
                                     )
                                     cont_collection.children.link(light_group_col)
+                                
+                                # parent LG empty goes here
+                                lg_parent = create_light_parent(
+                                    f'{self.bp["name"]}_LG_{light_group_name}', 
+                                    light_group_col
+                                    )                                
+                                lg_parent.parent=cont_root
+
                                 for light_name, light in lights.items():
                                     try:
                                         create_light(
                                             light_name,
                                             light,
                                             light_group_col,
-                                            parent=cont_root,
+                                            #parent=cont_root,
+                                            parent=lg_parent,
                                             data_dir=self.data_dir,
                                         )
                                     except Exception:
                                         logger.exception(
                                             f"Failed to create light {light_name} in {cont_name}"
-                                        )
+                                        ) 
 
                     for soc_path in container["socs"]:
                         if soc := self.bp["socs"].get(soc_path):

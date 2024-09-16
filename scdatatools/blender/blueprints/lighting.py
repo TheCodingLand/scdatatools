@@ -87,6 +87,13 @@ def find_children(objs):
                 child_objs.append(obj)                           
     return child_objs
 
+def create_light_parent(name, coll):
+    parent = bpy.data.objects.new(name, None)
+    parent.empty_display_type = 'SINGLE_ARROW'
+    coll.objects.link(parent)
+    return parent
+
+
 def create_light(
     name,
     light,

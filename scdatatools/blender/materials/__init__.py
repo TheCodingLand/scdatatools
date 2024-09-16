@@ -105,7 +105,7 @@ def getsRGBColor(c):
     return x, y, z, a
 
 
-def color_srgb_to_scene_linear(c, gamma=2.2):
+def color_srgb_to_scene_linear(c, gamma=2.4):
     # c *= 2.2
     if c < 0.04045:
         return 0.0 if c < 0.0 else c * (1.0 / 12.92)
@@ -337,7 +337,7 @@ class MTLLoader:
             pass
 
         try:
-            shadergroup.inputs["ddna Alpha"].default_value = float(mtl_attrs.get("Shininess", 255))/255
+            shadergroup.inputs["ddna Alpha"].default_value = float(mtl_attrs.get("Shininess", 255)) / 255
         except:
             pass
 
@@ -369,7 +369,7 @@ class MTLLoader:
             pass
         try:
             shadergroup.inputs["BlendLayer2Glossiness"].default_value = (
-                int(mtl_attrs["PublicParams"].get("BlendLayer2Glossiness", 1)) / 255
+                    float(mtl_attrs["PublicParams"].get("BlendLayer2Glossiness", 1)) / 255
             )
         except:
             pass

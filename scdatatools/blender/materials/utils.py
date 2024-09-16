@@ -24,7 +24,8 @@ REQUIRED_SHADER_NODE_GROUPS = [
     "_MaterialLayer",
     "_Hologramcig",
     "_HumanSkin_V2",
-    "_Organic"    
+    "_Organic",
+    "_UIPlane"    
 ]
 
 

@@ -17,9 +17,9 @@ if typing.TYPE_CHECKING:
 SOC_ENTITY_CLASSES_TO_SKIP = [
     # TODO: all TBDs in here are entityclasses in soc cryxmlbs that havent been researched yet
     "ActionArea",  # TODO: TBD
-    "AreaBox",  # TODO: TBD
-    "AreaShape",  # TODO: TBD
-    "AreaSphere",  # TODO: TBD
+    # "AreaBox",  # TODO: TBD
+    # "AreaShape",  # TODO: TBD
+    # "AreaSphere",  # TODO: TBD
     "AudioAreaAmbience",  # TODO: TBD
     "AudioEnvironmentFeedbackPoint",  # TODO: TBD
     "AudioTriggerSpot",  # TODO: TBD

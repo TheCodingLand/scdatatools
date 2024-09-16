@@ -119,14 +119,21 @@ class GeometryChunkFile(ChunkFile):
             if (f := self._data / path).is_file():
                 return f
             elif (f := self._data / Path(self.filename).parent / path).is_file():
-                return f
+                return f            
             elif (
                     "female_v2" in f.parts
                     and (f := Path(f.as_posix().replace("female_v2", "male_v7"))).is_file()
-            ):
+            ):                
                 # TODO: this one is dumb and i hate it, does star engine do this, or how does it magically figure out
                 #       the relative use of a mtl file. is there a global mtl database in game? are mtl names unique 0.o
                 return f
+            elif (f := self._data / Path(path).name).is_file():
+                return f
+            elif (f := self._data / Path(self.filename).parent / Path(path).name).is_file():
+                return f
+            elif (f := self._data / Path(self.filename).parent.parent / Path(path).name).is_file():
+                return f
+        #logger.warning(f"Failed to find mtl library {f}")
         return None
 
     def __init__(

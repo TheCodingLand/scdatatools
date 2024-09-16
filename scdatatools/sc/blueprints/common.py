@@ -23,8 +23,8 @@ RECORD_KEYS_WITH_AUDIO = ["audioTrigger"]
 DEFAULT_ROTATION = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
 SOC_ENTITY_CLASSES_TO_SKIP = [
     # TODO: all TBDs in here are entityclasses in soc cryxmlbs that havent been researched yet
-    "AreaBox",  # TODO: TBD
-    "AreaShape",  # TODO: TBD
+    # "AreaBox",  # TODO: TBD
+    # "AreaShape",  # TODO: TBD
     "AudioAreaAmbience",  # TODO: TBD
     "AudioEnvironmentFeedbackPoint",  # TODO: TBD
     "AudioTriggerSpot",  # TODO: TBD

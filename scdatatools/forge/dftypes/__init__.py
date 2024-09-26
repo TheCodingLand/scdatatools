@@ -21,11 +21,13 @@ class DataCoreBase(LittleEndianStructure):
             return getattr(self._b_base_, "_dcb")
         return getattr(self, "_dcb")
 
-
+# In Datacore v6 all inheritors of this class utilize the newly added lookup table. I'm going to make a lazy edit here
+# for demonstration purposes, but we should probably add a means to determine which one to look up into from the version
+# if we don't just end up unifying the lookup.
 class DataCoreNamed(DataCoreBase):
     @property
     def name(self):
-        return self.dcb.string_for_offset(self.name_offset)
+        return self.dcb.string_for_offset2(self.name_offset)
 
 
 class DataCoreHeader(DataCoreBase):
@@ -61,7 +63,8 @@ class DataCoreHeader(DataCoreBase):
         ("reference_count", ctypes.c_uint32),
         ("enum_option_name_count", ctypes.c_uint32),
         ("text_length", ctypes.c_uint32),
-        ("unknown6", ctypes.c_uint32),
+        # TODO: come up with a better way of handling this in case it's legacy, previously empty field unknown6
+        ("text_length2", ctypes.c_uint32),
     ]
 
 
@@ -167,7 +170,7 @@ class EnumDefinition(DataCoreNamed):
             ],
         )
 
-
+# Utilizes reference string lookup table, can likely just use StringReference if no other classes are reliant on this.
 class EnumChoice(DataCoreBase):
     _fields_ = [("enum_choice_index", ctypes.c_uint32)]
 
@@ -323,6 +326,22 @@ class StringReference(DataCoreBase):
         return self.value
 
 
+# Needed for EnumValueName, as it indexes into the new string table in Datacore V6
+class StringReference2(DataCoreBase):
+    _fields_ = [("string_offset", ctypes.c_uint32)]
+
+    @property
+    def value(self):
+        return self.dcb.string_for_offset2(self.string_offset)
+
+    def __repr__(self):
+        return f"<StringRef offset:{self.string_offset}>"
+
+    def __str__(self):
+        return self.value
+
+
+# Under Datacore V6 at least Locales are effectively just StringReferences, with both reading out of the first table.
 class LocaleReference(StringReference):
     pass
 
@@ -433,10 +452,12 @@ class Record(Pointer, DataCoreNamed):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    # Pulls from the new string table in Datacore V6
     @property
     def name(self):
-        return self.dcb.string_for_offset(self.name_offset).replace(f"{self.type}.", "", 1)
+        return self.dcb.string_for_offset2(self.name_offset).replace(f"{self.type}.", "", 1)
 
+    # Pulls from the old string table in Datacore V6
     @property
     def filename(self):
         return self.dcb.string_for_offset(self.filename_offset)
@@ -492,10 +513,10 @@ DATA_TYPE_LOOKUP = {
     DataTypes.WeakPointer: WeakPointer,
     DataTypes.StrongPointer: StrongPointer,
     # DataTypes.Class: ,
-    DataTypes.EnumChoice: EnumChoice,
-    DataTypes.EnumValueName: StringReference,
+    DataTypes.EnumChoice: EnumChoice, # Can probably just use StringReference under Datacore v6
+    DataTypes.EnumValueName: StringReference2, # Unfortunately this uses the new table in Datacore v6
     DataTypes.GUID: GUID,
-    DataTypes.Locale: LocaleReference,
+    DataTypes.Locale: LocaleReference, # Can probably also just use StringReference under Datacore v6
     DataTypes.Double: ctypes.c_double,
     DataTypes.Float: ctypes.c_float,
     DataTypes.StringRef: StringReference,

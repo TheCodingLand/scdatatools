@@ -116,6 +116,8 @@ class DataCoreBinary:
 
         self.text_offset = offset
         offset += self.header.text_length
+        self.text_offset2 = offset
+        offset += self.header.text_length2
 
         self.structure_instances = {}
         self.structure_instances_by_offset = {}
@@ -127,7 +129,11 @@ class DataCoreBinary:
                 offset += struct_size
         assert offset == len(self.raw_data)
 
+        # TODO: Can these potentially be unified through a combined lookup scheme? Say the callee specifies what table
+        #       to look into.
         self._string_cache = {}
+        self._string_cache2 = {}
+
         self.records_by_guid = {}
         self.record_types = set()
         self.entities: dict[str, Record] = {}
@@ -164,11 +170,15 @@ class DataCoreBinary:
             # )
         return self.structure_instances[structure_index][instance]
 
+    # TODO: Come up with better naming scheme for these, or atleast a way to make more obvious which string table is
+    #       being looked into
+
+    # Gets "reference" type strings from the table that existed prior to Datacore 6. Left unchanged for compatibility.
     def string_for_offset(self, offset: int, encoding="UTF-8") -> str:
         if offset not in self._string_cache:
             try:
                 if offset >= self.header.text_length:
-                    raise IndexError(f'Text offset "{offset}" is out of range')
+                    raise IndexError(f'Text offset "{offset}" is out of range of the primary table "{self.header.text_length}"')
 
                 end = self.raw_data.obj.index(
                     0x00,
@@ -182,6 +192,26 @@ class DataCoreBinary:
                 sys.stderr.write(f"Invalid string offset: {offset}")
                 return ""
         return self._string_cache[offset]
+
+        # Looks up into "records" type strings in the Datacore v6 update. I.e.EntityClassDefinition.FeatureTest_<Whatever_Else_Here>
+    def string_for_offset2(self, offset: int, encoding="UTF-8") -> str:
+        if offset not in self._string_cache2:
+            try:
+                if offset >= self.header.text_length2:
+                    raise IndexError(f'Text offset "{offset}" is out of range of the secondary table "{self.header.text_length2}"')
+
+                end = self.raw_data.obj.index(
+                    0x00,
+                    self.text_offset2 + offset,
+                    self.text_offset2 + self.header.text_length2,
+                    )
+                self._string_cache2[offset] = bytes(
+                    self.raw_data[self.text_offset2 + offset : end]
+                ).decode(encoding)
+            except ValueError:
+                sys.stderr.write(f"Invalid string offset: {offset}")
+                return ""
+        return self._string_cache2[offset]
 
     def record_to_dict(self, record, depth=100):
         d = {}

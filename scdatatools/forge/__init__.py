@@ -195,6 +195,10 @@ class DataCoreBinary:
 
         # Looks up into "records" type strings in the Datacore v6 update. I.e.EntityClassDefinition.FeatureTest_<Whatever_Else_Here>
     def string_for_offset2(self, offset: int, encoding="UTF-8") -> str:
+        # TODO: This is a really awful way of handling this, but it at least enables the use of Datacore <V6 files
+        if self.header.version < 6:
+            return self.string_for_offset(offset, encoding)
+
         if offset not in self._string_cache2:
             try:
                 if offset >= self.header.text_length2:

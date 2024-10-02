@@ -1475,8 +1475,7 @@ class ImportSCMTL(Operator, ImportHelper):
 
         # load_materials([dirpath / _.name for _ in self.files],
         #               data_dir=self.import_data_dir, use_setting=self.use_setting)
-        load_mate
-        rials([dirpath / _.name for _ in self.files], data_dir=self.import_data_dir)
+        load_materials([dirpath / _.name for _ in self.files], data_dir=self.import_data_dir)
 
         return {"FINISHED"}
 

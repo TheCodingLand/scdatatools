@@ -15,8 +15,8 @@ requirements = [
     "fnvhash~=0.1.0",
     "hexdump~=3.3",
     "humanize~=3.13.1",
-    "numpy~=1.21.5",
-    "packaging~=21.3",
+    "numpy",
+    "packaging",
     "pycryptodome~=3.12.0",
     "pyquaternion~=0.9.9",
     "pyrsi~=0.1.19",
@@ -25,7 +25,7 @@ requirements = [
     "sentry-sdk==1.5.8",
     "tqdm~=4.62.3",
     "xxhash~=2.0.2",
-    "zstandard~=0.12.0",
+    "zstandard~=0.23.0",
 ]
 
 setup_requirements = []
@@ -79,7 +79,7 @@ setup(
     include_package_data=True,
     keywords="scdatatools",
     name="scdatatools",
-    packages=find_packages(include=["scdatatools"]),
+    packages=find_packages(include=["scdatatools", "scdatatools.*"]),
     entry_points={
         "console_scripts": ["scdt=scdatatools.cli:main"],
     },
